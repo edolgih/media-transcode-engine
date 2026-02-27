@@ -130,6 +130,48 @@ public class TranscodeEngineTests
     }
 
     [Fact]
+    public void Process_WhenForceVideoEncodeAndSourceFpsAbove30_UsesLevel42()
+    {
+        var (sut, probeReader, _) = CreateSut();
+        probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(
+            codec: "h264",
+            audioCodec: "aac",
+            height: 1080,
+            rFrameRate: "60000/1001",
+            avgFrameRate: "60000/1001"));
+        var request = new TranscodeRequest(
+            InputPath: "C:\\video\\a.mkv",
+            ForceVideoEncode: true);
+
+        var actual = sut.Process(request);
+
+        actual.Should().Contain("-level:v 4.2");
+    }
+
+    [Fact]
+    public void Process_WhenDownscale576AndSourceFpsAbove30_UsesLevel41()
+    {
+        var (sut, probeReader, profileRepository) = CreateSut();
+        probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(
+            codec: "h264",
+            audioCodec: "aac",
+            height: 1080,
+            rFrameRate: "60000/1001",
+            avgFrameRate: "60000/1001"));
+        profileRepository.Get576Config().Returns(CreateConfigForProfileSelection());
+        var request = new TranscodeRequest(
+            InputPath: "C:\\video\\a.mkv",
+            Downscale: 576,
+            ContentProfile: "film",
+            QualityProfile: "default");
+
+        var actual = sut.Process(request);
+
+        actual.Should().Contain("-level:v 4.1");
+        actual.Should().NotContain("-level:v 4.2");
+    }
+
+    [Fact]
     public void Process_WhenDownscale576AndSourceBucketMissing_ReturnsHintRem()
     {
         var (sut, probeReader, profileRepository) = CreateSut();
@@ -390,13 +432,19 @@ public class TranscodeEngineTests
         return (sut, probeReader, profileRepository, autoSampleProvider);
     }
 
-    private static ProbeResult CreateProbe(string codec, string audioCodec, int height, double? durationSeconds = 600)
+    private static ProbeResult CreateProbe(
+        string codec,
+        string audioCodec,
+        int height,
+        double? durationSeconds = 600,
+        string? rFrameRate = null,
+        string? avgFrameRate = null)
     {
         return new ProbeResult(
             Format: new ProbeFormat(DurationSeconds: durationSeconds, BitrateBps: 6_000_000),
             Streams: new[]
             {
-                new ProbeStream("video", codec, Width: 1920, Height: height),
+                new ProbeStream("video", codec, Width: 1920, Height: height, RFrameRate: rFrameRate, AvgFrameRate: avgFrameRate),
                 new ProbeStream("audio", audioCodec)
             });
     }

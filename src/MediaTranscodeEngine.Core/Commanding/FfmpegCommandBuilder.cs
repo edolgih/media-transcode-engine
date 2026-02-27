@@ -19,6 +19,7 @@ public sealed record FfmpegCommandInput(
     double Maxrate,
     double Bufsize,
     string DownscaleAlgo,
+    double? SourceFps = null,
     string NvencPreset = "p6");
 
 public sealed class FfmpegCommandBuilder
@@ -53,6 +54,8 @@ public sealed class FfmpegCommandBuilder
 
     private static string BuildVideoPart(FfmpegCommandInput input)
     {
+        var levelPart = ResolveLevelPart(input);
+
         if (!input.NeedVideoEncode)
         {
             return "-map 0:v:0 -c:v copy";
@@ -69,7 +72,7 @@ public sealed class FfmpegCommandBuilder
                 fpsPart,
                 $"-vf \"scale_cuda=-2:{input.DownscaleTarget}:interp_algo={input.DownscaleAlgo}:format=nv12\"",
                 $"-c:v h264_nvenc -preset {input.NvencPreset} -rc vbr_hq -cq {input.Cq} -b:v 0 -maxrate {ToRateToken(input.Maxrate)} -bufsize {ToRateToken(input.Bufsize)} {aqPart}",
-                "-profile:v high -level:v 4.1 -g 48"
+                $"-profile:v high {levelPart} -g 48"
             });
         }
 
@@ -86,7 +89,7 @@ public sealed class FfmpegCommandBuilder
                 "-map \"[v]\"",
                 fpsPart,
                 $"-c:v h264_nvenc -preset {input.NvencPreset} -rc vbr_hq -cq {input.Cq} -b:v 0 -maxrate {maxrate} -bufsize {bufsize} {aqPart}",
-                "-pix_fmt yuv420p -profile:v high -level:v 4.1 -g 48"
+                $"-pix_fmt yuv420p -profile:v high {levelPart} -g 48"
             });
         }
 
@@ -95,7 +98,7 @@ public sealed class FfmpegCommandBuilder
             "-map 0:v:0",
             fpsPart,
             $"-c:v h264_nvenc -preset {input.NvencPreset} -rc vbr_hq -cq {input.Cq} -b:v 0 -maxrate 4M -bufsize 8M {aqPart}",
-            "-pix_fmt yuv420p -profile:v high -level:v 4.1 -g 48"
+            $"-pix_fmt yuv420p -profile:v high {levelPart} -g 48"
         });
     }
 
@@ -195,4 +198,41 @@ public sealed class FfmpegCommandBuilder
     }
 
     private static string Quote(string value) => $"\"{value}\"";
+
+    private static string ResolveLevelPart(FfmpegCommandInput input)
+    {
+        if (input.SourceFps is not > 30.0)
+        {
+            return "-level:v 4.1";
+        }
+
+        var (outputWidth, outputHeight) = ResolveOutputDimensionsForLevel(input);
+        var nearFhdClass = outputHeight > 720 || outputWidth >= 1920;
+        if (nearFhdClass)
+        {
+            return "-level:v 4.2";
+        }
+
+        return "-level:v 4.1";
+    }
+
+    private static (int Width, int Height) ResolveOutputDimensionsForLevel(FfmpegCommandInput input)
+    {
+        if (input.ApplyDownscale)
+        {
+            if (input.OverlayBg)
+            {
+                return ResolveOverlayDimensions(input);
+            }
+
+            return (0, input.DownscaleTarget);
+        }
+
+        if (input.OverlayBg)
+        {
+            return ResolveOverlayDimensions(input);
+        }
+
+        return (input.SourceWidth ?? 0, input.SourceHeight ?? 0);
+    }
 }

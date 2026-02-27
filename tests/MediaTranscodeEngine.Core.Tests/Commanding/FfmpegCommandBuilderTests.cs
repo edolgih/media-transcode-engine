@@ -83,6 +83,39 @@ public class FfmpegCommandBuilderTests
         actual.Should().NotContain("-map 0:v:0 -c:v copy");
     }
 
+    [Fact]
+    public void Build_WhenNeedVideoEncodeAndSourceFpsAbove30_UsesLevel42()
+    {
+        var sut = CreateSut();
+        var input = CreateInput(
+            needVideoEncode: true,
+            sourceFps: 59.94,
+            sourceWidth: 1920,
+            sourceHeight: 800);
+
+        var actual = sut.Build(input);
+
+        actual.Should().Contain("-level:v 4.2");
+    }
+
+    [Fact]
+    public void Build_WhenNeedVideoEncodeAndSourceFpsAbove30AndDownscale576_UsesLevel41()
+    {
+        var sut = CreateSut();
+        var input = CreateInput(
+            needVideoEncode: true,
+            applyDownscale: true,
+            downscaleTarget: 576,
+            sourceFps: 59.94,
+            sourceWidth: 1920,
+            sourceHeight: 800);
+
+        var actual = sut.Build(input);
+
+        actual.Should().Contain("-level:v 4.1");
+        actual.Should().NotContain("-level:v 4.2");
+    }
+
     [Theory]
     [InlineData(true, true, false, false, true, true)]
     [InlineData(false, true, false, false, false, false)]
@@ -127,7 +160,8 @@ public class FfmpegCommandBuilderTests
         int cq = 23,
         double maxrate = 2.4,
         double bufsize = 4.8,
-        string downscaleAlgo = "bilinear")
+        string downscaleAlgo = "bilinear",
+        double? sourceFps = null)
     {
         return new FfmpegCommandInput(
             InputPath: "C:\\input\\video.mp4",
@@ -146,6 +180,7 @@ public class FfmpegCommandBuilderTests
             Maxrate: maxrate,
             Bufsize: bufsize,
             DownscaleAlgo: downscaleAlgo,
+            SourceFps: sourceFps,
             NvencPreset: "p6");
     }
 }
