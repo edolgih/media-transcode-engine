@@ -1,31 +1,44 @@
 # MediaTranscodeEngine
 
-.NET 9 solution with source code under `src/` and tests under `tests/`.
+`.NET 9` engine for media transcode command generation.
 
-Current status: `WIP` (C# engine migration in progress).
+## Architecture
+
+- C# (`Core` + `Infrastructure`) contains business logic and profile policy.
+- PowerShell functions are thin wrappers over this engine.
+- Wrapper contract:
+  - normal path: outputs text command (`ffmpeg ...`) or `REM ...` for soft cases;
+  - config/contract errors (for example invalid content/quality profile): raise error, not `REM`.
 
 ## Repository layout
 
-- `src/MediaTranscodeEngine.Core` - main library project
-- `tests/MediaTranscodeEngine.Core.Tests` - xUnit test project
-- `docs/ToMkvGPU.Baseline.md` - required behavior parity baseline
-- `MediaTranscodeEngine.sln` - solution file
+- `src/MediaTranscodeEngine.Core` - engine, policy, command builder, infrastructure adapters
+- `src/MediaTranscodeEngine.Core/Infrastructure/Profiles/ToMkvGPU.576.Profiles.yaml` - default 576 profile config
+- `tests/MediaTranscodeEngine.Core.Tests` - xUnit/NSubstitute/FluentAssertions tests
+- `docs/ToMkvGPU.Baseline.md` - baseline parity scenarios
+- `MediaTranscodeEngine.sln` - solution
 
-## Requirements
+## Runtime requirements
 
-- `.NET SDK` `9.0.309`
-- `ffmpeg` `2026-01-07-git-af6a1dd0b2-full_build-www.gyan.dev`
-- `ffprobe` `2026-01-07-git-af6a1dd0b2-full_build-www.gyan.dev`
+- `.NET SDK`: `9.0.x`
+- `ffprobe`: `6.x+` with JSON probe output support:
+  - `-print_format json`
+  - `-show_format`
+  - `-show_streams`
+- `ffmpeg`: `6.x+` build with required capabilities:
+  - NVENC encoder: `h264_nvenc`
+  - CUDA hwaccel path: `-hwaccel cuda`, `-hwaccel_output_format cuda`
+  - filters used by engine: `scale_cuda`, `overlay_cuda`, `overlay`, `aresample`
+  - NVENC rc options used by command builder: `-rc vbr_hq`, `-spatial_aq`, `-temporal_aq`, `-rc-lookahead`
 
-## Quick start
+Notes:
+- Specific build numbers are not pinned; compatibility is defined by available features.
+- `ffmpeg -encoders` / `ffmpeg -filters` can be used to verify capabilities on target host.
+
+## Build
 
 ```bash
 dotnet restore
 dotnet build
-```
-
-## Run tests
-
-```bash
 dotnet test
 ```
