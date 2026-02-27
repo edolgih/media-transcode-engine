@@ -4,6 +4,12 @@
 
 This note compares current PowerShell `ToH264GPU` behavior with the existing C# core used by `ToMkvGPU`, and defines a pragmatic migration path to a thin-wrapper model.
 
+Important constraint:
+- `ToMkvGPU` and `ToH264GPU` are not expected to be behaviorally identical.
+- `ToMkvGPU` remains compatibility-first with optional downscale.
+- `ToH264GPU` remains conversion-first with its own rules.
+- Only truly shared parts should be unified (primarily downscale mechanics and technical seams).
+
 Analyzed artifacts:
 - `C:\Users\Evgeny\Documents\PowerShell\Modules\MyTools\Public\ToH264GPU.ps1`
 - `C:\Users\Evgeny\Documents\PowerShell\Modules\MyTools\Tests\ToH264GPU.Tests.ps1`
@@ -60,6 +66,11 @@ Keep current architecture lean and add only what is needed:
 - `FfprobeReader`, `ProcessRunner`, shared probe models, shared wrapper seam patterns.
 
 No new architectural layers are required for this step.
+
+Mandatory direction for migration:
+- Any overlapping (`parallel`) behavior currently living in `ToH264GPU.ps1` should be moved into C# engine.
+- PowerShell should keep only wrapper concerns.
+- Keep function-specific behavior separate; do not merge distinct domain intent of `ToMkvGPU` and `ToH264GPU`.
 
 ## Migration slices (commit-friendly)
 
