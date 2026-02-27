@@ -32,4 +32,5 @@ public sealed record TranscodeRequest(
     int? CqOverride = null,
     double? MaxrateOverride = null,
     double? BufsizeOverride = null,
-    string NvencPreset = "p6");
+    string NvencPreset = "p6",
+    bool ForceVideoEncode = false);

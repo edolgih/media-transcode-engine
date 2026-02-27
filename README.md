@@ -9,6 +9,7 @@
 - Wrapper contract:
   - normal path: outputs text command (`ffmpeg ...`) or `REM ...` for soft cases;
   - config/contract errors (for example invalid content/quality profile): raise error, not `REM`.
+  - compatibility override: `ToMkvGPU -ForceVideoEncode` forces video re-encode even for copyable H.264.
 
 ## Repository layout
 

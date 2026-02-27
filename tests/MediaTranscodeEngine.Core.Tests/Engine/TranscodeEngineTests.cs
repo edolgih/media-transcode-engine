@@ -115,6 +115,21 @@ public class TranscodeEngineTests
     }
 
     [Fact]
+    public void Process_WhenForceVideoEncodeAndStreamsAreCopyable_EncodesVideo()
+    {
+        var (sut, probeReader, _) = CreateSut();
+        probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
+        var request = new TranscodeRequest(
+            InputPath: "C:\\video\\a.mkv",
+            ForceVideoEncode: true);
+
+        var actual = sut.Process(request);
+
+        actual.Should().Contain("-c:v h264_nvenc");
+        actual.Should().NotContain("-map 0:v:0 -c:v copy");
+    }
+
+    [Fact]
     public void Process_WhenDownscale576AndSourceBucketMissing_ReturnsHintRem()
     {
         var (sut, probeReader, profileRepository) = CreateSut();

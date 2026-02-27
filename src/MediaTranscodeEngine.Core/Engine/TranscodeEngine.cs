@@ -204,7 +204,7 @@ public sealed class TranscodeEngine
         }
 
         var codecLower = video.CodecName.ToLowerInvariant();
-        var needVideoEncode = !CopyVideoCodecs.Contains(codecLower) || request.OverlayBg || applyDownscale;
+        var needVideoEncode = !CopyVideoCodecs.Contains(codecLower) || request.OverlayBg || applyDownscale || request.ForceVideoEncode;
         var needAudio = audioStreams.Any(static s => !s.CodecName.Equals("aac", StringComparison.OrdinalIgnoreCase));
         var forceSyncAudio = request.SyncAudio;
         var needAudioEncode = audioStreams.Length > 0 && (needAudio || needVideoEncode || forceSyncAudio);
@@ -222,6 +222,11 @@ public sealed class TranscodeEngine
             if (!CopyVideoCodecs.Contains(codecLower))
             {
                 parts.Add($"vcodec {video.CodecName}");
+            }
+
+            if (request.ForceVideoEncode)
+            {
+                parts.Add("force video encode");
             }
 
             if (needAudio)
