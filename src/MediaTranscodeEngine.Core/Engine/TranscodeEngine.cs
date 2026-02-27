@@ -125,6 +125,28 @@ public sealed class TranscodeEngine
                     : $"REM {hint}";
             }
 
+            var bucketValidationError = _policy.GetSourceBucketMatrixValidationError(
+                config,
+                bucket,
+                request.ContentProfile,
+                request.QualityProfile);
+            if (!string.IsNullOrWhiteSpace(bucketValidationError))
+            {
+                if (bucketValidationError.StartsWith("missing corridor", StringComparison.OrdinalIgnoreCase))
+                {
+                    var heightToken = video.Height?.ToString() ?? "unknown";
+                    var matrixHint = $"576 source bucket matrix incomplete (height={heightToken}); add ContentQualityRanges or QualityRanges for {request.ContentProfile}/{request.QualityProfile}";
+                    return request.Info
+                        ? $"{displayName}: [{matrixHint}]"
+                        : $"REM {matrixHint}";
+                }
+
+                var hint = $"576 source bucket invalid: {bucketValidationError}; fix SourceBuckets in ToMkvGPU.576.Profiles.psd1";
+                return request.Info
+                    ? $"{displayName}: [{hint}]"
+                    : $"REM {hint}";
+            }
+
             var qualityRange = _policy.ResolveQualityRange(
                 config,
                 request.ContentProfile,

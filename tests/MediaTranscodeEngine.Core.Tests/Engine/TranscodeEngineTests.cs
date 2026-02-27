@@ -129,6 +129,20 @@ public class TranscodeEngineTests
     }
 
     [Fact]
+    public void Process_WhenDownscale576AndSourceBucketMatrixInvalid_ReturnsInvalidHintRem()
+    {
+        var (sut, probeReader, profileRepository) = CreateSut();
+        probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
+        profileRepository.Get576Config().Returns(CreateConfigWithInvalidBucketMatrix());
+        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4", Downscale: 576);
+
+        var actual = sut.Process(request);
+
+        actual.Should().StartWith("REM 576 source bucket invalid:");
+        actual.Should().Contain("missing ContentQualityRanges/QualityRanges");
+    }
+
+    [Fact]
     public void Process_WhenDownscale576WithProfileSettings_BuildsDownscaleCommand()
     {
         var (sut, probeReader, profileRepository) = CreateSut();
@@ -422,6 +436,20 @@ public class TranscodeEngineTests
                 Name: "fhd_1080",
                 Match: new SourceBucketMatch(MinHeightInclusive: 1000, MaxHeightInclusive: 1300),
                 ContentQualityRanges: bucketRanges)
+        };
+
+        return config with { SourceBuckets = buckets };
+    }
+
+    private static TranscodePolicyConfig CreateConfigWithInvalidBucketMatrix()
+    {
+        var config = CreateConfigWithoutBuckets();
+
+        var buckets = new List<SourceBucketSettings>
+        {
+            new(
+                Name: "fhd_1080",
+                Match: new SourceBucketMatch(MinHeightInclusive: 1000, MaxHeightInclusive: 1300))
         };
 
         return config with { SourceBuckets = buckets };

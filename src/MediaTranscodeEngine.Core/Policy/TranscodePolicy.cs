@@ -174,6 +174,41 @@ public sealed class TranscodePolicy
         return null;
     }
 
+    public string? GetSourceBucketMatrixValidationError(
+        TranscodePolicyConfig config,
+        SourceBucketSettings bucket,
+        string contentProfile,
+        string qualityProfile)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(bucket);
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentProfile);
+        ArgumentException.ThrowIfNullOrWhiteSpace(qualityProfile);
+
+        var hasContentRanges = bucket.ContentQualityRanges is not null;
+        var hasQualityRanges = bucket.QualityRanges is not null;
+        if (!hasContentRanges && !hasQualityRanges)
+        {
+            return "missing ContentQualityRanges/QualityRanges";
+        }
+
+        var hasContentQualityRange =
+            bucket.ContentQualityRanges is not null &&
+            bucket.ContentQualityRanges.TryGetValue(contentProfile, out var qualityRanges) &&
+            qualityRanges.ContainsKey(qualityProfile);
+
+        var hasQualityRange =
+            bucket.QualityRanges is not null &&
+            bucket.QualityRanges.ContainsKey(qualityProfile);
+
+        if (!hasContentQualityRange && !hasQualityRange)
+        {
+            return $"missing corridor '{contentProfile}/{qualityProfile}'";
+        }
+
+        return null;
+    }
+
     private static bool IsSourceHeightMatched(SourceBucketMatch match, double? sourceHeight)
     {
         if (!sourceHeight.HasValue)
