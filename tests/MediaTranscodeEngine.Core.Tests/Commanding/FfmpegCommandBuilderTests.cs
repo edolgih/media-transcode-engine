@@ -83,49 +83,30 @@ public class FfmpegCommandBuilderTests
         actual.Should().NotContain("-map 0:v:0 -c:v copy");
     }
 
-    [Fact]
-    public void Build_WhenVideoEncode_UsesAggressiveSanitizeWithIgndts()
+    [Theory]
+    [InlineData(true, true, false, false, true, true)]
+    [InlineData(false, true, false, false, false, false)]
+    [InlineData(false, true, false, true, true, false)]
+    public void Build_WhenCalled_UsesExpectedSanitizeFlags(
+        bool needVideoEncode,
+        bool needAudioEncode,
+        bool needContainer,
+        bool forceSyncAudio,
+        bool expectedGenpts,
+        bool expectedIgndts)
     {
         var sut = CreateSut();
         var input = CreateInput(
-            needVideoEncode: true,
-            needAudioEncode: true);
-
-        var actual = sut.Build(input);
-
-        actual.Should().Contain("-fflags +genpts+igndts -avoid_negative_ts make_zero");
-    }
-
-    [Fact]
-    public void Build_WhenOnlyAudioEncodeInMkvWithoutSync_UsesSoftSanitizeOnly()
-    {
-        var sut = CreateSut();
-        var input = CreateInput(
-            needVideoEncode: false,
-            needAudioEncode: true,
-            needContainer: false,
-            forceSyncAudio: false);
+            needVideoEncode: needVideoEncode,
+            needAudioEncode: needAudioEncode,
+            needContainer: needContainer,
+            forceSyncAudio: forceSyncAudio);
 
         var actual = sut.Build(input);
 
         actual.Should().Contain("-avoid_negative_ts make_zero");
-        actual.Should().NotContain("+igndts");
-        actual.Should().NotContain("-fflags +genpts -avoid_negative_ts make_zero");
-    }
-
-    [Fact]
-    public void Build_WhenForceSyncAudioWithVideoCopy_UsesGenptsSanitize()
-    {
-        var sut = CreateSut();
-        var input = CreateInput(
-            needVideoEncode: false,
-            needAudioEncode: true,
-            needContainer: false,
-            forceSyncAudio: true);
-
-        var actual = sut.Build(input);
-
-        actual.Should().Contain("-fflags +genpts -avoid_negative_ts make_zero");
+        actual.Contains("+genpts").Should().Be(expectedGenpts);
+        actual.Contains("+igndts").Should().Be(expectedIgndts);
     }
 
     private static FfmpegCommandBuilder CreateSut()

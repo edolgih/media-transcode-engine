@@ -16,17 +16,20 @@ public sealed class TranscodeEngine
     private readonly IProfileRepository _profileRepository;
     private readonly TranscodePolicy _policy;
     private readonly FfmpegCommandBuilder _commandBuilder;
+    private readonly IAutoSampleReductionProvider? _autoSampleReductionProvider;
 
     public TranscodeEngine(
         IProbeReader probeReader,
         IProfileRepository profileRepository,
         TranscodePolicy policy,
-        FfmpegCommandBuilder commandBuilder)
+        FfmpegCommandBuilder commandBuilder,
+        IAutoSampleReductionProvider? autoSampleReductionProvider = null)
     {
         _probeReader = probeReader;
         _profileRepository = profileRepository;
         _policy = policy;
         _commandBuilder = commandBuilder;
+        _autoSampleReductionProvider = autoSampleReductionProvider;
     }
 
     public string Process(TranscodeRequest request)
@@ -101,6 +104,20 @@ public sealed class TranscodeEngine
                     : $"REM {hint}";
             }
 
+            var qualityRange = _policy.ResolveQualityRange(
+                config,
+                request.ContentProfile,
+                request.QualityProfile,
+                video.Height);
+            if (qualityRange is null)
+            {
+                var heightToken = video.Height?.ToString() ?? "unknown";
+                var hint = $"576 source bucket matrix incomplete (height={heightToken}); add ContentQualityRanges or QualityRanges for {request.ContentProfile}/{request.QualityProfile}";
+                return request.Info
+                    ? $"{displayName}: [{hint}]"
+                    : $"REM {hint}";
+            }
+
             profileSettings = _policy.Resolve576Settings(
                 config,
                 new TranscodePolicyInput(
@@ -110,6 +127,35 @@ public sealed class TranscodeEngine
                     Maxrate: request.MaxrateOverride,
                     Bufsize: request.BufsizeOverride,
                     DownscaleAlgo: request.DownscaleAlgoOverride));
+
+            var shouldAutoSample =
+                _autoSampleReductionProvider is not null &&
+                !request.NoAutoSample &&
+                !request.CqOverride.HasValue &&
+                !request.MaxrateOverride.HasValue &&
+                !request.BufsizeOverride.HasValue &&
+                probe.Format?.DurationSeconds is > 0;
+
+            if (shouldAutoSample)
+            {
+                var mode = string.IsNullOrWhiteSpace(request.AutoSampleMode)
+                    ? config.AutoSampling?.ModeDefault ?? "accurate"
+                    : request.AutoSampleMode;
+
+                profileSettings = _policy.ResolveAutoSampleSettings(
+                    config,
+                    request.ContentProfile,
+                    request.QualityProfile,
+                    profileSettings,
+                    video.Height,
+                    mode,
+                    accurateReductionProvider: (cq, maxrate, bufsize) =>
+                        _autoSampleReductionProvider!.EstimateAccurate(
+                            new AutoSampleReductionInput(fileName, cq, maxrate, bufsize)),
+                    fastReductionProvider: (cq, maxrate, bufsize) =>
+                        _autoSampleReductionProvider!.EstimateFast(
+                            new AutoSampleReductionInput(fileName, cq, maxrate, bufsize)));
+            }
 
             downscaleAlgo = profileSettings.DownscaleAlgo;
         }

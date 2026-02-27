@@ -1,10 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MediaTranscodeEngine.Core", "src\MediaTranscodeEngine.Core\MediaTranscodeEngine.Core.csproj", "{F0F76C34-73AC-47C4-9DB5-D6BBE68A61F4}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MediaTranscodeEngine.Core.Tests", "tests\MediaTranscodeEngine.Core.Tests\MediaTranscodeEngine.Core.Tests.csproj", "{EF06E1A0-D0B7-45F0-B4DA-37EF260682BC}"
 EndProject
@@ -45,9 +41,5 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{F0F76C34-73AC-47C4-9DB5-D6BBE68A61F4} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
-		{EF06E1A0-D0B7-45F0-B4DA-37EF260682BC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
