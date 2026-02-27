@@ -127,6 +127,21 @@ public class TranscodePolicyTests
         actual.DownscaleAlgo.Should().Be("lanczos");
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void Resolve576Settings_WhenDownscaleAlgoOverrideBlank_UsesDefault(string? downscaleAlgo)
+    {
+        var sut = CreateSut();
+        var config = CreateConfig();
+        var input = CreateInput(downscaleAlgo: downscaleAlgo);
+
+        var actual = sut.Resolve576Settings(config, input);
+
+        actual.DownscaleAlgo.Should().Be("bilinear");
+    }
+
     private static TranscodePolicy CreateSut()
     {
         return new TranscodePolicy();

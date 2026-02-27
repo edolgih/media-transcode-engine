@@ -31,7 +31,9 @@ public sealed class TranscodePolicy
         var resolvedCq = input.Cq ?? defaults.Cq;
         var resolvedMaxrate = ResolveMaxrate(defaults, limits, config.RateModel, resolvedCq, input.Cq.HasValue, input.Maxrate);
         var resolvedBufsize = ResolveBufsize(defaults, config.RateModel, input, resolvedMaxrate);
-        var resolvedAlgo = input.DownscaleAlgo ?? contentProfile.AlgoDefault;
+        var resolvedAlgo = string.IsNullOrWhiteSpace(input.DownscaleAlgo)
+            ? contentProfile.AlgoDefault
+            : input.DownscaleAlgo;
 
         return new TranscodePolicyResult(
             Cq: resolvedCq,
