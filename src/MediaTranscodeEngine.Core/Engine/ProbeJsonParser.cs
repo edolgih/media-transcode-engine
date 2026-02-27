@@ -36,7 +36,8 @@ public static class ProbeJsonParser
 
         return new ProbeFormat(
             DurationSeconds: TryGetDouble(formatElement, "duration"),
-            BitrateBps: TryGetDouble(formatElement, "bit_rate"));
+            BitrateBps: TryGetDouble(formatElement, "bit_rate"),
+            FormatName: TryGetString(formatElement, "format_name"));
     }
 
     private static IReadOnlyList<ProbeStream> ParseStreams(JsonElement root)
@@ -63,7 +64,9 @@ public static class ProbeJsonParser
                 CodecName: codecName,
                 Width: TryGetInt(streamElement, "width"),
                 Height: TryGetInt(streamElement, "height"),
-                BitrateBps: TryGetDouble(streamElement, "bit_rate")));
+                BitrateBps: TryGetDouble(streamElement, "bit_rate"),
+                RFrameRate: TryGetString(streamElement, "r_frame_rate"),
+                AvgFrameRate: TryGetString(streamElement, "avg_frame_rate")));
         }
 
         return result;
