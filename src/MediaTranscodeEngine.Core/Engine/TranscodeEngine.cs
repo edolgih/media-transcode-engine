@@ -115,6 +115,16 @@ public sealed class TranscodeEngine
         if (applyDownscale && downscaleTarget == 576)
         {
             var config = _profileRepository.Get576Config();
+            profileSettings = _policy.Resolve576Settings(
+                config,
+                new TranscodePolicyInput(
+                    ContentProfile: request.ContentProfile,
+                    QualityProfile: request.QualityProfile,
+                    Cq: request.CqOverride,
+                    Maxrate: request.MaxrateOverride,
+                    Bufsize: request.BufsizeOverride,
+                    DownscaleAlgo: request.DownscaleAlgoOverride));
+
             var bucket = _policy.ResolveSourceBucket(config, video.Height);
             if (bucket is null)
             {
@@ -160,16 +170,6 @@ public sealed class TranscodeEngine
                     ? $"{displayName}: [{hint}]"
                     : $"REM {hint}";
             }
-
-            profileSettings = _policy.Resolve576Settings(
-                config,
-                new TranscodePolicyInput(
-                    ContentProfile: request.ContentProfile,
-                    QualityProfile: request.QualityProfile,
-                    Cq: request.CqOverride,
-                    Maxrate: request.MaxrateOverride,
-                    Bufsize: request.BufsizeOverride,
-                    DownscaleAlgo: request.DownscaleAlgoOverride));
 
             var shouldAutoSample =
                 _autoSampleReductionProvider is not null &&

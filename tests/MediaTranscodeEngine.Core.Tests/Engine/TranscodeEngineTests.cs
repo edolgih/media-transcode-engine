@@ -128,6 +128,29 @@ public class TranscodeEngineTests
         actual.Should().Contain("add SourceBuckets match");
     }
 
+    [Theory]
+    [InlineData("unknown", "default", "Unsupported ContentProfile")]
+    [InlineData("film", "unknown", "Unsupported QualityProfile")]
+    public void Process_WhenDownscale576AndProfileSelectionInvalid_ThrowsArgumentException(
+        string contentProfile,
+        string qualityProfile,
+        string expectedMessagePart)
+    {
+        var (sut, probeReader, profileRepository) = CreateSut();
+        probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
+        profileRepository.Get576Config().Returns(CreateConfigWithBuckets());
+        var request = new TranscodeRequest(
+            InputPath: "C:\\video\\a.mp4",
+            Downscale: 576,
+            ContentProfile: contentProfile,
+            QualityProfile: qualityProfile);
+
+        var action = () => sut.Process(request);
+
+        action.Should().Throw<ArgumentException>()
+            .WithMessage($"*{expectedMessagePart}*");
+    }
+
     [Fact]
     public void Process_WhenDownscale576AndSourceBucketMatrixInvalid_ReturnsInvalidHintRem()
     {
