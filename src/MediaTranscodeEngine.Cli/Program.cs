@@ -65,11 +65,20 @@ internal sealed class CliApp
             ? new StaticProfileRepository()
             : new YamlProfileRepository(options.ProfilesYamlPath);
 
+        var processRunner = new ProcessRunner();
+        var probeReader = new FfprobeReader(processRunner, "ffprobe", 30_000);
+        var autoSampleReductionProvider = new FfmpegAutoSampleReductionProvider(
+            probeReader,
+            processRunner,
+            ffmpegPath: "ffmpeg",
+            timeoutMs: 30_000);
+
         var engine = new TranscodeEngine(
-            probeReader: new FfprobeReader(new ProcessRunner(), "ffprobe", 30_000),
+            probeReader: probeReader,
             profileRepository: profileRepository,
             policy: new TranscodePolicy(),
-            commandBuilder: new FfmpegCommandBuilder());
+            commandBuilder: new FfmpegCommandBuilder(),
+            autoSampleReductionProvider: autoSampleReductionProvider);
 
         foreach (var path in inputPaths)
         {
