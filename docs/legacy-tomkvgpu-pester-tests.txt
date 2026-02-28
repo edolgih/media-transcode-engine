@@ -1,0 +1,107 @@
+Legacy ToMkvGPU Pester tests inventory (commit 26ca8be)
+Total: 104
+
+001. [вывод (не -Info)] печатает chcp 65001 один раз в начале
+002. [вывод (не -Info)] когда нет видео — печатает REM ... и не печатает ffmpeg-команду
+003. [вывод (не -Info)] когда всё уже OK для .mkv — не печатает ffmpeg-команду
+004. [вывод (не -Info)] с -SyncAudio даже для идеального .mkv генерирует команду sync-аудио (без igndts)
+005. [вывод (не -Info)] когда ffprobe не вернул streams — печатает REM ffprobe failed и не печатает ffmpeg-команду
+006. [Info mode] в -Info не печатает chcp и не печатает ffmpeg-команду
+007. [Info mode] в -Info печатает строку отклонений с нужными маркерами (container/vcodec/audio) — table-driven
+008. [Info mode] в -Info не показывает частоту кадров
+009. [Info mode] в -Info выводит только имя файла (без пути)
+010. [Info mode] в -Info при идеальном .mkv — не печатает ничего
+011. [Info mode] в -Info с -SyncAudio для идеального .mkv показывает маркер sync audio
+012. [Info mode] в -Info при ffprobe failed — печатает ': [ffprobe failed]' и не печатает ffmpeg-команду
+013. [Info mode] ToMkvGPU_Info_WhenDownscale576SourceBucketIsMissing_OutputsHintAndSkipsCommand
+014. [Info mode] ToMkvGPU_Info_WhenDownscale576SourceBucketMatrixIncomplete_OutputsHintAndSkipsCommand
+015. [I/O и post-операции] для входа НЕ .mkv генерирует out=<base>.mkv и postOp: del <in>
+016. [I/O и post-операции] для входа .mkv генерирует out=<base>_temp.mkv и postOp: del <in> + ren <temp> <base>.mkv
+017. [I/O и post-операции] кавычит пути (пробелы/спецсимволы)
+018. [video: выбор copy vs nvenc] для copy-видео ставит: -map 0:v:0 -c:v copy
+019. [video: выбор copy vs nvenc] частота кадров не форсит encode (h264 остаётся copy)
+020. [video: выбор copy vs nvenc] для encode-видео (без -OverlayBg) использует h264_nvenc + vbr_hq cq 21 (default) + vbv 4M/8M + AQ/lookahead
+021. [video: выбор copy vs nvenc] для encode-видео принимает -Cq и подставляет значение
+022. [video: выбор copy vs nvenc] для encode-видео принимает -NvencPreset
+023. [video: выбор copy vs nvenc] когда encode из-за кодека: добавляет CFR и не добавляет -r 30000/1001
+024. [Downscale] ToMkvGPU_Downscale720_WhenRequested_OutputsNotImplementedError
+025. [Downscale] ToMkvGPU_Downscale576_WhenNoAutoSampleUsesProfileDefaults_UsesConfiguredDefaults
+026. [Downscale] ToMkvGPU_Downscale576_WhenContentAndQualityNotSpecified_UsesFilmAndDefaultProfileValues
+027. [Downscale] ToMkvGPU_Downscale576_WhenOnlyContentSpecified_UsesDefaultQualityForSpecifiedContent
+028. [Downscale] ToMkvGPU_Downscale576_WhenOnlyQualitySpecified_UsesFilmContentForSpecifiedQuality
+029. [Downscale] ToMkvGPU_Downscale576_WhenAutoSampleEnabled_UsesAutoSampleResult
+030. [Downscale] ToMkvGPU_Downscale576_WhenManualCqProvided_SkipsAutoSample
+031. [Downscale] ToMkvGPU_Downscale576_WhenNoAutoSampleAndCqOverride_UsesRateModelAndClamp
+032. [Downscale] ToMkvGPU_Downscale576_WhenNoAutoSampleAndMaxrateOverride_ComputesBufsizeByMultiplier
+033. [Downscale] ToMkvGPU_Downscale576_WhenNoAutoSampleAndExplicitBufsize_UsesExplicitBufsize
+034. [Downscale] ToMkvGPU_Downscale576_WhenHeightIsNotAboveTarget_DoesNotApplyDownscale
+035. [Downscale] ToMkvGPU_Downscale576WithOverlay_WhenNoAutoSample_UsesOverlayCudaAndProfileAlgo
+036. [Downscale] ToMkvGPU_Downscale576_WhenDownscaleAlgoSpecified_UsesExplicitAlgo
+037. [Downscale] ToMkvGPU_Downscale576_WhenSourceBucketIsMissing_OutputsHintAndSkipsCommand
+038. [Downscale] ToMkvGPU_Downscale576_WhenSourceBucketMatrixIncomplete_OutputsHintAndSkipsCommand
+039. [Downscale autosample internals] Get-ToMkvGpu576SampleAverageReduction_WhenSamplesEncoded_ReturnsAverageReductionFromActualSizes
+040. [Downscale autosample internals] Resolve-ToMkvGpu576AutoSampleSettings_WhenDurationIsLong_UsesThreeSampleWindows
+041. [Downscale autosample internals] Resolve-ToMkvGpu576AutoSampleSettings_WhenReductionBelowCorridor_AdjustsCqAndBitratesFromMeasuredAverage
+042. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576ProfileSettings_WhenCqDeltaProducesMaxrateAboveLimit_ClampsToMaxrateMax
+043. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576ProfileSettings_WhenCqDeltaProducesMaxrateBelowLimit_ClampsToMaxrateMin
+044. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576ProfileSettings_WhenMaxrateProvidedAndBufsizeMissing_ComputesBufsizeByMultiplier
+045. [Downscale autosample tdd coverage] Get-ToMkvGpu576SampleWindows_WhenDurationIsMedium_ReturnsTwoWindows
+046. [Downscale autosample tdd coverage] Get-ToMkvGpu576SampleWindows_WhenDurationIsShort_ReturnsOneWindow
+047. [Downscale autosample tdd coverage] Get-ToMkvGpuReductionBounds_WhenMinExclusiveAndMaxInclusiveProvided_ReturnsCorrectFlags
+048. [Downscale autosample tdd coverage] Test-ToMkvGpuReductionInBounds_WhenValueEqualsLowerInclusive_ReturnsTrue
+049. [Downscale autosample tdd coverage] Test-ToMkvGpuReductionInBounds_WhenValueEqualsLowerExclusive_ReturnsFalse
+050. [Downscale autosample tdd coverage] Test-ToMkvGpuReductionInBounds_WhenValueEqualsUpperInclusive_ReturnsTrue
+051. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenReductionAboveCorridor_DecreasesCqAndIncreasesMaxrate
+052. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenAverageReductionIsNull_ReturnsBaseSettings
+053. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenMaxIterationsReached_ReturnsLastResolvedSettings
+054. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenLimitsReachedAndStillOutOfCorridor_StopsWithoutFurtherChanges
+055. [Downscale autosample tdd coverage] Resolve-ToMkvGpuQualityRange_WhenContentProfileAnimeAndQualityDefault_ReturnsAnimeDefaultRange
+056. [Downscale autosample tdd coverage] Resolve-ToMkvGpuQualityRange_WhenContentProfileMultAndQualityDefault_ReturnsMultDefaultRange
+057. [Downscale autosample tdd coverage] Resolve-ToMkvGpuQualityRange_WhenContentProfileFilmAndQualityDefault_ReturnsFilmDefaultRange
+058. [Downscale autosample tdd coverage] Resolve-ToMkvGpuQualityRange_WhenContentSpecificRangeMissing_FallsBackToGlobalQualityRange
+059. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightMatchesConfiguredBucket_ReturnsMatchedBucket
+060. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightIsInHd720Range_ReturnsHd720Bucket
+061. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightIs1105_ReturnsFhd1080Bucket
+062. [Downscale autosample tdd coverage] Get-ToMkvGpu576ProfilesConfig_WhenCalled_ContainsExpectedSourceBucketRanges
+063. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightEquals650_ReturnsHd720Bucket
+064. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightEquals899_ReturnsHd720Bucket
+065. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightEquals900_ReturnsNull
+066. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightEquals999_ReturnsNull
+067. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightEquals1000_ReturnsFhd1080Bucket
+068. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightEquals1300_ReturnsFhd1080Bucket
+069. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightEquals1301_ReturnsNull
+070. [Downscale autosample tdd coverage] Resolve-ToMkvGpuSourceBucket_WhenHeightDoesNotMatchConfiguredBuckets_ReturnsDefaultBucket
+071. [Downscale autosample tdd coverage] Resolve-ToMkvGpuQualityRange_WhenBucketHasContentRange_ReturnsBucketRange
+072. [Downscale autosample tdd coverage] Resolve-ToMkvGpuQualityRange_WhenHd720BucketMatched_ReturnsHd720BucketRange
+073. [Downscale autosample tdd coverage] Resolve-ToMkvGpuQualityRange_WhenBucketDoesNotMatch_FallsBackToGlobalRange
+074. [Downscale autosample tdd coverage] Resolve-ToMkvGpuQualityRange_WhenProbeHeightMissing_UsesDefaultBucketRange
+075. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenMatchedBucketRangeDiffers_UsesMatchedBucketBounds
+076. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenSamplingModeFast_UsesProbeEstimateStrategy
+077. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenSamplingModeAccurate_UsesAccurateStrategy
+078. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenSamplingModeHybrid_UsesFastThenAccurateStrategies
+079. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenFastEstimateWithinCorridor_SkipsAccurateRefinement
+080. [Downscale autosample tdd coverage] Resolve-ToMkvGpu576AutoSampleSettings_WhenFastEstimateOutsideCorridor_RunsAccurateRefinement
+081. [Downscale autosample tdd coverage] ToMkvGPU_Downscale576_WhenManualMaxrateProvided_SkipsAutoSample
+082. [Downscale autosample tdd coverage] ToMkvGPU_Downscale576_WhenManualBufsizeProvided_SkipsAutoSample
+083. [Downscale autosample tdd coverage] ToMkvGPU_Downscale576_WhenProbeDurationMissing_SkipsAutoSampleAndUsesProfileSettings
+084. [Downscale autosample tdd coverage] ToMkvGPU_Downscale576_WhenSamplingModeFast_UsesFastResolvedSettingsInCommand
+085. [video: размеры / ориентация (в filter_complex)] если width/height нет или <=0 — использует 1920x1080 в filter_complex (только при -OverlayBg)
+086. [video: размеры / ориентация (в filter_complex)] если портрет (width меньше height) — меняет местами (outW не меньше outH) в filter_complex (только при -OverlayBg)
+087. [audio: выбор copy vs AAC encode] когда все audio=aac (или аудио нет) — ставит: -map 0:a? -c:a copy
+088. [audio: выбор copy vs AAC encode] когда есть хотя бы один non-AAC — ставит AAC encode: -c:a aac -ar 48000 -ac 2 -b:a 192k -af aresample=async=1:first_pts=0
+089. [audio: выбор copy vs AAC encode] с -SyncAudio форсит AAC encode даже если аудио уже AAC и видео копируется
+090. [audio: выбор copy vs AAC encode] когда видео перекодируется (даже при AAC audio) — форсит аудио в AAC + async-resample (без -c:a copy)
+091. [sanitize flags] добавляет sanitize только в режиме чистого ремукса/смены контейнера (video copy + audio copy)
+092. [sanitize flags] в сценарии 'encode только аудио' добавляет мягкий sanitize (без igndts)
+093. [sanitize flags] когда видео перекодируется — добавляет sync-fix: -fflags +genpts+igndts и -avoid_negative_ts make_zero
+094. [sanitize flags] когда перекодируется только аудио (video copy) — добавляет мягкий sanitize (без igndts)
+095. [sanitize flags] когда перекодируется только аудио в .mkv (video copy, без SyncAudio) — не добавляет genpts/igndts, только avoid_negative_ts
+096. [общие инварианты команды] всегда добавляет -sn
+097. [общие инварианты команды] всегда добавляет -max_muxing_queue_size 4096
+098. [общие инварианты команды] всегда выход .mkv
+099. [subtitles handling] даже если есть subtitle stream — всё равно выкидывает субтитры (-sn присутствует)
+100. [OverlayBg (optional filter_complex)] без -OverlayBg в encode не добавляет -filter_complex и явно мапит -map 0:v:0 (не -map 
+101. [OverlayBg (optional filter_complex)] с -OverlayBg в encode добавляет -filter_complex и мапит -map 
+102. [OverlayBg (optional filter_complex)] с -OverlayBg в encode использует h264_nvenc + vbr_hq cq 21 (default) + vbv 4M/8M + AQ/lookahead
+103. [OverlayBg (optional filter_complex)] с -OverlayBg форсит encode (NVENC) даже когда видео можно копировать
+104. [OverlayBg (optional filter_complex)] с -OverlayBg и без width/height — печатает REM Unknown dimensions и не печатает ffmpeg-команду

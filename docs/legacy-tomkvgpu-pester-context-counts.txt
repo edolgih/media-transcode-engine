@@ -1,0 +1,13 @@
+вывод (не -Info)|5
+общие инварианты команды|3
+audio: выбор copy vs AAC encode|4
+Downscale|15
+Downscale autosample internals|3
+Downscale autosample tdd coverage|43
+I/O и post-операции|3
+Info mode|9
+OverlayBg (optional filter_complex)|5
+sanitize flags|5
+subtitles handling|1
+video: выбор copy vs nvenc|6
+video: размеры / ориентация (в filter_complex)|2
