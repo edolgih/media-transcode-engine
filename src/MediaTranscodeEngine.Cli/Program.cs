@@ -281,16 +281,16 @@ public static class Program
         var overlayBg = false;
         int? downscale = null;
         string? downscaleAlgo = null;
-        var contentProfile = "film";
-        var qualityProfile = "default";
+        var contentProfile = RequestContracts.Transcode.DefaultContentProfile;
+        var qualityProfile = RequestContracts.Transcode.DefaultQualityProfile;
         var noAutoSample = false;
-        var autoSampleMode = "accurate";
+        var autoSampleMode = RequestContracts.Transcode.DefaultAutoSampleMode;
         var syncAudio = false;
         var forceVideoEncode = false;
         int? cq = null;
         double? maxrate = null;
         double? bufsize = null;
-        var nvencPreset = "p6";
+        var nvencPreset = RequestContracts.Transcode.DefaultNvencPreset;
 
         for (var i = 0; i < args.Length; i++)
         {
@@ -434,7 +434,7 @@ public static class Program
 
         parsed = new ParsedArguments(
             Inputs: inputs,
-            RequestTemplate: new TranscodeRequest(
+            RequestTemplate: new RawTranscodeRequest(
                 InputPath: "__input__",
                 Info: info,
                 OverlayBg: overlayBg,
@@ -484,11 +484,11 @@ public static class Program
 
     private sealed record ParsedArguments(
         IReadOnlyList<string> Inputs,
-        TranscodeRequest RequestTemplate)
+        RawTranscodeRequest RequestTemplate)
     {
         public TranscodeRequest CreateRequest(string inputPath)
         {
-            return RequestTemplate with { InputPath = inputPath };
+            return (RequestTemplate with { InputPath = inputPath }).ToDomain();
         }
     }
 }

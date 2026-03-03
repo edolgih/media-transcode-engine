@@ -13,7 +13,7 @@ public class TranscodeEngineTests
     public void Process_WhenDownscale720Requested_ReturnsNotImplementedRem()
     {
         var (sut, _, _) = CreateSut();
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4", Downscale: 720);
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4", Downscale: 720);
 
         var actual = sut.Process(request);
 
@@ -25,7 +25,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns((ProbeResult?)null);
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
 
         var actual = sut.Process(request);
 
@@ -36,7 +36,7 @@ public class TranscodeEngineTests
     public void ProcessWithProbeResult_WhenProbeProvided_BuildsCommandAndSkipsProbeReader()
     {
         var (sut, probeReader, _) = CreateSut();
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
         var probe = CreateProbe(codec: "h264", audioCodec: "aac", height: 1080);
 
         var actual = sut.ProcessWithProbeResult(request, probe);
@@ -50,7 +50,7 @@ public class TranscodeEngineTests
     public void ProcessWithProbeResult_WhenProbeIsNull_ReturnsFfprobeFailedRemAndSkipsProbeReader()
     {
         var (sut, probeReader, _) = CreateSut();
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
 
         var actual = sut.ProcessWithProbeResult(request, null);
 
@@ -62,7 +62,7 @@ public class TranscodeEngineTests
     public void ProcessWithProbeJson_WhenProbeJsonValid_BuildsCommandAndSkipsProbeReader()
     {
         var (sut, probeReader, _) = CreateSut();
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
         var probeJson = CreateProbeJson();
 
         var actual = sut.ProcessWithProbeJson(request, probeJson);
@@ -80,7 +80,7 @@ public class TranscodeEngineTests
     public void ProcessWithProbeJson_WhenProbeJsonInvalid_ReturnsFfprobeFailedRemAndSkipsProbeReader(string? probeJson)
     {
         var (sut, probeReader, _) = CreateSut();
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
 
         var actual = sut.ProcessWithProbeJson(request, probeJson);
 
@@ -95,7 +95,7 @@ public class TranscodeEngineTests
         probeReader.Read(Arg.Any<string>()).Returns(new ProbeResult(
             Format: null,
             Streams: new[] { new ProbeStream("audio", "aac") }));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
 
         var actual = sut.Process(request);
 
@@ -107,7 +107,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mkv", Info: true);
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mkv", Info: true);
 
         var actual = sut.Process(request);
 
@@ -119,7 +119,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mkv", Info: false);
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mkv", Info: false);
 
         var actual = sut.Process(request);
 
@@ -131,7 +131,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns((ProbeResult?)null);
-        var request = new TranscodeRequest(InputPath: "C:\\video\\folder\\movie.mp4", Info: true);
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\folder\\movie.mp4", Info: true);
 
         var actual = sut.Process(request);
 
@@ -145,7 +145,7 @@ public class TranscodeEngineTests
         probeReader.Read(Arg.Any<string>()).Returns(new ProbeResult(
             Format: new ProbeFormat(DurationSeconds: 600, BitrateBps: 6_000_000),
             Streams: []));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
 
         var actual = sut.Process(request);
 
@@ -157,7 +157,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "hevc", audioCodec: "ac3", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\folder\\movie.mp4", Info: true);
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\folder\\movie.mp4", Info: true);
 
         var actual = sut.Process(request);
 
@@ -173,7 +173,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mkv",
             Info: true,
             SyncAudio: true);
@@ -189,7 +189,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 900));
         profileRepository.Get576Config().Returns(CreateConfigWithoutBuckets());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             Info: true,
             Downscale: 576);
@@ -206,7 +206,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigWithBuckets());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             Info: true,
             Downscale: 576);
@@ -222,7 +222,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\movie.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\movie.mp4");
 
         var actual = sut.Process(request);
 
@@ -236,7 +236,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "ac3", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\movie.mkv");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\movie.mkv");
 
         var actual = sut.Process(request);
 
@@ -249,7 +249,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "ac3", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video folder\\movie name.mkv");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video folder\\movie name.mkv");
 
         var actual = sut.Process(request);
 
@@ -263,7 +263,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mkv",
             ForceVideoEncode: true);
 
@@ -283,7 +283,7 @@ public class TranscodeEngineTests
             height: 1080,
             rFrameRate: "60000/1001",
             avgFrameRate: "60000/1001"));
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mkv",
             ForceVideoEncode: true);
 
@@ -302,7 +302,7 @@ public class TranscodeEngineTests
             height: 1080,
             rFrameRate: "60000/1001",
             avgFrameRate: "60000/1001"));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
 
         var actual = sut.Process(request);
 
@@ -315,7 +315,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "hevc", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mkv",
             Cq: 20);
 
@@ -330,7 +330,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "hevc", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mkv",
             NvencPreset: "p4");
 
@@ -344,7 +344,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "ac3", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mkv");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mkv");
 
         var actual = sut.Process(request);
 
@@ -358,7 +358,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mkv",
             SyncAudio: true);
 
@@ -376,7 +376,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigForProfileSelection());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mkv",
             Downscale: 576,
             OverlayBg: true,
@@ -401,7 +401,7 @@ public class TranscodeEngineTests
             .Returns(30.0, 45.0);
         autoSampleProvider.EstimateAccurate(Arg.Any<AutoSampleReductionInput>())
             .Returns(45.0);
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mkv",
             Downscale: 576,
             ContentProfile: "anime",
@@ -422,7 +422,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "hevc", audioCodec: "aac", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mkv");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mkv");
 
         var actual = sut.Process(request);
 
@@ -436,7 +436,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbeWithoutAudio(codec: "h264", height: 1080));
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4");
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4");
 
         var actual = sut.Process(request);
 
@@ -455,7 +455,7 @@ public class TranscodeEngineTests
             rFrameRate: "60000/1001",
             avgFrameRate: "60000/1001"));
         profileRepository.Get576Config().Returns(CreateConfigForProfileSelection());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mkv",
             Downscale: 576,
             ContentProfile: "film",
@@ -473,7 +473,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 900));
         profileRepository.Get576Config().Returns(CreateConfigWithoutBuckets());
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4", Downscale: 576);
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4", Downscale: 576);
 
         var actual = sut.Process(request);
 
@@ -487,7 +487,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigWithInvalidBucketMatrix());
-        var request = new TranscodeRequest(InputPath: "C:\\video\\a.mp4", Downscale: 576);
+        var request = TranscodeRequest.Create(InputPath: "C:\\video\\a.mp4", Downscale: 576);
 
         var actual = sut.Process(request);
 
@@ -501,7 +501,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigWithBuckets());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576,
             ContentProfile: "anime",
@@ -522,7 +522,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigForProfileSelection());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576);
 
@@ -539,7 +539,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigForProfileSelection());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576,
             ContentProfile: "anime");
@@ -557,7 +557,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigForProfileSelection());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576,
             QualityProfile: "high");
@@ -575,7 +575,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigWithBuckets());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576);
 
@@ -590,7 +590,7 @@ public class TranscodeEngineTests
     {
         var (sut, probeReader, profileRepository) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 576));
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576);
 
@@ -611,7 +611,7 @@ public class TranscodeEngineTests
             .Returns(30.0, 45.0);
         autoSampleProvider.EstimateFast(Arg.Any<AutoSampleReductionInput>())
             .Returns(45.0);
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576,
             ContentProfile: "anime",
@@ -640,7 +640,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository, autoSampleProvider) = CreateSutWithAutoSampleProvider();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
         profileRepository.Get576Config().Returns(CreateConfigWithBuckets());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576,
             ContentProfile: "anime",
@@ -662,7 +662,7 @@ public class TranscodeEngineTests
         var (sut, probeReader, profileRepository, autoSampleProvider) = CreateSutWithAutoSampleProvider();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080, durationSeconds: null));
         profileRepository.Get576Config().Returns(CreateConfigWithBuckets());
-        var request = new TranscodeRequest(
+        var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\a.mp4",
             Downscale: 576,
             ContentProfile: "anime",

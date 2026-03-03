@@ -193,7 +193,7 @@ public class H264TranscodeEngineTests
         bool denoise = false,
         bool outputMkv = false)
     {
-        return new H264TranscodeRequest(
+        return H264TranscodeRequest.Create(
             InputPath: inputPath,
             Downscale: downscale,
             KeepFps: keepFps,

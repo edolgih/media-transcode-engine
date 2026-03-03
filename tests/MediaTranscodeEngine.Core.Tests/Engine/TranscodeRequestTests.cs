@@ -6,20 +6,19 @@ namespace MediaTranscodeEngine.Core.Tests.Engine;
 public class TranscodeRequestTests
 {
     [Fact]
-    public void EnsureValid_WhenInputPathIsMissing_ThrowsArgumentException()
+    public void Create_WhenInputPathIsMissing_ThrowsArgumentException()
     {
-        var sut = new TranscodeRequest(InputPath: " ");
-
-        var action = () => sut.EnsureValid();
+        Action action = () => TranscodeRequest.Create(InputPath: " ");
 
         action.Should().Throw<ArgumentException>()
+            .WithParameterName("InputPath")
             .WithMessage("*InputPath is required.*");
     }
 
     [Fact]
-    public void EnsureValid_WhenCalled_ReturnsNormalizedRequest()
+    public void Create_WhenCalled_ReturnsNormalizedRequest()
     {
-        var sut = new TranscodeRequest(
+        var actual = TranscodeRequest.Create(
             InputPath: " C:\\video\\movie.mp4 ",
             Info: true,
             OverlayBg: true,
@@ -35,8 +34,6 @@ public class TranscodeRequestTests
             Bufsize: 7.0,
             NvencPreset: "p5",
             ForceVideoEncode: true);
-
-        var actual = sut.EnsureValid();
 
         actual.InputPath.Should().Be("C:\\video\\movie.mp4");
         actual.Info.Should().BeTrue();
@@ -56,13 +53,23 @@ public class TranscodeRequestTests
     }
 
     [Fact]
-    public void EnsureValid_WhenDownscaleAlgoOverrideIsWhitespace_SetsNull()
+    public void Create_WhenDefaultsUsed_UsesContractDefaults()
     {
-        var sut = new TranscodeRequest(
+        var actual = TranscodeRequest.Create(InputPath: "C:\\video\\movie.mp4");
+
+        actual.ContentProfile.Should().Be(RequestContracts.Transcode.DefaultContentProfile);
+        actual.QualityProfile.Should().Be(RequestContracts.Transcode.DefaultQualityProfile);
+        actual.AutoSampleMode.Should().Be(RequestContracts.Transcode.DefaultAutoSampleMode);
+        actual.NvencPreset.Should().Be(RequestContracts.Transcode.DefaultNvencPreset);
+        actual.DownscaleAlgoOverride.Should().BeNull();
+    }
+
+    [Fact]
+    public void Create_WhenDownscaleAlgoOverrideIsWhitespace_SetsNull()
+    {
+        var actual = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             DownscaleAlgoOverride: " ");
-
-        var actual = sut.EnsureValid();
 
         actual.DownscaleAlgoOverride.Should().BeNull();
     }
@@ -72,14 +79,12 @@ public class TranscodeRequestTests
     [InlineData(" ", "QualityProfile", "*QualityProfile is required.*")]
     [InlineData(" ", "AutoSampleMode", "*AutoSampleMode is required.*")]
     [InlineData(" ", "NvencPreset", "*NvencPreset is required.*")]
-    public void EnsureValid_WhenRequiredTextValueIsMissing_ThrowsArgumentException(
+    public void Create_WhenRequiredTextValueIsMissing_ThrowsArgumentException(
         string missingValue,
         string propertyName,
         string expectedMessage)
     {
-        var sut = CreateRequestWithOverride(propertyName, missingValue);
-
-        var action = () => sut.EnsureValid();
+        var action = CreateActionWithOverride(propertyName, missingValue);
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName(propertyName)
@@ -89,13 +94,11 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData("bad")]
     [InlineData("doc")]
-    public void EnsureValid_WhenContentProfileInvalid_ThrowsArgumentException(string contentProfile)
+    public void Create_WhenContentProfileInvalid_ThrowsArgumentException(string contentProfile)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             ContentProfile: contentProfile);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("ContentProfile")
@@ -105,13 +108,11 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData("bad")]
     [InlineData("medium")]
-    public void EnsureValid_WhenQualityProfileInvalid_ThrowsArgumentException(string qualityProfile)
+    public void Create_WhenQualityProfileInvalid_ThrowsArgumentException(string qualityProfile)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             QualityProfile: qualityProfile);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("QualityProfile")
@@ -121,13 +122,11 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData("bad")]
     [InlineData("adaptive")]
-    public void EnsureValid_WhenAutoSampleModeInvalid_ThrowsArgumentException(string autoSampleMode)
+    public void Create_WhenAutoSampleModeInvalid_ThrowsArgumentException(string autoSampleMode)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             AutoSampleMode: autoSampleMode);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("AutoSampleMode")
@@ -137,13 +136,11 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData("bad")]
     [InlineData("p8")]
-    public void EnsureValid_WhenNvencPresetInvalid_ThrowsArgumentException(string nvencPreset)
+    public void Create_WhenNvencPresetInvalid_ThrowsArgumentException(string nvencPreset)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             NvencPreset: nvencPreset);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("NvencPreset")
@@ -153,13 +150,11 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData("bad")]
     [InlineData("nearest")]
-    public void EnsureValid_WhenDownscaleAlgoOverrideInvalid_ThrowsArgumentException(string downscaleAlgoOverride)
+    public void Create_WhenDownscaleAlgoOverrideInvalid_ThrowsArgumentException(string downscaleAlgoOverride)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             DownscaleAlgoOverride: downscaleAlgoOverride);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("DownscaleAlgoOverride")
@@ -169,13 +164,11 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData(480)]
     [InlineData(1080)]
-    public void EnsureValid_WhenDownscaleUnsupported_ThrowsArgumentException(int downscale)
+    public void Create_WhenDownscaleUnsupported_ThrowsArgumentException(int downscale)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             Downscale: downscale);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("Downscale")
@@ -185,13 +178,11 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData(-1)]
     [InlineData(52)]
-    public void EnsureValid_WhenCqOutOfRange_ThrowsArgumentException(int cq)
+    public void Create_WhenCqOutOfRange_ThrowsArgumentException(int cq)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             Cq: cq);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("Cq")
@@ -201,13 +192,11 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void EnsureValid_WhenMaxrateNotPositive_ThrowsArgumentException(double maxrate)
+    public void Create_WhenMaxrateNotPositive_ThrowsArgumentException(double maxrate)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             Maxrate: maxrate);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("Maxrate")
@@ -217,27 +206,25 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void EnsureValid_WhenBufsizeNotPositive_ThrowsArgumentException(double bufsize)
+    public void Create_WhenBufsizeNotPositive_ThrowsArgumentException(double bufsize)
     {
-        var sut = new TranscodeRequest(
+        Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             Bufsize: bufsize);
-
-        var action = () => sut.EnsureValid();
 
         action.Should().Throw<ArgumentException>()
             .WithParameterName("Bufsize")
             .WithMessage("*Bufsize must be greater than zero.*");
     }
 
-    private static TranscodeRequest CreateRequestWithOverride(string propertyName, string value)
+    private static Action CreateActionWithOverride(string propertyName, string value)
     {
         return propertyName switch
         {
-            "ContentProfile" => new TranscodeRequest(InputPath: "C:\\video\\movie.mp4", ContentProfile: value),
-            "QualityProfile" => new TranscodeRequest(InputPath: "C:\\video\\movie.mp4", QualityProfile: value),
-            "AutoSampleMode" => new TranscodeRequest(InputPath: "C:\\video\\movie.mp4", AutoSampleMode: value),
-            "NvencPreset" => new TranscodeRequest(InputPath: "C:\\video\\movie.mp4", NvencPreset: value),
+            "ContentProfile" => () => TranscodeRequest.Create(InputPath: "C:\\video\\movie.mp4", ContentProfile: value),
+            "QualityProfile" => () => TranscodeRequest.Create(InputPath: "C:\\video\\movie.mp4", QualityProfile: value),
+            "AutoSampleMode" => () => TranscodeRequest.Create(InputPath: "C:\\video\\movie.mp4", AutoSampleMode: value),
+            "NvencPreset" => () => TranscodeRequest.Create(InputPath: "C:\\video\\movie.mp4", NvencPreset: value),
             _ => throw new InvalidOperationException($"Unexpected property: {propertyName}")
         };
     }

@@ -58,7 +58,7 @@ public sealed class TranscodeEngine
         ProbeResult? probeOverride,
         bool useProbeOverride)
     {
-        request = request.EnsureValid();
+        ArgumentNullException.ThrowIfNull(request);
 
         var fileName = request.InputPath;
         var displayName = Path.GetFileName(fileName);

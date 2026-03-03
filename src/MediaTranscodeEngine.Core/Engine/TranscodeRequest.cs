@@ -1,70 +1,106 @@
 namespace MediaTranscodeEngine.Core.Engine;
 
-public sealed record TranscodeRequest(
-    string InputPath,
-    bool Info = false,
-    bool OverlayBg = false,
-    int? Downscale = null,
-    string? DownscaleAlgoOverride = null,
-    string ContentProfile = "film",
-    string QualityProfile = "default",
-    bool NoAutoSample = false,
-    string AutoSampleMode = "accurate",
-    bool SyncAudio = false,
-    int? Cq = null,
-    double? Maxrate = null,
-    double? Bufsize = null,
-    string NvencPreset = "p6",
-    bool ForceVideoEncode = false)
+public sealed class TranscodeRequest
 {
-    public TranscodeRequest EnsureValid()
+    private TranscodeRequest(
+        string inputPath,
+        bool info,
+        bool overlayBg,
+        int? downscale,
+        string? downscaleAlgoOverride,
+        string contentProfile,
+        string qualityProfile,
+        bool noAutoSample,
+        string autoSampleMode,
+        bool syncAudio,
+        int? cq,
+        double? maxrate,
+        double? bufsize,
+        string nvencPreset,
+        bool forceVideoEncode)
     {
-        var inputPath = RequireValue(InputPath, nameof(InputPath), "InputPath is required.");
-        var contentProfile = RequireAllowedValue(
+        InputPath = inputPath;
+        Info = info;
+        OverlayBg = overlayBg;
+        Downscale = downscale;
+        DownscaleAlgoOverride = downscaleAlgoOverride;
+        ContentProfile = contentProfile;
+        QualityProfile = qualityProfile;
+        NoAutoSample = noAutoSample;
+        AutoSampleMode = autoSampleMode;
+        SyncAudio = syncAudio;
+        Cq = cq;
+        Maxrate = maxrate;
+        Bufsize = bufsize;
+        NvencPreset = nvencPreset;
+        ForceVideoEncode = forceVideoEncode;
+    }
+
+    public string InputPath { get; }
+    public bool Info { get; }
+    public bool OverlayBg { get; }
+    public int? Downscale { get; }
+    public string? DownscaleAlgoOverride { get; }
+    public string ContentProfile { get; }
+    public string QualityProfile { get; }
+    public bool NoAutoSample { get; }
+    public string AutoSampleMode { get; }
+    public bool SyncAudio { get; }
+    public int? Cq { get; }
+    public double? Maxrate { get; }
+    public double? Bufsize { get; }
+    public string NvencPreset { get; }
+    public bool ForceVideoEncode { get; }
+
+    public static TranscodeRequest Create(
+        string InputPath,
+        bool Info = false,
+        bool OverlayBg = false,
+        int? Downscale = null,
+        string? DownscaleAlgoOverride = null,
+        string ContentProfile = RequestContracts.Transcode.DefaultContentProfile,
+        string QualityProfile = RequestContracts.Transcode.DefaultQualityProfile,
+        bool NoAutoSample = false,
+        string AutoSampleMode = RequestContracts.Transcode.DefaultAutoSampleMode,
+        bool SyncAudio = false,
+        int? Cq = null,
+        double? Maxrate = null,
+        double? Bufsize = null,
+        string NvencPreset = RequestContracts.Transcode.DefaultNvencPreset,
+        bool ForceVideoEncode = false)
+    {
+        var normalizedInputPath = RequireValue(InputPath, nameof(InputPath), "InputPath is required.");
+        var normalizedContentProfile = RequireAllowedValue(
             RequireValue(ContentProfile, nameof(ContentProfile), "ContentProfile is required."),
             nameof(ContentProfile),
             "ContentProfile must be one of: anime, mult, film.",
-            "anime",
-            "mult",
-            "film");
-        var qualityProfile = RequireAllowedValue(
+            RequestContracts.Transcode.ContentProfiles);
+        var normalizedQualityProfile = RequireAllowedValue(
             RequireValue(QualityProfile, nameof(QualityProfile), "QualityProfile is required."),
             nameof(QualityProfile),
             "QualityProfile must be one of: high, default, low.",
-            "high",
-            "default",
-            "low");
-        var autoSampleMode = RequireAllowedValue(
+            RequestContracts.Transcode.QualityProfiles);
+        var normalizedAutoSampleMode = RequireAllowedValue(
             RequireValue(AutoSampleMode, nameof(AutoSampleMode), "AutoSampleMode is required."),
             nameof(AutoSampleMode),
             "AutoSampleMode must be one of: accurate, fast, hybrid.",
-            "accurate",
-            "fast",
-            "hybrid");
-        var nvencPreset = RequireAllowedValue(
+            RequestContracts.Transcode.AutoSampleModes);
+        var normalizedNvencPreset = RequireAllowedValue(
             RequireValue(NvencPreset, nameof(NvencPreset), "NvencPreset is required."),
             nameof(NvencPreset),
             "NvencPreset must be one of: p1, p2, p3, p4, p5, p6, p7.",
-            "p1",
-            "p2",
-            "p3",
-            "p4",
-            "p5",
-            "p6",
-            "p7");
-        var downscaleAlgoOverride = NormalizeOptional(DownscaleAlgoOverride);
-        if (downscaleAlgoOverride is not null)
+            RequestContracts.Transcode.NvencPresets);
+        var normalizedDownscaleAlgoOverride = NormalizeOptional(DownscaleAlgoOverride);
+        if (normalizedDownscaleAlgoOverride is not null)
         {
-            downscaleAlgoOverride = RequireAllowedValue(
-                downscaleAlgoOverride,
+            normalizedDownscaleAlgoOverride = RequireAllowedValue(
+                normalizedDownscaleAlgoOverride,
                 nameof(DownscaleAlgoOverride),
                 "DownscaleAlgoOverride must be one of: bicubic, lanczos, bilinear.",
-                "bicubic",
-                "lanczos",
-                "bilinear");
+                RequestContracts.Transcode.DownscaleAlgorithms);
         }
 
-        if (Downscale.HasValue && Downscale.Value is not (576 or 720))
+        if (Downscale.HasValue && !RequestContracts.Transcode.DownscaleTargets.Contains(Downscale.Value))
         {
             throw new ArgumentException("Downscale must be 576 or 720.", nameof(Downscale));
         }
@@ -84,18 +120,25 @@ public sealed record TranscodeRequest(
             throw new ArgumentException("Bufsize must be greater than zero.", nameof(Bufsize));
         }
 
-        return this with
-        {
-            InputPath = inputPath,
-            ContentProfile = contentProfile,
-            QualityProfile = qualityProfile,
-            AutoSampleMode = autoSampleMode,
-            NvencPreset = nvencPreset,
-            DownscaleAlgoOverride = downscaleAlgoOverride
-        };
+        return new TranscodeRequest(
+            inputPath: normalizedInputPath,
+            info: Info,
+            overlayBg: OverlayBg,
+            downscale: Downscale,
+            downscaleAlgoOverride: normalizedDownscaleAlgoOverride,
+            contentProfile: normalizedContentProfile,
+            qualityProfile: normalizedQualityProfile,
+            noAutoSample: NoAutoSample,
+            autoSampleMode: normalizedAutoSampleMode,
+            syncAudio: SyncAudio,
+            cq: Cq,
+            maxrate: Maxrate,
+            bufsize: Bufsize,
+            nvencPreset: normalizedNvencPreset,
+            forceVideoEncode: ForceVideoEncode);
     }
 
-    private static string RequireValue(string value, string paramName, string message)
+    private static string RequireValue(string? value, string paramName, string message)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -114,7 +157,7 @@ public sealed record TranscodeRequest(
         string value,
         string paramName,
         string message,
-        params string[] allowedValues)
+        IReadOnlyCollection<string> allowedValues)
     {
         if (!allowedValues.Any(option => option.Equals(value, StringComparison.OrdinalIgnoreCase)))
         {
