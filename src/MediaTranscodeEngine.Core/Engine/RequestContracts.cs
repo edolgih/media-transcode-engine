@@ -2,7 +2,7 @@ namespace MediaTranscodeEngine.Core.Engine;
 
 public static class RequestContracts
 {
-    public static class Unified
+    public static class General
     {
         public const string DefaultContainer = "mkv";
         public const string DefaultComputeMode = "gpu";
@@ -38,14 +38,4 @@ public static class RequestContracts
         public static readonly IReadOnlyCollection<int> DownscaleTargets = new[] { 576, 720 };
     }
 
-    public static class H264
-    {
-        public const string DefaultDownscaleAlgorithm = "bicubic";
-        public const string DefaultNvencPreset = "p5";
-        public const int DefaultAqStrength = 4;
-
-        public static readonly IReadOnlyCollection<string> DownscaleAlgorithms = new[] { "bicubic", "lanczos", "bilinear" };
-        public static readonly IReadOnlyCollection<string> NvencPresets = new[] { "p1", "p2", "p3", "p4", "p5", "p6", "p7" };
-        public static readonly IReadOnlyCollection<int> DownscaleTargets = new[] { 576, 720 };
-    }
 }

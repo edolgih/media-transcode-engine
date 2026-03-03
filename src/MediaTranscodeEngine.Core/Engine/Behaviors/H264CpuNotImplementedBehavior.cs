@@ -2,29 +2,29 @@ namespace MediaTranscodeEngine.Core.Engine.Behaviors;
 
 public sealed class H264CpuNotImplementedBehavior : ITranscodeBehavior
 {
-    public bool CanHandle(TargetVideoCodec targetCodec, UnifiedTranscodeRequest request)
+    public bool CanHandle(TargetVideoCodec targetCodec, TranscodeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         return targetCodec is TargetVideoCodec.H264 &&
-               request.ComputeMode.Equals(RequestContracts.Unified.CpuComputeMode, StringComparison.OrdinalIgnoreCase);
+               request.ComputeMode.Equals(RequestContracts.General.CpuComputeMode, StringComparison.OrdinalIgnoreCase);
     }
 
-    public string Process(UnifiedTranscodeRequest request)
+    public string Process(TranscodeRequest request)
     {
         return BuildNotImplementedLine(request);
     }
 
-    public string ProcessWithProbeResult(UnifiedTranscodeRequest request, ProbeResult? probe)
+    public string ProcessWithProbeResult(TranscodeRequest request, ProbeResult? probe)
     {
         return BuildNotImplementedLine(request);
     }
 
-    public string ProcessWithProbeJson(UnifiedTranscodeRequest request, string? probeJson)
+    public string ProcessWithProbeJson(TranscodeRequest request, string? probeJson)
     {
         return BuildNotImplementedLine(request);
     }
 
-    private static string BuildNotImplementedLine(UnifiedTranscodeRequest request)
+    private static string BuildNotImplementedLine(TranscodeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 

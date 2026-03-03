@@ -32,24 +32,24 @@ public sealed class H264TranscodeEngine
         _commandBuilder = commandBuilder;
     }
 
-    public string Process(H264TranscodeRequest request)
+    public string Process(TranscodeRequest request)
     {
         return ProcessCore(request, probeOverride: null, useProbeOverride: false);
     }
 
-    public string ProcessWithProbeResult(H264TranscodeRequest request, ProbeResult? probe)
+    public string ProcessWithProbeResult(TranscodeRequest request, ProbeResult? probe)
     {
         return ProcessCore(request, probe, useProbeOverride: true);
     }
 
-    public string ProcessWithProbeJson(H264TranscodeRequest request, string? probeJson)
+    public string ProcessWithProbeJson(TranscodeRequest request, string? probeJson)
     {
         var parsedProbe = ProbeJsonParser.Parse(probeJson);
         return ProcessCore(request, parsedProbe, useProbeOverride: true);
     }
 
     private string ProcessCore(
-        H264TranscodeRequest request,
+        TranscodeRequest request,
         ProbeResult? probeOverride,
         bool useProbeOverride)
     {
@@ -96,7 +96,7 @@ public sealed class H264TranscodeEngine
             UseDownscale: useDownscale);
 
         var canRemux = _remuxEligibilityPolicy.CanRemux(remuxEligibilityInput);
-        var containerPolicy = _containerPolicySelector.Select(request.OutputMkv);
+        var containerPolicy = _containerPolicySelector.Select(request.TargetContainer);
         var outputPaths = containerPolicy.ResolveOutputPaths(
             inputPath: inputPath,
             keepSource: request.KeepSource,
@@ -126,7 +126,7 @@ public sealed class H264TranscodeEngine
             InputPath: inputPath,
             OutputPath: outputPaths.OutputPath,
             TempOutputPath: outputPaths.TempOutputPath,
-            NvencPreset: request.NvencPreset,
+            NvencPreset: request.VideoPreset,
             Cq: rateControl.Cq,
             FpsToken: rateControl.FpsToken,
             Gop: rateControl.Gop,

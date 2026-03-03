@@ -9,46 +9,25 @@ public sealed class H264GpuTranscodeBehavior : ITranscodeBehavior
         _engine = engine;
     }
 
-    public bool CanHandle(TargetVideoCodec targetCodec, UnifiedTranscodeRequest request)
+    public bool CanHandle(TargetVideoCodec targetCodec, TranscodeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         return targetCodec is TargetVideoCodec.H264 &&
-               request.ComputeMode.Equals(RequestContracts.Unified.GpuComputeMode, StringComparison.OrdinalIgnoreCase);
+               request.ComputeMode.Equals(RequestContracts.General.GpuComputeMode, StringComparison.OrdinalIgnoreCase);
     }
 
-    public string Process(UnifiedTranscodeRequest request)
+    public string Process(TranscodeRequest request)
     {
-        return _engine.Process(Map(request));
+        return _engine.Process(request);
     }
 
-    public string ProcessWithProbeResult(UnifiedTranscodeRequest request, ProbeResult? probe)
+    public string ProcessWithProbeResult(TranscodeRequest request, ProbeResult? probe)
     {
-        return _engine.ProcessWithProbeResult(Map(request), probe);
+        return _engine.ProcessWithProbeResult(request, probe);
     }
 
-    public string ProcessWithProbeJson(UnifiedTranscodeRequest request, string? probeJson)
+    public string ProcessWithProbeJson(TranscodeRequest request, string? probeJson)
     {
-        return _engine.ProcessWithProbeJson(Map(request), probeJson);
-    }
-
-    private static H264TranscodeRequest Map(UnifiedTranscodeRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var outputMkv = request.TargetContainer.Equals(RequestContracts.Unified.MkvContainer, StringComparison.OrdinalIgnoreCase);
-
-        return H264TranscodeRequest.Create(
-            InputPath: request.InputPath,
-            Downscale: request.Downscale,
-            KeepFps: request.KeepFps,
-            DownscaleAlgo: request.DownscaleAlgo,
-            Cq: request.Cq,
-            NvencPreset: request.VideoPreset,
-            UseAq: request.UseAq,
-            AqStrength: request.AqStrength,
-            Denoise: request.Denoise,
-            FixTimestamps: request.FixTimestamps,
-            OutputMkv: outputMkv,
-            KeepSource: request.KeepSource);
+        return _engine.ProcessWithProbeJson(request, probeJson);
     }
 }

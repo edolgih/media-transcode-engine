@@ -2,10 +2,14 @@ namespace MediaTranscodeEngine.Core.Engine;
 
 public sealed record RawTranscodeRequest(
     string InputPath,
+    string TargetContainer = RequestContracts.General.DefaultContainer,
+    string ComputeMode = RequestContracts.General.DefaultComputeMode,
+    string VideoPreset = RequestContracts.General.DefaultVideoPreset,
+    bool PreferH264 = false,
     bool Info = false,
     bool OverlayBg = false,
     int? Downscale = null,
-    string? DownscaleAlgoOverride = null,
+    string? DownscaleAlgo = null,
     string ContentProfile = RequestContracts.Transcode.DefaultContentProfile,
     string QualityProfile = RequestContracts.Transcode.DefaultQualityProfile,
     bool NoAutoSample = false,
@@ -14,18 +18,26 @@ public sealed record RawTranscodeRequest(
     int? Cq = null,
     double? Maxrate = null,
     double? Bufsize = null,
-    string NvencPreset = RequestContracts.Transcode.DefaultNvencPreset,
     bool ForceVideoEncode = false,
+    bool KeepFps = false,
+    bool UseAq = false,
+    int AqStrength = RequestContracts.General.DefaultAqStrength,
+    bool Denoise = false,
+    bool FixTimestamps = false,
     bool KeepSource = false)
 {
     public TranscodeRequest ToDomain()
     {
         return TranscodeRequest.Create(
             InputPath: InputPath,
+            TargetContainer: TargetContainer,
+            ComputeMode: ComputeMode,
+            VideoPreset: VideoPreset,
+            PreferH264: PreferH264,
             Info: Info,
             OverlayBg: OverlayBg,
             Downscale: Downscale,
-            DownscaleAlgoOverride: DownscaleAlgoOverride,
+            DownscaleAlgo: DownscaleAlgo,
             ContentProfile: ContentProfile,
             QualityProfile: QualityProfile,
             NoAutoSample: NoAutoSample,
@@ -34,8 +46,12 @@ public sealed record RawTranscodeRequest(
             Cq: Cq,
             Maxrate: Maxrate,
             Bufsize: Bufsize,
-            NvencPreset: NvencPreset,
             ForceVideoEncode: ForceVideoEncode,
+            KeepFps: KeepFps,
+            UseAq: UseAq,
+            AqStrength: AqStrength,
+            Denoise: Denoise,
+            FixTimestamps: FixTimestamps,
             KeepSource: KeepSource);
     }
 }

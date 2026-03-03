@@ -10,7 +10,7 @@ public sealed class TranscodeBehaviorSelector
         _behaviors = behaviors.ToArray();
     }
 
-    public ITranscodeBehavior Select(TargetVideoCodec targetCodec, UnifiedTranscodeRequest request)
+    public ITranscodeBehavior Select(TargetVideoCodec targetCodec, TranscodeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 

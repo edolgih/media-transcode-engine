@@ -4,11 +4,11 @@ namespace MediaTranscodeEngine.Core.Policy;
 
 public sealed class TargetVideoCodecResolver
 {
-    public TargetVideoCodec Resolve(UnifiedTranscodeRequest request)
+    public TargetVideoCodec Resolve(TranscodeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.ComputeMode.Equals(RequestContracts.Unified.CpuComputeMode, StringComparison.OrdinalIgnoreCase))
+        if (request.ComputeMode.Equals(RequestContracts.General.CpuComputeMode, StringComparison.OrdinalIgnoreCase))
         {
             return TargetVideoCodec.H264;
         }
@@ -18,7 +18,7 @@ public sealed class TargetVideoCodecResolver
             return TargetVideoCodec.H264;
         }
 
-        if (!request.TargetContainer.Equals(RequestContracts.Unified.MkvContainer, StringComparison.OrdinalIgnoreCase))
+        if (!request.TargetContainer.Equals(RequestContracts.General.MkvContainer, StringComparison.OrdinalIgnoreCase))
         {
             return TargetVideoCodec.H264;
         }

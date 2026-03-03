@@ -4,7 +4,7 @@ namespace MediaTranscodeEngine.Core.Policy;
 
 public sealed class MkvContainerPolicy : IContainerPolicy
 {
-    public string Container => RequestContracts.Unified.MkvContainer;
+    public string Container => RequestContracts.General.MkvContainer;
     public string OutputExtension => ".mkv";
     public string MuxArguments => string.Empty;
 

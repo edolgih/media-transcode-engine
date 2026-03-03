@@ -4,7 +4,7 @@ namespace MediaTranscodeEngine.Core.Policy;
 
 public sealed class Mp4ContainerPolicy : IContainerPolicy
 {
-    public string Container => RequestContracts.Unified.Mp4Container;
+    public string Container => RequestContracts.General.Mp4Container;
     public string OutputExtension => ".mp4";
     public string MuxArguments => "-movflags +faststart";
 

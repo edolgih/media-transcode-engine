@@ -2,11 +2,11 @@ namespace MediaTranscodeEngine.Core.Engine.Behaviors;
 
 public interface ITranscodeBehavior
 {
-    bool CanHandle(TargetVideoCodec targetCodec, UnifiedTranscodeRequest request);
+    bool CanHandle(TargetVideoCodec targetCodec, TranscodeRequest request);
 
-    string Process(UnifiedTranscodeRequest request);
+    string Process(TranscodeRequest request);
 
-    string ProcessWithProbeResult(UnifiedTranscodeRequest request, ProbeResult? probe);
+    string ProcessWithProbeResult(TranscodeRequest request, ProbeResult? probe);
 
-    string ProcessWithProbeJson(UnifiedTranscodeRequest request, string? probeJson);
+    string ProcessWithProbeJson(TranscodeRequest request, string? probeJson);
 }

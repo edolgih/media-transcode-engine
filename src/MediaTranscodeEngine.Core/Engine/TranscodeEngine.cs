@@ -104,7 +104,7 @@ public sealed class TranscodeEngine
         }
 
         TranscodePolicyResult? profileSettings = null;
-        var downscaleAlgo = request.DownscaleAlgoOverride ?? "bicubic";
+        var downscaleAlgo = request.DownscaleAlgo;
 
         if (applyDownscale && downscaleTarget == 576)
         {
@@ -117,7 +117,7 @@ public sealed class TranscodeEngine
                     Cq: request.Cq,
                     Maxrate: request.Maxrate,
                     Bufsize: request.Bufsize,
-                    DownscaleAlgo: request.DownscaleAlgoOverride));
+                    DownscaleAlgo: request.DownscaleAlgoOverridden ? request.DownscaleAlgo : null));
 
             var bucket = _policy.ResolveSourceBucket(config, video.Height);
             if (bucket is null)
@@ -281,7 +281,7 @@ public sealed class TranscodeEngine
             Bufsize: profileSettings?.Bufsize ?? 6.0,
             DownscaleAlgo: downscaleAlgo,
             SourceFps: sourceFps,
-            NvencPreset: request.NvencPreset);
+            NvencPreset: request.VideoPreset);
 
         return _commandBuilder.Build(commandInput);
     }

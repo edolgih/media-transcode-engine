@@ -3,12 +3,12 @@ using MediaTranscodeEngine.Core.Policy;
 
 namespace MediaTranscodeEngine.Core.Engine;
 
-public sealed class UnifiedTranscodeEngine
+public sealed class GeneralTranscodeEngine
 {
     private readonly TargetVideoCodecResolver _codecResolver;
     private readonly TranscodeBehaviorSelector _behaviorSelector;
 
-    public UnifiedTranscodeEngine(
+    public GeneralTranscodeEngine(
         TargetVideoCodecResolver codecResolver,
         TranscodeBehaviorSelector behaviorSelector)
     {
@@ -16,7 +16,7 @@ public sealed class UnifiedTranscodeEngine
         _behaviorSelector = behaviorSelector;
     }
 
-    public string Process(UnifiedTranscodeRequest request)
+    public string Process(TranscodeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -25,7 +25,7 @@ public sealed class UnifiedTranscodeEngine
         return behavior.Process(request);
     }
 
-    public string ProcessWithProbeResult(UnifiedTranscodeRequest request, ProbeResult? probe)
+    public string ProcessWithProbeResult(TranscodeRequest request, ProbeResult? probe)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -34,7 +34,7 @@ public sealed class UnifiedTranscodeEngine
         return behavior.ProcessWithProbeResult(request, probe);
     }
 
-    public string ProcessWithProbeJson(UnifiedTranscodeRequest request, string? probeJson)
+    public string ProcessWithProbeJson(TranscodeRequest request, string? probeJson)
     {
         ArgumentNullException.ThrowIfNull(request);
 

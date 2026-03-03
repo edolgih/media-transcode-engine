@@ -44,7 +44,7 @@ public sealed class ContainerPolicySelector
     public IContainerPolicy Select(bool outputMkv)
     {
         return Select(outputMkv
-            ? RequestContracts.Unified.MkvContainer
-            : RequestContracts.Unified.Mp4Container);
+            ? RequestContracts.General.MkvContainer
+            : RequestContracts.General.Mp4Container);
     }
 }
