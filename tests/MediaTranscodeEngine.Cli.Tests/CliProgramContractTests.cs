@@ -24,24 +24,24 @@ public class CliProgramContractTests
     }
 
     [Fact]
-    public async Task Main_WithUnknownScenario_ReturnsExitCodeOneAndWritesUnknownScenarioToStdErr()
+    public async Task Main_WithScenarioOption_ReturnsExitCodeOneAndWritesUnknownOptionToStdErr()
     {
         var result = await RunCliAsync("--scenario", "unknown", "--input", "C:\\video\\movie.mp4");
 
         result.ExitCode.Should().Be(1);
-        result.StdErr.Should().Contain("Unknown scenario: unknown");
+        result.StdErr.Should().Contain("Unknown option: --scenario");
     }
 
     [Fact]
-    public async Task Main_WithHelpOption_ReturnsHelpContainingCommonAndScenarioSections()
+    public async Task Main_WithHelpOption_ReturnsHelpContainingUnifiedOptions()
     {
         var result = await RunCliAsync("--help");
 
         result.ExitCode.Should().Be(0);
-        result.StdOut.Should().Contain("Common options:");
-        result.StdOut.Should().Contain("Scenario: tomkvgpu");
-        result.StdOut.Should().Contain("Scenario: toh264gpu");
-        result.StdOut.Should().Contain("--scenario <name>");
+        result.StdOut.Should().Contain("Options:");
+        result.StdOut.Should().Contain("--container <mkv|mp4>");
+        result.StdOut.Should().Contain("--compute <gpu|cpu>");
+        result.StdOut.Should().Contain("--preset <value>");
         result.StdOut.Should().Contain("--keep-source");
         result.StdOut.Should().Contain("--output-mkv");
     }
@@ -54,6 +54,18 @@ public class CliProgramContractTests
 
         result.ExitCode.Should().Be(0);
         result.StdErr.Should().NotContain("No input files provided");
+    }
+
+    [Fact]
+    public async Task Main_WithMinimalUnifiedOptions_ReturnsSuccess()
+    {
+        var result = await RunCliAsync(
+            "--input", "C:\\video\\movie.mp4",
+            "--container", "mkv",
+            "--compute", "gpu",
+            "--preset", "p6");
+
+        result.ExitCode.Should().Be(0);
     }
 
     private static Task<CliProcessResult> RunCliAsync(params string[] args)

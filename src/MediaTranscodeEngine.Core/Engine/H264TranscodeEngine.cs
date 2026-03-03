@@ -1,4 +1,3 @@
-using System.Globalization;
 using MediaTranscodeEngine.Core.Abstractions;
 using MediaTranscodeEngine.Core.Commanding;
 using MediaTranscodeEngine.Core.Policy;
@@ -7,23 +6,29 @@ namespace MediaTranscodeEngine.Core.Engine;
 
 public sealed class H264TranscodeEngine
 {
-    private static readonly HashSet<string> AudioCopyCodecs = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "aac",
-        "mp3"
-    };
-
     private readonly IProbeReader _probeReader;
     private readonly H264RemuxEligibilityPolicy _remuxEligibilityPolicy;
+    private readonly H264TimestampPolicy _timestampPolicy;
+    private readonly H264AudioPolicy _audioPolicy;
+    private readonly H264RateControlPolicy _rateControlPolicy;
+    private readonly ContainerPolicySelector _containerPolicySelector;
     private readonly H264CommandBuilder _commandBuilder;
 
     public H264TranscodeEngine(
         IProbeReader probeReader,
         H264RemuxEligibilityPolicy remuxEligibilityPolicy,
+        H264TimestampPolicy timestampPolicy,
+        H264AudioPolicy audioPolicy,
+        H264RateControlPolicy rateControlPolicy,
+        ContainerPolicySelector containerPolicySelector,
         H264CommandBuilder commandBuilder)
     {
         _probeReader = probeReader;
         _remuxEligibilityPolicy = remuxEligibilityPolicy;
+        _timestampPolicy = timestampPolicy;
+        _audioPolicy = audioPolicy;
+        _rateControlPolicy = rateControlPolicy;
+        _containerPolicySelector = containerPolicySelector;
         _commandBuilder = commandBuilder;
     }
 
@@ -74,9 +79,10 @@ public sealed class H264TranscodeEngine
                            video.Height.HasValue &&
                            video.Height.Value > request.Downscale.Value;
 
-        var fixTimestamps = request.FixTimestamps ||
-                            IsWmvOrAsfExtension(inputPath) ||
-                            ContainsFormatToken(probe.Format?.FormatName, "asf");
+        var fixTimestamps = _timestampPolicy.ShouldFixTimestamps(new H264TimestampInput(
+            InputPath: inputPath,
+            FormatName: probe.Format?.FormatName,
+            ForceFixTimestamps: request.FixTimestamps));
 
         var remuxEligibilityInput = new H264RemuxEligibilityInput(
             InputExtension: Path.GetExtension(inputPath),
@@ -90,9 +96,9 @@ public sealed class H264TranscodeEngine
             UseDownscale: useDownscale);
 
         var canRemux = _remuxEligibilityPolicy.CanRemux(remuxEligibilityInput);
-        var (outputPath, tempOutputPath) = ResolveOutputPaths(
+        var containerPolicy = _containerPolicySelector.Select(request.OutputMkv);
+        var outputPaths = containerPolicy.ResolveOutputPaths(
             inputPath: inputPath,
-            outputMkv: request.OutputMkv,
             keepSource: request.KeepSource,
             useDownscale: useDownscale,
             downscaleTarget: request.Downscale,
@@ -101,28 +107,30 @@ public sealed class H264TranscodeEngine
         {
             return _commandBuilder.BuildRemux(new H264RemuxCommandInput(
                 InputPath: inputPath,
-                OutputPath: outputPath,
-                TempOutputPath: tempOutputPath,
-                OutputMkv: request.OutputMkv,
+                OutputPath: outputPaths.OutputPath,
+                TempOutputPath: outputPaths.TempOutputPath,
+                ContainerPolicy: containerPolicy,
                 ReplaceInput: !request.KeepSource));
         }
 
-        var fpsToken = ResolveFpsToken(video, useDownscale, request.KeepFps);
-        var fpsValue = ParseFpsToken(fpsToken) ?? 30.0;
-        var gop = (int)Math.Max(12, Math.Round(fpsValue * 2.0));
-        var copyAudio = audio is not null &&
-                        !fixTimestamps &&
-                        AudioCopyCodecs.Contains(audio.CodecName);
+        var rateControl = _rateControlPolicy.Resolve(new H264RateControlInput(
+            Video: video,
+            UseDownscale: useDownscale,
+            KeepFps: request.KeepFps,
+            CqOverride: request.Cq));
+        var copyAudio = _audioPolicy.CanCopyAudio(new H264AudioInput(
+            AudioCodec: audio?.CodecName,
+            FixTimestamps: fixTimestamps));
 
         return _commandBuilder.BuildEncode(new H264EncodeCommandInput(
             InputPath: inputPath,
-            OutputPath: outputPath,
-            TempOutputPath: tempOutputPath,
+            OutputPath: outputPaths.OutputPath,
+            TempOutputPath: outputPaths.TempOutputPath,
             NvencPreset: request.NvencPreset,
-            Cq: request.Cq ?? 19,
-            FpsToken: fpsToken,
-            Gop: gop,
-            OutputMkv: request.OutputMkv,
+            Cq: rateControl.Cq,
+            FpsToken: rateControl.FpsToken,
+            Gop: rateControl.Gop,
+            ContainerPolicy: containerPolicy,
             ApplyDownscale: useDownscale,
             DownscaleTarget: request.Downscale ?? 0,
             DownscaleAlgo: request.DownscaleAlgo,
@@ -132,100 +140,5 @@ public sealed class H264TranscodeEngine
             FixTimestamps: fixTimestamps,
             CopyAudio: copyAudio,
             ReplaceInput: !request.KeepSource));
-    }
-
-    private static (string OutputPath, string TempOutputPath) ResolveOutputPaths(
-        string inputPath,
-        bool outputMkv,
-        bool keepSource,
-        bool useDownscale,
-        int? downscaleTarget,
-        bool willEncode)
-    {
-        var outputExtension = outputMkv ? ".mkv" : ".mp4";
-        if (keepSource)
-        {
-            var downscaleSuffix = useDownscale && downscaleTarget.HasValue
-                ? $"{downscaleTarget.Value}p"
-                : null;
-            var codecSuffix = willEncode ? "h264" : null;
-            var outputPath = OutputPathBuilder.BuildKeepSourceOutputPath(
-                inputPath,
-                outputExtension: outputExtension,
-                downscaleSuffix,
-                codecSuffix);
-            return (outputPath, outputPath);
-        }
-
-        var directory = Path.GetDirectoryName(inputPath);
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            directory = ".";
-        }
-        var baseName = Path.GetFileNameWithoutExtension(inputPath);
-        return (
-            OutputPath: Path.Combine(directory, $"{baseName}{outputExtension}"),
-            TempOutputPath: Path.Combine(directory, $"{baseName} (h264){outputExtension}"));
-    }
-
-    private static bool IsWmvOrAsfExtension(string inputPath)
-    {
-        var extension = Path.GetExtension(inputPath);
-        return extension.Equals(".wmv", StringComparison.OrdinalIgnoreCase) ||
-               extension.Equals(".asf", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool ContainsFormatToken(string? formatName, string expectedToken)
-    {
-        if (string.IsNullOrWhiteSpace(formatName))
-        {
-            return false;
-        }
-
-        var tokens = formatName.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return tokens.Any(token => token.Equals(expectedToken, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static string ResolveFpsToken(ProbeStream video, bool useDownscale, bool keepFps)
-    {
-        var sourceFpsToken = video.RFrameRate;
-        if (string.IsNullOrWhiteSpace(sourceFpsToken) || sourceFpsToken == "0/0")
-        {
-            sourceFpsToken = video.AvgFrameRate;
-        }
-
-        if (string.IsNullOrWhiteSpace(sourceFpsToken) || sourceFpsToken == "0/0")
-        {
-            sourceFpsToken = "30/1";
-        }
-
-        var sourceFps = ParseFpsToken(sourceFpsToken) ?? 30.0;
-        if (useDownscale && !keepFps && sourceFps > 30.0)
-        {
-            return "30000/1001";
-        }
-
-        return sourceFpsToken;
-    }
-
-    private static double? ParseFpsToken(string? token)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return null;
-        }
-
-        var parts = token.Split('/');
-        if (parts.Length == 2 &&
-            double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var numerator) &&
-            double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var denominator) &&
-            denominator > 0)
-        {
-            return numerator / denominator;
-        }
-
-        return double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var fps)
-            ? fps
-            : null;
     }
 }

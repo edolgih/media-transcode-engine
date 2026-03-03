@@ -3,14 +3,13 @@ using MediaTranscodeEngine.Core.Engine;
 namespace MediaTranscodeEngine.Cli.Parsing;
 
 internal sealed record CliParseResult(
-    string ScenarioName,
     IReadOnlyList<string> Inputs,
-    RawTranscodeRequest ToMkvRequestTemplate,
-    RawH264TranscodeRequest ToH264RequestTemplate);
+    RawUnifiedTranscodeRequest RequestTemplate);
 
 internal static class CliArgumentParser
 {
-    private const string LegacyCommandToken = "tomkvgpu";
+    private const string LegacyToMkvCommandToken = "tomkvgpu";
+    private const string LegacyToH264CommandToken = "toh264gpu";
 
     public static bool TryParse(
         string[] args,
@@ -20,41 +19,17 @@ internal static class CliArgumentParser
         parsed = default!;
         errorText = null;
 
-        if (!TryResolveScenario(args, out var scenarioName, out errorText))
-        {
-            return false;
-        }
-
         var state = new CliMutableParseState();
-        state.ScenarioName = scenarioName;
         for (var i = 0; i < args.Length; i++)
         {
             var token = args[i];
-            if (string.Equals(token, LegacyCommandToken, StringComparison.OrdinalIgnoreCase))
+            if (IsLegacyCommandToken(token))
             {
-                errorText = "Do not use 'tomkvgpu' command token. Use CLI switches directly.";
+                errorText = "Do not use legacy scenario command tokens. Use CLI switches directly.";
                 return false;
             }
 
             if (!CliContracts.TryGetOption(token, out var option))
-            {
-                errorText = token.StartsWith("-", StringComparison.Ordinal)
-                    ? $"Unknown option: {token}"
-                    : $"Unexpected argument: {token}";
-                return false;
-            }
-
-            if (token.Equals("--scenario", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!TryReadValue(args, ref i, token, out _, out errorText))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            if (!option.AppliesToScenarios.Contains(scenarioName))
             {
                 errorText = token.StartsWith("-", StringComparison.Ordinal)
                     ? $"Unknown option: {token}"
@@ -80,49 +55,8 @@ internal static class CliArgumentParser
         }
 
         parsed = new CliParseResult(
-            ScenarioName: scenarioName,
             Inputs: state.Inputs,
-            ToMkvRequestTemplate: state.ToMkvTemplate,
-            ToH264RequestTemplate: state.ToH264Template);
-        return true;
-    }
-
-    private static bool TryResolveScenario(
-        string[] args,
-        out string scenarioName,
-        out string? errorText)
-    {
-        scenarioName = CliContracts.ToMkvGpuScenario;
-        errorText = null;
-
-        for (var i = 0; i < args.Length; i++)
-        {
-            var token = args[i];
-            if (!token.Equals("--scenario", StringComparison.OrdinalIgnoreCase))
-            {
-                if (CliContracts.TryGetOption(token, out var option) &&
-                    option.ValueKind is not CliOptionValueKind.Flag)
-                {
-                    i++;
-                }
-
-                continue;
-            }
-
-            if (!TryReadValue(args, ref i, token, out var value, out errorText))
-            {
-                return false;
-            }
-
-            if (!CliContracts.ScenariosByName.ContainsKey(value))
-            {
-                errorText = $"Unknown scenario: {value}";
-                return false;
-            }
-
-            scenarioName = value;
-        }
-
+            RequestTemplate: state.RequestTemplate);
         return true;
     }
 
@@ -153,5 +87,11 @@ internal static class CliArgumentParser
         value = token;
         index = valueIndex;
         return true;
+    }
+
+    private static bool IsLegacyCommandToken(string token)
+    {
+        return token.Equals(LegacyToMkvCommandToken, StringComparison.OrdinalIgnoreCase) ||
+               token.Equals(LegacyToH264CommandToken, StringComparison.OrdinalIgnoreCase);
     }
 }

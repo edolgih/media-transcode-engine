@@ -1,12 +1,13 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Core.Commanding;
+using MediaTranscodeEngine.Core.Policy;
 
 namespace MediaTranscodeEngine.Core.Tests.Commanding;
 
 public class H264CommandBuilderTests
 {
     [Fact]
-    public void BuildRemux_WhenOutputIsMp4_IncludesFaststartAndCopy()
+    public void BuildCommand_WhenContainerMp4_AddsFaststart()
     {
         var sut = CreateSut();
         var input = CreateRemuxInput(outputMkv: false);
@@ -19,7 +20,7 @@ public class H264CommandBuilderTests
     }
 
     [Fact]
-    public void BuildRemux_WhenOutputIsMkv_DoesNotIncludeFaststart()
+    public void BuildCommand_WhenContainerMkv_DoesNotAddFaststart()
     {
         var sut = CreateSut();
         var input = CreateRemuxInput(outputMkv: true);
@@ -96,28 +97,39 @@ public class H264CommandBuilderTests
 
     private static H264RemuxCommandInput CreateRemuxInput(bool outputMkv)
     {
+        IContainerPolicy containerPolicy = outputMkv
+            ? new MkvContainerPolicy()
+            : new Mp4ContainerPolicy();
+
         return new H264RemuxCommandInput(
             InputPath: "C:\\video\\a.mp4",
             OutputPath: outputMkv ? "C:\\video\\a.mkv" : "C:\\video\\a.mp4",
             TempOutputPath: outputMkv ? "C:\\video\\a (h264).mkv" : "C:\\video\\a (h264).mp4",
-            OutputMkv: outputMkv);
+            ContainerPolicy: containerPolicy);
     }
 
     private static H264EncodeCommandInput CreateEncodeInput(
+        bool outputMkv = false,
         bool applyDownscale = false,
         bool useAq = false,
         bool denoise = false,
         bool fixTimestamps = false)
     {
+        IContainerPolicy containerPolicy = outputMkv
+            ? new MkvContainerPolicy()
+            : new Mp4ContainerPolicy();
+        var outputPath = outputMkv ? "C:\\video\\a.mkv" : "C:\\video\\a.mp4";
+        var tempOutputPath = outputMkv ? "C:\\video\\a (h264).mkv" : "C:\\video\\a (h264).mp4";
+
         return new H264EncodeCommandInput(
             InputPath: "C:\\video\\a.mkv",
-            OutputPath: "C:\\video\\a.mp4",
-            TempOutputPath: "C:\\video\\a (h264).mp4",
+            OutputPath: outputPath,
+            TempOutputPath: tempOutputPath,
             NvencPreset: "p5",
             Cq: 19,
             FpsToken: "25/1",
             Gop: 50,
-            OutputMkv: false,
+            ContainerPolicy: containerPolicy,
             ApplyDownscale: applyDownscale,
             DownscaleTarget: 576,
             DownscaleAlgo: "lanczos",

@@ -1,10 +1,12 @@
+using MediaTranscodeEngine.Core.Policy;
+
 namespace MediaTranscodeEngine.Core.Commanding;
 
 public sealed record H264RemuxCommandInput(
     string InputPath,
     string OutputPath,
     string TempOutputPath,
-    bool OutputMkv,
+    IContainerPolicy ContainerPolicy,
     bool ReplaceInput = true);
 
 public sealed record H264EncodeCommandInput(
@@ -15,7 +17,7 @@ public sealed record H264EncodeCommandInput(
     int Cq,
     string FpsToken,
     int Gop,
-    bool OutputMkv,
+    IContainerPolicy ContainerPolicy,
     bool ApplyDownscale,
     int DownscaleTarget,
     string DownscaleAlgo,
@@ -31,12 +33,15 @@ public sealed class H264CommandBuilder
     public string BuildRemux(H264RemuxCommandInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(input.ContainerPolicy);
 
         var targetPath = input.ReplaceInput ? input.TempOutputPath : input.OutputPath;
-        var replaceInputPart = input.ReplaceInput
-            ? $"&& del {Quote(input.InputPath)} && move /Y {Quote(input.TempOutputPath)} {Quote(input.OutputPath)}"
-            : string.Empty;
-        var muxPart = input.OutputMkv ? string.Empty : "-movflags +faststart";
+        var replaceInputPart = input.ContainerPolicy.BuildPostOperation(
+            inputPath: input.InputPath,
+            tempOutputPath: input.TempOutputPath,
+            outputPath: input.OutputPath,
+            replaceInput: input.ReplaceInput);
+        var muxPart = input.ContainerPolicy.MuxArguments;
         var parts = new[]
         {
             "ffmpeg",
@@ -57,11 +62,14 @@ public sealed class H264CommandBuilder
     public string BuildEncode(H264EncodeCommandInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(input.ContainerPolicy);
 
         var targetPath = input.ReplaceInput ? input.TempOutputPath : input.OutputPath;
-        var replaceInputPart = input.ReplaceInput
-            ? $"&& del {Quote(input.InputPath)} && move /Y {Quote(input.TempOutputPath)} {Quote(input.OutputPath)}"
-            : string.Empty;
+        var replaceInputPart = input.ContainerPolicy.BuildPostOperation(
+            inputPath: input.InputPath,
+            tempOutputPath: input.TempOutputPath,
+            outputPath: input.OutputPath,
+            replaceInput: input.ReplaceInput);
         var fflagsPart = input.FixTimestamps ? "-fflags +genpts+igndts" : string.Empty;
         var hwaccelPart = input.ApplyDownscale ? "-hwaccel cuda -hwaccel_output_format cuda" : string.Empty;
         var vfPart = BuildVfPart(input);
@@ -70,7 +78,7 @@ public sealed class H264CommandBuilder
             : string.Empty;
         var pixFmtPart = input.ApplyDownscale ? string.Empty : "-pix_fmt yuv420p";
         var audioPart = input.CopyAudio ? "-c:a copy" : "-c:a aac -b:a 160k";
-        var muxPart = input.OutputMkv ? string.Empty : "-movflags +faststart";
+        var muxPart = input.ContainerPolicy.MuxArguments;
 
         var parts = new[]
         {

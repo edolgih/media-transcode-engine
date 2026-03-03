@@ -16,18 +16,10 @@ internal static class CliHelpBuilder
             string.Empty,
             $"Usage: {exeName} [options]",
             string.Empty,
-            "Common options:"
+            "Options:"
         };
 
-        AddOptionRows(lines, GetCommonOptions());
-
-        lines.Add(string.Empty);
-        lines.Add($"Scenario: {CliContracts.ToMkvGpuScenario}");
-        AddOptionRows(lines, GetScenarioOptions(CliContracts.ToMkvGpuScenario));
-
-        lines.Add(string.Empty);
-        lines.Add($"Scenario: {CliContracts.ToH264GpuScenario}");
-        AddOptionRows(lines, GetScenarioOptions(CliContracts.ToH264GpuScenario));
+        AddOptionRows(lines, GetOptionsForHelp());
 
         lines.Add(string.Empty);
         lines.Add("Configuration (appsettings / environment):");
@@ -45,31 +37,16 @@ internal static class CliHelpBuilder
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\"");
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --info");
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --keep-source --downscale 576");
-        lines.Add($"  {exeName} --scenario toh264gpu --input \"C:\\video\\movie.mp4\" --output-mkv");
+        lines.Add($"  {exeName} --input \"C:\\video\\movie.mp4\" --container mp4 --compute gpu --preset p5");
         lines.Add($"  Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | {exeName} --info");
 
         return string.Join(Environment.NewLine, lines);
     }
 
-    private static IReadOnlyList<CliOptionDefinition> GetCommonOptions()
+    private static IReadOnlyList<CliOptionDefinition> GetOptionsForHelp()
     {
         return CliContracts.OptionsByName.Values
-            .Where(static option =>
-                option.Name != "-h" &&
-                option.AppliesToScenarios.Contains(CliContracts.ToMkvGpuScenario) &&
-                option.AppliesToScenarios.Contains(CliContracts.ToH264GpuScenario))
-            .OrderBy(static option => option.Name, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    private static IReadOnlyList<CliOptionDefinition> GetScenarioOptions(string scenarioName)
-    {
-        return CliContracts.OptionsByName.Values
-            .Where(option =>
-                option.Name != "-h" &&
-                option.AppliesToScenarios.Contains(scenarioName) &&
-                !(option.AppliesToScenarios.Contains(CliContracts.ToMkvGpuScenario) &&
-                  option.AppliesToScenarios.Contains(CliContracts.ToH264GpuScenario)))
+            .Where(static option => option.Name != "-h")
             .OrderBy(static option => option.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }

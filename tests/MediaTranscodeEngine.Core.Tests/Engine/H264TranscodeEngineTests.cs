@@ -169,7 +169,7 @@ public class H264TranscodeEngineTests
     }
 
     [Fact]
-    public void Process_WhenKeepSourceAndEncodeDownscaleEnabled_WritesOutputWith576pAndH264Suffixes()
+    public void BuildCommand_WhenKeepSourceTrue_UsesSuffixNaming()
     {
         var (sut, probeReader) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(height: 1080));
@@ -180,6 +180,19 @@ public class H264TranscodeEngineTests
         actual.Should().Contain("\"C:\\video\\a_576p_h264.mp4\"");
         actual.Should().NotContain("&& del ");
         actual.Should().NotContain("move /Y");
+    }
+
+    [Fact]
+    public void ProcessWithProbeResult_WhenProbeProvided_BuildsCommandAndSkipsProbeReader()
+    {
+        var (sut, probeReader) = CreateSut();
+        var request = CreateRequest();
+        var probe = CreateProbe();
+
+        var actual = sut.ProcessWithProbeResult(request, probe);
+
+        probeReader.DidNotReceive().Read(Arg.Any<string>());
+        actual.Should().Contain("-c copy");
     }
 
     [Fact]
@@ -225,6 +238,14 @@ public class H264TranscodeEngineTests
         var sut = new H264TranscodeEngine(
             probeReader,
             new H264RemuxEligibilityPolicy(),
+            new H264TimestampPolicy(),
+            new H264AudioPolicy(),
+            new H264RateControlPolicy(),
+            new ContainerPolicySelector(
+            [
+                new MkvContainerPolicy(),
+                new Mp4ContainerPolicy()
+            ]),
             new H264CommandBuilder());
         return (sut, probeReader);
     }

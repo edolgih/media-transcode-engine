@@ -1,6 +1,7 @@
 using MediaTranscodeEngine.Core.Abstractions;
 using MediaTranscodeEngine.Core.Commanding;
 using MediaTranscodeEngine.Core.Engine;
+using MediaTranscodeEngine.Core.Engine.Behaviors;
 using MediaTranscodeEngine.Core.Infrastructure;
 using MediaTranscodeEngine.Core.Policy;
 using MediaTranscodeEngine.Cli.Parsing;
@@ -81,8 +82,20 @@ public static class Program
             builder.Services.AddSingleton<FfmpegCommandBuilder>();
             builder.Services.AddSingleton<TranscodeEngine>();
             builder.Services.AddSingleton<H264RemuxEligibilityPolicy>();
+            builder.Services.AddSingleton<H264TimestampPolicy>();
+            builder.Services.AddSingleton<H264AudioPolicy>();
+            builder.Services.AddSingleton<H264RateControlPolicy>();
+            builder.Services.AddSingleton<IContainerPolicy, MkvContainerPolicy>();
+            builder.Services.AddSingleton<IContainerPolicy, Mp4ContainerPolicy>();
+            builder.Services.AddSingleton<ContainerPolicySelector>();
             builder.Services.AddSingleton<H264CommandBuilder>();
             builder.Services.AddSingleton<H264TranscodeEngine>();
+            builder.Services.AddSingleton<TargetVideoCodecResolver>();
+            builder.Services.AddSingleton<ITranscodeBehavior, CopyTranscodeBehavior>();
+            builder.Services.AddSingleton<ITranscodeBehavior, H264GpuTranscodeBehavior>();
+            builder.Services.AddSingleton<ITranscodeBehavior, H264CpuNotImplementedBehavior>();
+            builder.Services.AddSingleton<TranscodeBehaviorSelector>();
+            builder.Services.AddSingleton<UnifiedTranscodeEngine>();
 
             using var host = builder.Build();
             var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(Program));
@@ -140,42 +153,15 @@ public static class Program
             return 1;
         }
 
-        switch (parsed.ScenarioName.ToLowerInvariant())
+        var engine = services.GetRequiredService<UnifiedTranscodeEngine>();
+        foreach (var input in parsed.Inputs)
         {
-            case CliContracts.ToMkvGpuScenario:
+            var request = CliRequestMappers.BuildUnifiedRequest(parsed.RequestTemplate, input);
+            var line = engine.Process(request);
+            if (!string.IsNullOrWhiteSpace(line))
             {
-                var engine = services.GetRequiredService<TranscodeEngine>();
-                foreach (var input in parsed.Inputs)
-                {
-                    var request = CliScenarioMappers.BuildToMkvRequest(parsed.ToMkvRequestTemplate, input);
-                    var line = engine.Process(request);
-                    if (!string.IsNullOrWhiteSpace(line))
-                    {
-                        Console.WriteLine(line);
-                    }
-                }
-
-                break;
+                Console.WriteLine(line);
             }
-            case CliContracts.ToH264GpuScenario:
-            {
-                var engine = services.GetRequiredService<H264TranscodeEngine>();
-                foreach (var input in parsed.Inputs)
-                {
-                    var request = CliScenarioMappers.BuildToH264Request(parsed.ToH264RequestTemplate, input);
-                    var line = engine.Process(request);
-                    if (!string.IsNullOrWhiteSpace(line))
-                    {
-                        Console.WriteLine(line);
-                    }
-                }
-
-                break;
-            }
-            default:
-                logger.LogWarning("Unknown scenario: {Scenario}", parsed.ScenarioName);
-                Console.Error.WriteLine($"Unknown scenario: {parsed.ScenarioName}");
-                return 1;
         }
 
         return 0;

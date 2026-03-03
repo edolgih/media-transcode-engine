@@ -8,6 +8,7 @@ public class DomainRequestInvariantsTests
     [Theory]
     [InlineData(typeof(TranscodeRequest))]
     [InlineData(typeof(H264TranscodeRequest))]
+    [InlineData(typeof(UnifiedTranscodeRequest))]
     public void DomainRequests_ShouldExposeReadOnlyPublicProperties(Type requestType)
     {
         var writableProperties = requestType

@@ -51,7 +51,7 @@ public class CliArgumentParserParsingTests
             errorText: out var errorText);
 
         ok.Should().BeFalse();
-        errorText.Should().Be("Do not use 'tomkvgpu' command token. Use CLI switches directly.");
+        errorText.Should().Be("Do not use legacy scenario command tokens. Use CLI switches directly.");
     }
 
     [Fact]
@@ -77,8 +77,7 @@ public class CliArgumentParserParsingTests
 
         ok.Should().BeTrue();
         errorText.Should().BeNull();
-        parsed.ToMkvRequestTemplate.KeepSource.Should().BeTrue();
-        parsed.ToH264RequestTemplate.KeepSource.Should().BeTrue();
+        parsed.RequestTemplate.KeepSource.Should().BeTrue();
     }
 
     private static bool Parse(
