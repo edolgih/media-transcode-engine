@@ -4,7 +4,7 @@ namespace MediaTranscodeEngine.Cli.Parsing;
 
 internal static class CliRequestMappers
 {
-    public static UnifiedTranscodeRequest BuildUnifiedRequest(RawUnifiedTranscodeRequest template, string inputPath)
+    public static TranscodeRequest BuildRequest(RawTranscodeRequest template, string inputPath)
     {
         return (template with { InputPath = inputPath }).ToDomain();
     }

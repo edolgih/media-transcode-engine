@@ -95,7 +95,7 @@ public static class Program
             builder.Services.AddSingleton<ITranscodeBehavior, H264GpuTranscodeBehavior>();
             builder.Services.AddSingleton<ITranscodeBehavior, H264CpuNotImplementedBehavior>();
             builder.Services.AddSingleton<TranscodeBehaviorSelector>();
-            builder.Services.AddSingleton<UnifiedTranscodeEngine>();
+            builder.Services.AddSingleton<GeneralTranscodeEngine>();
 
             using var host = builder.Build();
             var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(Program));
@@ -153,10 +153,10 @@ public static class Program
             return 1;
         }
 
-        var engine = services.GetRequiredService<UnifiedTranscodeEngine>();
+        var engine = services.GetRequiredService<GeneralTranscodeEngine>();
         foreach (var input in parsed.Inputs)
         {
-            var request = CliRequestMappers.BuildUnifiedRequest(parsed.RequestTemplate, input);
+            var request = CliRequestMappers.BuildRequest(parsed.RequestTemplate, input);
             var line = engine.Process(request);
             if (!string.IsNullOrWhiteSpace(line))
             {

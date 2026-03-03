@@ -29,7 +29,7 @@ internal sealed class CliMutableParseState
 {
     public List<string> Inputs { get; } = [];
 
-    public RawUnifiedTranscodeRequest RequestTemplate { get; set; } =
+    public RawTranscodeRequest RequestTemplate { get; set; } =
         new(InputPath: "__input__");
 }
 
@@ -86,7 +86,7 @@ internal static class CliContracts
                 ApplyValue: static (state, value) =>
                 {
                     var container = value.StringValue ?? string.Empty;
-                    var preferH264 = !container.Equals(RequestContracts.Unified.MkvContainer, StringComparison.OrdinalIgnoreCase);
+                    var preferH264 = !container.Equals(RequestContracts.General.MkvContainer, StringComparison.OrdinalIgnoreCase);
                     state.RequestTemplate = state.RequestTemplate with
                     {
                         TargetContainer = container,
@@ -150,7 +150,7 @@ internal static class CliContracts
                 ValueKind: CliOptionValueKind.String,
                 IsRepeatable: false,
                 HelpText: "Downscale algorithm.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { DownscaleAlgo = value.StringValue ?? RequestContracts.Unified.DefaultDownscaleAlgorithm },
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { DownscaleAlgo = value.StringValue },
                 Usage: "--downscale-algo <value>"),
             ["--content-profile"] = new CliOptionDefinition(
                 Name: "--content-profile",
@@ -235,7 +235,7 @@ internal static class CliContracts
                 HelpText: "AQ strength.",
                 ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with
                 {
-                    AqStrength = value.IntValue ?? RequestContracts.Unified.DefaultAqStrength,
+                    AqStrength = value.IntValue ?? RequestContracts.General.DefaultAqStrength,
                     PreferH264 = true
                 },
                 InvalidValueError: "--aq-strength must be an integer.",
@@ -259,7 +259,7 @@ internal static class CliContracts
                 HelpText: "Alias for h264 flow with mkv output container.",
                 ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with
                 {
-                    TargetContainer = RequestContracts.Unified.MkvContainer,
+                    TargetContainer = RequestContracts.General.MkvContainer,
                     PreferH264 = true
                 })
         };

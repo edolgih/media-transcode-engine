@@ -4,7 +4,7 @@ namespace MediaTranscodeEngine.Cli.Parsing;
 
 internal sealed record CliParseResult(
     IReadOnlyList<string> Inputs,
-    RawUnifiedTranscodeRequest RequestTemplate);
+    RawTranscodeRequest RequestTemplate);
 
 internal static class CliArgumentParser
 {
