@@ -1,7 +1,17 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace MediaTranscodeEngine.Core.Policy;
 
 public sealed class TranscodePolicy
 {
+    private readonly ILogger<TranscodePolicy> _logger;
+
+    public TranscodePolicy(ILogger<TranscodePolicy>? logger = null)
+    {
+        _logger = logger ?? NullLogger<TranscodePolicy>.Instance;
+    }
+
     public TranscodePolicyResult Resolve576Settings(
         TranscodePolicyConfig config,
         TranscodePolicyInput input)
@@ -275,17 +285,38 @@ public sealed class TranscodePolicy
         var maxIterations = Math.Max(autoSampling.MaxIterations, 1);
         var hybridIterations = Math.Max(autoSampling.HybridAccurateIterations, 1);
         var bounds = BuildBounds(qualityRange);
+        var boundsDescription = DescribeBounds(bounds);
+        _logger.LogInformation(
+            "Auto-sample policy start. Mode={Mode} ContentProfile={ContentProfile} QualityProfile={QualityProfile} SourceHeight={SourceHeight} Corridor={Corridor} BaseCq={BaseCq} BaseMaxrate={BaseMaxrate} BaseBufsize={BaseBufsize} MaxIterations={MaxIterations}",
+            autoSampleMode,
+            contentProfile,
+            qualityProfile,
+            sourceHeight,
+            boundsDescription,
+            baseSettings.Cq,
+            baseSettings.Maxrate,
+            baseSettings.Bufsize,
+            maxIterations);
 
         var mode = autoSampleMode.ToLowerInvariant();
         if (mode == "fast")
         {
-            return RunLoop(
+            var fastResult = RunLoop(
                 maxIterations,
                 config.RateModel,
                 limits,
                 baseSettings,
                 bounds,
-                fastReductionProvider).Result;
+                fastReductionProvider,
+                loopName: "fast");
+            _logger.LogInformation(
+                "Auto-sample policy finish. Mode={Mode} ResolvedCq={ResolvedCq} ResolvedMaxrate={ResolvedMaxrate} ResolvedBufsize={ResolvedBufsize} InBounds={InBounds}",
+                mode,
+                fastResult.Result.Cq,
+                fastResult.Result.Maxrate,
+                fastResult.Result.Bufsize,
+                fastResult.InBounds);
+            return fastResult.Result;
         }
 
         if (mode == "hybrid")
@@ -297,10 +328,17 @@ public sealed class TranscodePolicy
                 baseSettings,
                 bounds,
                 fastReductionProvider,
-                captureInBounds: true);
+                captureInBounds: true,
+                loopName: "hybrid-fast");
 
             if (fast.InBounds)
             {
+                _logger.LogInformation(
+                    "Auto-sample policy finish. Mode={Mode} ResolvedCq={ResolvedCq} ResolvedMaxrate={ResolvedMaxrate} ResolvedBufsize={ResolvedBufsize} InBounds=true",
+                    mode,
+                    fast.Result.Cq,
+                    fast.Result.Maxrate,
+                    fast.Result.Bufsize);
                 return fast.Result;
             }
 
@@ -311,8 +349,16 @@ public sealed class TranscodePolicy
                 limits,
                 accurateStart,
                 bounds,
-                accurateReductionProvider);
+                accurateReductionProvider,
+                loopName: "hybrid-accurate");
 
+            _logger.LogInformation(
+                "Auto-sample policy finish. Mode={Mode} ResolvedCq={ResolvedCq} ResolvedMaxrate={ResolvedMaxrate} ResolvedBufsize={ResolvedBufsize} InBounds={InBounds}",
+                mode,
+                accurate.Result.Cq,
+                accurate.Result.Maxrate,
+                accurate.Result.Bufsize,
+                accurate.InBounds);
             return accurate.Result;
         }
 
@@ -322,19 +368,28 @@ public sealed class TranscodePolicy
             limits,
             baseSettings,
             bounds,
-            accurateReductionProvider);
+            accurateReductionProvider,
+            loopName: "accurate");
 
+        _logger.LogInformation(
+            "Auto-sample policy finish. Mode={Mode} ResolvedCq={ResolvedCq} ResolvedMaxrate={ResolvedMaxrate} ResolvedBufsize={ResolvedBufsize} InBounds={InBounds}",
+            mode,
+            accurateOnly.Result.Cq,
+            accurateOnly.Result.Maxrate,
+            accurateOnly.Result.Bufsize,
+            accurateOnly.InBounds);
         return accurateOnly.Result;
     }
 
-    private static LoopResult RunLoop(
+    private LoopResult RunLoop(
         int maxIterations,
         RateModelSettings rateModel,
         ProfileLimits limits,
         TranscodePolicyResult start,
         ReductionBounds bounds,
         Func<int, double, double, double?> reductionProvider,
-        bool captureInBounds = false)
+        bool captureInBounds = false,
+        string loopName = "accurate")
     {
         var cq = start.Cq;
         var maxrate = start.Maxrate;
@@ -344,8 +399,23 @@ public sealed class TranscodePolicy
         {
             var bufsize = maxrate * rateModel.BufsizeMultiplier;
             var reduction = reductionProvider(cq, maxrate, bufsize);
+            var iteration = i + 1;
+            _logger.LogInformation(
+                "Auto-sample iteration. Loop={Loop} Iteration={Iteration}/{MaxIterations} Cq={Cq} Maxrate={Maxrate} Bufsize={Bufsize} Reduction={Reduction}",
+                loopName,
+                iteration,
+                maxIterations,
+                cq,
+                maxrate,
+                bufsize,
+                reduction);
             if (!reduction.HasValue)
             {
+                _logger.LogWarning(
+                    "Auto-sample iteration failed to resolve reduction. Loop={Loop} Iteration={Iteration}/{MaxIterations}",
+                    loopName,
+                    iteration,
+                    maxIterations);
                 break;
             }
 
@@ -353,6 +423,12 @@ public sealed class TranscodePolicy
             if (IsReductionInBounds(reductionValue, bounds))
             {
                 inBounds = true;
+                _logger.LogInformation(
+                    "Auto-sample iteration is in corridor. Loop={Loop} Iteration={Iteration}/{MaxIterations} Reduction={Reduction}",
+                    loopName,
+                    iteration,
+                    maxIterations,
+                    reductionValue);
                 break;
             }
 
@@ -367,6 +443,13 @@ public sealed class TranscodePolicy
                 }
 
                 maxrate = Math.Max(maxrate - rateModel.CqStepToMaxrateStep, limits.MaxrateMin);
+                _logger.LogInformation(
+                    "Auto-sample adjustment. Loop={Loop} Direction=IncreaseCompression PrevCq={PrevCq} NextCq={NextCq} PrevMaxrate={PrevMaxrate} NextMaxrate={NextMaxrate}",
+                    loopName,
+                    prevCq,
+                    cq,
+                    prevMaxrate,
+                    maxrate);
             }
             else
             {
@@ -376,10 +459,22 @@ public sealed class TranscodePolicy
                 }
 
                 maxrate = Math.Min(maxrate + rateModel.CqStepToMaxrateStep, limits.MaxrateMax);
+                _logger.LogInformation(
+                    "Auto-sample adjustment. Loop={Loop} Direction=DecreaseCompression PrevCq={PrevCq} NextCq={NextCq} PrevMaxrate={PrevMaxrate} NextMaxrate={NextMaxrate}",
+                    loopName,
+                    prevCq,
+                    cq,
+                    prevMaxrate,
+                    maxrate);
             }
 
             if (prevCq == cq && Math.Abs(prevMaxrate - maxrate) < 0.000001)
             {
+                _logger.LogInformation(
+                    "Auto-sample loop converged without further changes. Loop={Loop} Iteration={Iteration}/{MaxIterations}",
+                    loopName,
+                    iteration,
+                    maxIterations);
                 break;
             }
         }
@@ -392,6 +487,18 @@ public sealed class TranscodePolicy
                 Bufsize = maxrate * rateModel.BufsizeMultiplier
             },
             InBounds: captureInBounds && inBounds);
+    }
+
+    private static string DescribeBounds(ReductionBounds bounds)
+    {
+        var lowerToken = bounds.Lower.HasValue
+            ? $"{(bounds.LowerInclusive ? "[" : "(")}{bounds.Lower.Value:0.###}"
+            : "(-inf";
+        var upperToken = bounds.Upper.HasValue
+            ? $"{bounds.Upper.Value:0.###}{(bounds.UpperInclusive ? "]" : ")")}"
+            : "+inf)";
+
+        return $"{lowerToken}; {upperToken}";
     }
 
     private static ReductionBounds BuildBounds(ReductionRange range)

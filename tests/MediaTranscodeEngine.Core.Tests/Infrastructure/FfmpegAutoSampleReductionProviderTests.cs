@@ -3,12 +3,28 @@ using FluentAssertions;
 using MediaTranscodeEngine.Core.Abstractions;
 using MediaTranscodeEngine.Core.Engine;
 using MediaTranscodeEngine.Core.Infrastructure;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace MediaTranscodeEngine.Core.Tests.Infrastructure;
 
 public class FfmpegAutoSampleReductionProviderTests
 {
+    [Fact]
+    public void Ctor_WhenNvencPresetIsUnsupported_ThrowsArgumentException()
+    {
+        var probeReader = Substitute.For<IProbeReader>();
+        var processRunner = Substitute.For<IProcessRunner>();
+
+        var action = () => new FfmpegAutoSampleReductionProvider(
+            probeReader,
+            processRunner,
+            nvencPreset: "p9");
+
+        action.Should().Throw<ArgumentException>()
+            .WithMessage("*nvencPreset must be p1..p7.*");
+    }
+
     [Fact]
     public void EstimateFast_WhenFormatBitrateIsAvailable_ReturnsExpectedReduction()
     {
@@ -259,6 +275,43 @@ public class FfmpegAutoSampleReductionProviderTests
     }
 
     [Fact]
+    public void EstimateAccurate_WhenRetryHappens_WritesWarningLog()
+    {
+        var inputPath = CreateTempFileWithLength(24_000_000);
+        try
+        {
+            var probeReader = Substitute.For<IProbeReader>();
+            probeReader.Read(inputPath).Returns(new ProbeResult(
+                Format: new ProbeFormat(DurationSeconds: 1_200, BitrateBps: 4_000_000),
+                Streams: [new ProbeStream("video", "h264", Width: 1280, Height: 720)]));
+
+            var processRunner = new ScriptedProcessRunner(
+                encodedSampleSizesBytes: [300_000],
+                failOnCallNumbers: [1]);
+            var logger = Substitute.For<ILogger<FfmpegAutoSampleReductionProvider>>();
+            var sut = CreateSut(probeReader, processRunner, sampleEncodeMaxRetries: 1, logger: logger);
+
+            var actual = sut.EstimateAccurate(new AutoSampleReductionInput(
+                InputPath: inputPath,
+                Cq: 23,
+                Maxrate: 2.0,
+                Bufsize: 4.0));
+
+            actual.Should().NotBeNull();
+            logger.Received().Log(
+                LogLevel.Warning,
+                Arg.Any<EventId>(),
+                Arg.Is<object>(state => state.ToString()!.Contains("Sample encode attempt failed", StringComparison.Ordinal)),
+                Arg.Any<Exception>(),
+                Arg.Any<Func<object, Exception?, string>>());
+        }
+        finally
+        {
+            TryDelete(inputPath);
+        }
+    }
+
+    [Fact]
     public void EstimateAccurate_WhenCalled_UsesInputDirectoryWorkSubfolderAndCleansItUp()
     {
         var testDir = Path.Combine(Path.GetTempPath(), $"mte-provider-workdir-{Guid.NewGuid():N}");
@@ -307,7 +360,8 @@ public class FfmpegAutoSampleReductionProviderTests
     private static FfmpegAutoSampleReductionProvider CreateSut(
         IProbeReader probeReader,
         IProcessRunner processRunner,
-        int sampleEncodeMaxRetries = 0)
+        int sampleEncodeMaxRetries = 0,
+        ILogger<FfmpegAutoSampleReductionProvider>? logger = null)
     {
         return new FfmpegAutoSampleReductionProvider(
             probeReader,
@@ -317,7 +371,8 @@ public class FfmpegAutoSampleReductionProviderTests
             sampleEncodeInactivityTimeoutMs: 12_000,
             sampleDurationSeconds: 60,
             nvencPreset: "p6",
-            sampleEncodeMaxRetries: sampleEncodeMaxRetries);
+            sampleEncodeMaxRetries: sampleEncodeMaxRetries,
+            logger: logger);
     }
 
     private static string CreateTempFileWithLength(long lengthBytes, string? directoryPath = null)

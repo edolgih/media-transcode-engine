@@ -1,6 +1,8 @@
 using MediaTranscodeEngine.Core.Abstractions;
 using MediaTranscodeEngine.Core.Commanding;
 using MediaTranscodeEngine.Core.Policy;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaTranscodeEngine.Core.Engine;
 
@@ -17,19 +19,22 @@ public sealed class TranscodeEngine
     private readonly TranscodePolicy _policy;
     private readonly FfmpegCommandBuilder _commandBuilder;
     private readonly IAutoSampleReductionProvider? _autoSampleReductionProvider;
+    private readonly ILogger<TranscodeEngine> _logger;
 
     public TranscodeEngine(
         IProbeReader probeReader,
         IProfileRepository profileRepository,
         TranscodePolicy policy,
         FfmpegCommandBuilder commandBuilder,
-        IAutoSampleReductionProvider? autoSampleReductionProvider = null)
+        IAutoSampleReductionProvider? autoSampleReductionProvider = null,
+        ILogger<TranscodeEngine>? logger = null)
     {
         _probeReader = probeReader;
         _profileRepository = profileRepository;
         _policy = policy;
         _commandBuilder = commandBuilder;
         _autoSampleReductionProvider = autoSampleReductionProvider;
+        _logger = logger ?? NullLogger<TranscodeEngine>.Instance;
     }
 
     public string Process(TranscodeRequest request)
@@ -53,7 +58,7 @@ public sealed class TranscodeEngine
         ProbeResult? probeOverride,
         bool useProbeOverride)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        request = request.EnsureValid();
 
         var fileName = request.InputPath;
         var displayName = Path.GetFileName(fileName);
@@ -84,6 +89,7 @@ public sealed class TranscodeEngine
             : _probeReader.Read(fileName);
         if (probe is null || probe.Streams.Count == 0)
         {
+            _logger.LogWarning("Probe failed or returned no streams for {InputPath}", fileName);
             return request.Info
                 ? $"{displayName}: [ffprobe failed]"
                 : $"REM ffprobe failed: {fileName}";
@@ -120,9 +126,9 @@ public sealed class TranscodeEngine
                 new TranscodePolicyInput(
                     ContentProfile: request.ContentProfile,
                     QualityProfile: request.QualityProfile,
-                    Cq: request.CqOverride,
-                    Maxrate: request.MaxrateOverride,
-                    Bufsize: request.BufsizeOverride,
+                    Cq: request.Cq,
+                    Maxrate: request.Maxrate,
+                    Bufsize: request.Bufsize,
                     DownscaleAlgo: request.DownscaleAlgoOverride));
 
             var bucket = _policy.ResolveSourceBucket(config, video.Height);
@@ -174,9 +180,9 @@ public sealed class TranscodeEngine
             var shouldAutoSample =
                 _autoSampleReductionProvider is not null &&
                 !request.NoAutoSample &&
-                !request.CqOverride.HasValue &&
-                !request.MaxrateOverride.HasValue &&
-                !request.BufsizeOverride.HasValue &&
+                !request.Cq.HasValue &&
+                !request.Maxrate.HasValue &&
+                !request.Bufsize.HasValue &&
                 probe.Format?.DurationSeconds is > 0;
 
             if (shouldAutoSample)
@@ -184,6 +190,12 @@ public sealed class TranscodeEngine
                 var mode = string.IsNullOrWhiteSpace(request.AutoSampleMode)
                     ? config.AutoSampling?.ModeDefault ?? "accurate"
                     : request.AutoSampleMode;
+                _logger.LogInformation(
+                    "Auto-sample enabled for {InputPath}. Mode={Mode}, ContentProfile={ContentProfile}, QualityProfile={QualityProfile}",
+                    fileName,
+                    mode,
+                    request.ContentProfile,
+                    request.QualityProfile);
 
                 profileSettings = _policy.ResolveAutoSampleSettings(
                     config,
@@ -198,6 +210,12 @@ public sealed class TranscodeEngine
                     fastReductionProvider: (cq, maxrate, bufsize) =>
                         _autoSampleReductionProvider!.EstimateFast(
                             new AutoSampleReductionInput(fileName, cq, maxrate, bufsize)));
+                _logger.LogInformation(
+                    "Auto-sample resolved settings for {InputPath}. Cq={Cq}, Maxrate={Maxrate}, Bufsize={Bufsize}",
+                    fileName,
+                    profileSettings.Cq,
+                    profileSettings.Maxrate,
+                    profileSettings.Bufsize);
             }
 
             downscaleAlgo = profileSettings.DownscaleAlgo;
@@ -262,7 +280,7 @@ public sealed class TranscodeEngine
             OverlayBg: request.OverlayBg,
             SourceWidth: video.Width,
             SourceHeight: video.Height,
-            Cq: request.CqOverride ?? defaultCq,
+            Cq: request.Cq ?? defaultCq,
             Maxrate: profileSettings?.Maxrate ?? 3.0,
             Bufsize: profileSettings?.Bufsize ?? 6.0,
             DownscaleAlgo: downscaleAlgo,

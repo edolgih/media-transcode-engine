@@ -58,3 +58,4 @@ Generate commands from piped paths (one path per line):
 ```bash
 some_path_producer | dotnet run --project src/MediaTranscodeEngine.Cli -- tomkvgpu --info
 ```
+https://google.com

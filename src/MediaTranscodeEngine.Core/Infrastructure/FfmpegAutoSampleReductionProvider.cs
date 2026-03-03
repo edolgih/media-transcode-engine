@@ -1,5 +1,7 @@
 using System.Globalization;
 using MediaTranscodeEngine.Core.Abstractions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaTranscodeEngine.Core.Infrastructure;
 
@@ -15,6 +17,7 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
     private readonly int _sampleDurationSeconds;
     private readonly string _nvencPreset;
     private readonly int _sampleEncodeMaxRetries;
+    private readonly ILogger<FfmpegAutoSampleReductionProvider> _logger;
 
     public FfmpegAutoSampleReductionProvider(
         IProbeReader probeReader,
@@ -24,7 +27,8 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
         int sampleEncodeInactivityTimeoutMs = 12_000,
         int sampleDurationSeconds = 15,
         string nvencPreset = "p6",
-        int sampleEncodeMaxRetries = 0)
+        int sampleEncodeMaxRetries = 0,
+        ILogger<FfmpegAutoSampleReductionProvider>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(probeReader);
         ArgumentNullException.ThrowIfNull(processRunner);
@@ -50,6 +54,11 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
             throw new ArgumentOutOfRangeException(nameof(sampleEncodeMaxRetries), "Retry count cannot be negative.");
         }
 
+        if (!IsOneOf(nvencPreset, "p1", "p2", "p3", "p4", "p5", "p6", "p7"))
+        {
+            throw new ArgumentException("nvencPreset must be p1..p7.", nameof(nvencPreset));
+        }
+
         _probeReader = probeReader;
         _processRunner = processRunner;
         _ffmpegPath = ffmpegPath;
@@ -58,21 +67,33 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
         _sampleDurationSeconds = sampleDurationSeconds;
         _nvencPreset = nvencPreset;
         _sampleEncodeMaxRetries = sampleEncodeMaxRetries;
+        _logger = logger ?? NullLogger<FfmpegAutoSampleReductionProvider>.Instance;
     }
 
     public double? EstimateAccurate(AutoSampleReductionInput input)
     {
         if (!TryResolveDurationAndSourceSize(input.InputPath, out var durationSeconds, out var sourceBytes))
         {
+            _logger.LogWarning(
+                "Auto-sample accurate skipped: unable to resolve source duration/size for {InputPath}",
+                input.InputPath);
             return null;
         }
 
         var windows = ResolveSampleWindows(durationSeconds);
         if (windows.Count == 0)
         {
+            _logger.LogWarning(
+                "Auto-sample accurate skipped: no sample windows resolved for {InputPath}",
+                input.InputPath);
             return null;
         }
 
+        _logger.LogInformation(
+            "Auto-sample accurate started for {InputPath}. Windows={WindowCount}, SampleDurationSeconds={SampleDurationSeconds}",
+            input.InputPath,
+            windows.Count,
+            _sampleDurationSeconds);
         var sampleWorkDir = CreateSampleWorkDirectory(input.InputPath);
         try
         {
@@ -89,6 +110,11 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
                 {
                     if (!TryRunSampleEncode(input, window.StartSeconds, window.DurationSeconds, outputPath))
                     {
+                        _logger.LogWarning(
+                            "Auto-sample accurate failed for {InputPath} at window {WindowIndex}/{WindowCount}",
+                            input.InputPath,
+                            index + 1,
+                            windows.Count);
                         return null;
                     }
 
@@ -104,11 +130,19 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
 
             if (sourceWindowBytesTotal <= 0)
             {
+                _logger.LogWarning(
+                    "Auto-sample accurate failed: source window bytes were not resolved for {InputPath}",
+                    input.InputPath);
                 return null;
             }
 
             var reduction = (1d - encodedBytesTotal / sourceWindowBytesTotal) * 100d;
-            return Math.Round(reduction, 3, MidpointRounding.AwayFromZero);
+            var rounded = Math.Round(reduction, 3, MidpointRounding.AwayFromZero);
+            _logger.LogInformation(
+                "Auto-sample accurate finished for {InputPath}. Reduction={ReductionPercent}%",
+                input.InputPath,
+                rounded);
+            return rounded;
         }
         finally
         {
@@ -132,6 +166,13 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
         var attempts = _sampleEncodeMaxRetries + 1;
         for (var attempt = 0; attempt < attempts; attempt++)
         {
+            _logger.LogDebug(
+                "Running sample encode for {InputPath}. Attempt={Attempt}/{Attempts}, StartSeconds={StartSeconds}, DurationSeconds={DurationSeconds}",
+                input.InputPath,
+                attempt + 1,
+                attempts,
+                startSeconds,
+                durationSeconds);
             var run = _processRunner.RunWithInactivityTimeout(
                 _ffmpegPath,
                 arguments,
@@ -142,6 +183,13 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
                 return true;
             }
 
+            _logger.LogWarning(
+                "Sample encode attempt failed for {InputPath}. Attempt={Attempt}/{Attempts}, ExitCode={ExitCode}, StdErr={StdErr}",
+                input.InputPath,
+                attempt + 1,
+                attempts,
+                run.ExitCode,
+                run.StdErr);
             TryDelete(outputPath);
         }
 
@@ -152,17 +200,28 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
     {
         if (!TryResolveSourceBitrateBps(input.InputPath, out var sourceBitrateBps))
         {
+            _logger.LogWarning(
+                "Auto-sample fast skipped: unable to resolve source bitrate for {InputPath}",
+                input.InputPath);
             return null;
         }
 
         if (sourceBitrateBps <= 0 || input.Maxrate <= 0)
         {
+            _logger.LogWarning(
+                "Auto-sample fast skipped: invalid bitrate values for {InputPath}",
+                input.InputPath);
             return null;
         }
 
         var targetBitrateBps = input.Maxrate * Megabit;
         var reduction = (1d - targetBitrateBps / sourceBitrateBps) * 100d;
-        return Math.Round(reduction, 3, MidpointRounding.AwayFromZero);
+        var rounded = Math.Round(reduction, 3, MidpointRounding.AwayFromZero);
+        _logger.LogInformation(
+            "Auto-sample fast finished for {InputPath}. Reduction={ReductionPercent}%",
+            input.InputPath,
+            rounded);
+        return rounded;
     }
 
     private bool TryResolveSourceBitrateBps(string inputPath, out double bitrateBps)
@@ -274,6 +333,11 @@ public sealed class FfmpegAutoSampleReductionProvider : IAutoSampleReductionProv
     private static string ToRateToken(double value)
     {
         return $"{value.ToString("0.###", CultureInfo.InvariantCulture)}M";
+    }
+
+    private static bool IsOneOf(string value, params string[] options)
+    {
+        return options.Any(option => option.Equals(value, StringComparison.OrdinalIgnoreCase));
     }
 
     private static string Quote(string value)

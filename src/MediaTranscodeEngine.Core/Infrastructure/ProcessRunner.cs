@@ -1,11 +1,20 @@
 using System.Diagnostics;
 using System.Text;
 using MediaTranscodeEngine.Core.Abstractions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaTranscodeEngine.Core.Infrastructure;
 
 public sealed class ProcessRunner : IProcessRunner
 {
+    private readonly ILogger<ProcessRunner> _logger;
+
+    public ProcessRunner(ILogger<ProcessRunner>? logger = null)
+    {
+        _logger = logger ?? NullLogger<ProcessRunner>.Instance;
+    }
+
     public ProcessRunResult Run(string fileName, string arguments, int timeoutMs = 30_000)
     {
         return RunWithInactivityTimeout(fileName, arguments, timeoutMs, inactivityTimeoutMs: 0);
@@ -37,6 +46,12 @@ public sealed class ProcessRunner : IProcessRunner
             UseShellExecute = false,
             CreateNoWindow = true
         };
+        _logger.LogDebug(
+            "Starting process: {FileName} {Arguments} (timeoutMs={TimeoutMs}, inactivityTimeoutMs={InactivityTimeoutMs})",
+            fileName,
+            arguments,
+            timeoutMs,
+            inactivityTimeoutMs);
 
         using var process = new Process
         {
@@ -87,6 +102,7 @@ public sealed class ProcessRunner : IProcessRunner
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
+        var startedAt = DateTime.UtcNow;
 
         var waitForExit = process.WaitForExitAsync();
         var hardDeadlineUtc = DateTime.UtcNow.AddMilliseconds(timeoutMs);
@@ -97,6 +113,11 @@ public sealed class ProcessRunner : IProcessRunner
             {
                 TryKillProcessTree(process);
                 WaitForPipeDrain(stdOutClosed.Task, stdErrClosed.Task);
+                _logger.LogWarning(
+                    "Process timeout reached after {TimeoutMs}ms: {FileName} {Arguments}",
+                    timeoutMs,
+                    fileName,
+                    arguments);
 
                 return new ProcessRunResult(
                     ExitCode: -1,
@@ -112,6 +133,11 @@ public sealed class ProcessRunner : IProcessRunner
                 {
                     TryKillProcessTree(process);
                     WaitForPipeDrain(stdOutClosed.Task, stdErrClosed.Task);
+                    _logger.LogWarning(
+                        "Process inactivity timeout reached after {InactivityTimeoutMs}ms: {FileName} {Arguments}",
+                        inactivityTimeoutMs,
+                        fileName,
+                        arguments);
 
                     return new ProcessRunResult(
                         ExitCode: -1,
@@ -125,6 +151,11 @@ public sealed class ProcessRunner : IProcessRunner
 
         waitForExit.GetAwaiter().GetResult();
         WaitForPipeDrain(stdOutClosed.Task, stdErrClosed.Task);
+        _logger.LogDebug(
+            "Process finished: {FileName} exitCode={ExitCode} elapsedMs={ElapsedMs}",
+            fileName,
+            process.ExitCode,
+            (int)(DateTime.UtcNow - startedAt).TotalMilliseconds);
 
         return new ProcessRunResult(
             ExitCode: process.ExitCode,

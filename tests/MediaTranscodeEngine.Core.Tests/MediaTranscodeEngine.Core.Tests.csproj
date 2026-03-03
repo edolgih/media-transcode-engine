@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MediaTranscodeEngine.Core\MediaTranscodeEngine.Core.csproj" />
-    <ProjectReference Include="..\..\src\MediaTranscodeEngine.Cli\MediaTranscodeEngine.Cli.csproj" />
   </ItemGroup>
 
   <ItemGroup>

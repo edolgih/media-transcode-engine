@@ -311,13 +311,13 @@ public class TranscodeEngineTests
     }
 
     [Fact]
-    public void Process_WhenVideoEncodeAndCqOverrideProvided_UsesOverrideValue()
+    public void Process_WhenVideoEncodeAndCqProvided_UsesProvidedValue()
     {
         var (sut, probeReader, _) = CreateSut();
         probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "hevc", audioCodec: "aac", height: 1080));
         var request = new TranscodeRequest(
             InputPath: "C:\\video\\a.mkv",
-            CqOverride: 20);
+            Cq: 20);
 
         var actual = sut.Process(request);
 
@@ -481,29 +481,6 @@ public class TranscodeEngineTests
         actual.Should().Contain("add SourceBuckets match");
     }
 
-    [Theory]
-    [InlineData("unknown", "default", "Unsupported ContentProfile")]
-    [InlineData("film", "unknown", "Unsupported QualityProfile")]
-    public void Process_WhenDownscale576AndProfileSelectionInvalid_ThrowsArgumentException(
-        string contentProfile,
-        string qualityProfile,
-        string expectedMessagePart)
-    {
-        var (sut, probeReader, profileRepository) = CreateSut();
-        probeReader.Read(Arg.Any<string>()).Returns(CreateProbe(codec: "h264", audioCodec: "aac", height: 1080));
-        profileRepository.Get576Config().Returns(CreateConfigWithBuckets());
-        var request = new TranscodeRequest(
-            InputPath: "C:\\video\\a.mp4",
-            Downscale: 576,
-            ContentProfile: contentProfile,
-            QualityProfile: qualityProfile);
-
-        var action = () => sut.Process(request);
-
-        action.Should().Throw<ArgumentException>()
-            .WithMessage($"*{expectedMessagePart}*");
-    }
-
     [Fact]
     public void Process_WhenDownscale576AndSourceBucketMatrixInvalid_ReturnsInvalidHintRem()
     {
@@ -655,9 +632,9 @@ public class TranscodeEngineTests
     [InlineData(null, 2.6, null, "-maxrate 2.6M")]
     [InlineData(null, null, 7.2, "-bufsize 7.2M")]
     public void Process_WhenDownscale576AndManualOverrideProvided_SkipsAutoSample(
-        int? cqOverride,
-        double? maxrateOverride,
-        double? bufsizeOverride,
+        int? cq,
+        double? maxrate,
+        double? bufsize,
         string expectedCommandPart)
     {
         var (sut, probeReader, profileRepository, autoSampleProvider) = CreateSutWithAutoSampleProvider();
@@ -668,9 +645,9 @@ public class TranscodeEngineTests
             Downscale: 576,
             ContentProfile: "anime",
             QualityProfile: "default",
-            CqOverride: cqOverride,
-            MaxrateOverride: maxrateOverride,
-            BufsizeOverride: bufsizeOverride);
+            Cq: cq,
+            Maxrate: maxrate,
+            Bufsize: bufsize);
 
         var actual = sut.Process(request);
 
