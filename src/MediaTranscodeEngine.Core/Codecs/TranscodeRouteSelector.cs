@@ -39,29 +39,19 @@ public sealed class TranscodeRouteSelector
             return CodecExecutionKeys.Copy;
         }
 
-        if (!_catalog.TryGetCodec(request.TargetVideoCodec, out var codecDescriptor))
+        if (!_catalog.TryGetProfile(request.EncoderBackend, request.TargetVideoCodec, out var profile))
         {
             throw new NotSupportedException(
                 $"Unsupported transcode combination: encoder backend '{request.EncoderBackend}', codec '{request.TargetVideoCodec}' and container '{request.TargetContainer}'.");
         }
 
-        if (!codecDescriptor.SupportsContainer(request.TargetContainer))
+        if (!profile.SupportsContainer(request.TargetContainer))
         {
             throw new NotSupportedException(
                 $"Unsupported transcode combination: codec '{request.TargetVideoCodec}' with backend '{request.EncoderBackend}' does not support container '{request.TargetContainer}'.");
         }
 
-        if (!_catalog.TryGetBackend(request.EncoderBackend, out var backendDescriptor))
-        {
-            throw new NotSupportedException(
-                $"Unsupported transcode combination: encoder backend '{request.EncoderBackend}' is not registered.");
-        }
-
-        if (!backendDescriptor.TryGetStrategyKey(request.TargetVideoCodec, out var strategyKey))
-        {
-            throw new NotSupportedException(
-                $"Unsupported transcode combination: codec '{request.TargetVideoCodec}' is not supported by backend '{request.EncoderBackend}'.");
-        }
+        var strategyKey = profile.StrategyKey;
 
         if (!_strategyKeys.Contains(strategyKey))
         {

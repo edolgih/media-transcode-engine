@@ -5,82 +5,52 @@ namespace MediaTranscodeEngine.Core.Codecs;
 
 public sealed class TranscodeCatalog
 {
-    private readonly IReadOnlyDictionary<string, CodecDescriptor> _codecs;
-    private readonly IReadOnlyDictionary<string, EncoderBackendDescriptor> _backends;
+    private readonly IReadOnlyDictionary<string, TranscodeProfile> _profiles;
 
     public TranscodeCatalog(
-        IEnumerable<CodecDescriptor>? codecs = null,
-        IEnumerable<EncoderBackendDescriptor>? backends = null)
+        IEnumerable<TranscodeProfile>? profiles = null)
     {
-        var effectiveCodecs = codecs?.ToArray();
-        if (effectiveCodecs is null || effectiveCodecs.Length == 0)
+        var effectiveProfiles = profiles?.ToArray();
+        if (effectiveProfiles is null || effectiveProfiles.Length == 0)
         {
-            effectiveCodecs = CreateDefaultCodecs().ToArray();
+            effectiveProfiles = CreateDefaultProfiles().ToArray();
         }
 
-        var effectiveBackends = backends?.ToArray();
-        if (effectiveBackends is null || effectiveBackends.Length == 0)
-        {
-            effectiveBackends = CreateDefaultBackends().ToArray();
-        }
-
-        _codecs = effectiveCodecs.ToDictionary(
-            static codec => codec.CodecId,
-            StringComparer.OrdinalIgnoreCase);
-        _backends = effectiveBackends.ToDictionary(
-            static backend => backend.BackendId,
+        _profiles = effectiveProfiles.ToDictionary(
+            static profile => BuildKey(profile.EncoderBackend, profile.CodecId),
             StringComparer.OrdinalIgnoreCase);
     }
 
-    public bool TryGetCodec(string codecId, out CodecDescriptor descriptor)
+    public bool TryGetProfile(string encoderBackend, string codecId, out TranscodeProfile profile)
     {
-        if (string.IsNullOrWhiteSpace(codecId))
+        if (string.IsNullOrWhiteSpace(encoderBackend) || string.IsNullOrWhiteSpace(codecId))
         {
-            descriptor = null!;
+            profile = null!;
             return false;
         }
 
-        return _codecs.TryGetValue(codecId.Trim(), out descriptor!);
+        return _profiles.TryGetValue(BuildKey(encoderBackend, codecId), out profile!);
     }
 
-    public bool TryGetBackend(string backendId, out EncoderBackendDescriptor descriptor)
+    private static string BuildKey(string encoderBackend, string codecId)
     {
-        if (string.IsNullOrWhiteSpace(backendId))
-        {
-            descriptor = null!;
-            return false;
-        }
-
-        return _backends.TryGetValue(backendId.Trim(), out descriptor!);
+        return $"{encoderBackend.Trim().ToLowerInvariant()}::{codecId.Trim().ToLowerInvariant()}";
     }
 
-    private static IReadOnlyList<CodecDescriptor> CreateDefaultCodecs()
+    private static IReadOnlyList<TranscodeProfile> CreateDefaultProfiles()
     {
         return
         [
-            new CodecDescriptor(
+            new TranscodeProfile(
                 codecId: RequestContracts.General.H264VideoCodec,
+                encoderBackend: RequestContracts.General.GpuEncoderBackend,
+                strategyKey: CodecExecutionKeys.BuildGpuEncodeKey(RequestContracts.General.H264VideoCodec),
                 supportedContainers: [RequestContracts.General.MkvContainer, RequestContracts.General.Mp4Container]),
-            new CodecDescriptor(
+            new TranscodeProfile(
                 codecId: RequestContracts.General.H265VideoCodec,
+                encoderBackend: RequestContracts.General.GpuEncoderBackend,
+                strategyKey: CodecExecutionKeys.BuildGpuEncodeKey(RequestContracts.General.H265VideoCodec),
                 supportedContainers: [RequestContracts.General.MkvContainer, RequestContracts.General.Mp4Container])
-        ];
-    }
-
-    private static IReadOnlyList<EncoderBackendDescriptor> CreateDefaultBackends()
-    {
-        return
-        [
-            new EncoderBackendDescriptor(
-                backendId: RequestContracts.General.GpuEncoderBackend,
-                codecStrategyKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    [RequestContracts.General.H264VideoCodec] = CodecExecutionKeys.BuildGpuEncodeKey(RequestContracts.General.H264VideoCodec),
-                    [RequestContracts.General.H265VideoCodec] = CodecExecutionKeys.BuildGpuEncodeKey(RequestContracts.General.H265VideoCodec)
-                }),
-            new EncoderBackendDescriptor(
-                backendId: RequestContracts.General.CpuEncoderBackend,
-                codecStrategyKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase))
         ];
     }
 }

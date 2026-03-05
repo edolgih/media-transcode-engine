@@ -76,23 +76,16 @@ public class TranscodeRouteSelectorCapabilityTests
     }
 
     [Fact]
-    public void SelectStrategyKey_WhenCustomCodecDescriptorAndStrategyRegistered_ReturnsSupported()
+    public void SelectStrategyKey_WhenCustomProfileAndStrategyRegistered_ReturnsSupported()
     {
         var catalog = new TranscodeCatalog(
-            codecs:
+            profiles:
             [
-                new CodecDescriptor(
+                new TranscodeProfile(
                     codecId: "h266",
+                    encoderBackend: RequestContracts.General.GpuEncoderBackend,
+                    strategyKey: "h266-gpu",
                     supportedContainers: [RequestContracts.General.MkvContainer, RequestContracts.General.Mp4Container])
-            ],
-            backends:
-            [
-                new EncoderBackendDescriptor(
-                    backendId: RequestContracts.General.GpuEncoderBackend,
-                    codecStrategyKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["h266"] = "h266-gpu"
-                    })
             ]);
         var selector = new TranscodeRouteSelector(catalog, ["h266-gpu"]);
         var request = TranscodeRequest.Create(

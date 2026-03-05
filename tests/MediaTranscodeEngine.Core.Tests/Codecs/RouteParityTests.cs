@@ -41,7 +41,7 @@ public class RouteParityTests
             .Should().Be(pipeline.ProcessByKeyWithProbeResult(CodecExecutionKeys.H264Gpu, h264Request, probe));
         var unsupported = () => orchestrator.ProcessWithProbeResult(cpuRequest, probe);
         unsupported.Should().Throw<NotSupportedException>()
-            .WithMessage("*codec 'h264'*backend 'cpu'*");
+            .WithMessage("*backend 'cpu'*codec 'h264'*");
     }
 
     private static (TranscodeOrchestrator Orchestrator, ITranscodeExecutionPipeline Pipeline, IProbeReader ProbeReader) CreateSut()

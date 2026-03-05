@@ -49,7 +49,7 @@ public class TranscodeRouteSelectorTests
         var act = () => sut.SelectStrategyKey(request);
 
         act.Should().Throw<NotSupportedException>()
-            .WithMessage("*codec 'h264'*backend 'cpu'*");
+            .WithMessage("*backend 'cpu'*codec 'h264'*");
     }
 
     [Fact]

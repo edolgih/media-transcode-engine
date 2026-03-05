@@ -5,7 +5,7 @@ using MediaTranscodeEngine.Core.Execution;
 
 namespace MediaTranscodeEngine.Core.Tests.Codecs;
 
-public class CodecDescriptorRoutingTests
+public class CodecProfileRoutingTests
 {
     [Fact]
     public void SelectStrategyKey_WhenGpuAndCodecIsNotCopy_ReturnsCodecBasedKey()
@@ -24,23 +24,16 @@ public class CodecDescriptorRoutingTests
     }
 
     [Fact]
-    public void SelectStrategyKey_WhenCustomCodecDescriptorRegistered_UsesDescriptorStrategyKey()
+    public void SelectStrategyKey_WhenCustomProfileRegistered_UsesProfileStrategyKey()
     {
         var catalog = new TranscodeCatalog(
-            codecs:
+            profiles:
             [
-                new CodecDescriptor(
+                new TranscodeProfile(
                     codecId: "h266",
+                    encoderBackend: RequestContracts.General.GpuEncoderBackend,
+                    strategyKey: "h266-gpu",
                     supportedContainers: [RequestContracts.General.MkvContainer, RequestContracts.General.Mp4Container])
-            ],
-            backends:
-            [
-                new EncoderBackendDescriptor(
-                    backendId: RequestContracts.General.GpuEncoderBackend,
-                    codecStrategyKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["h266"] = "h266-gpu"
-                    })
             ]);
         var selector = new TranscodeRouteSelector(catalog, ["h266-gpu"]);
         var request = TranscodeRequest.Create(
@@ -57,20 +50,13 @@ public class CodecDescriptorRoutingTests
     public void SelectStrategyKey_WhenCustomCodecHasNoStrategy_ThrowsNotSupportedException()
     {
         var catalog = new TranscodeCatalog(
-            codecs:
+            profiles:
             [
-                new CodecDescriptor(
+                new TranscodeProfile(
                     codecId: "h266",
+                    encoderBackend: RequestContracts.General.GpuEncoderBackend,
+                    strategyKey: "h266-gpu",
                     supportedContainers: [RequestContracts.General.MkvContainer, RequestContracts.General.Mp4Container])
-            ],
-            backends:
-            [
-                new EncoderBackendDescriptor(
-                    backendId: RequestContracts.General.GpuEncoderBackend,
-                    codecStrategyKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["h266"] = "h266-gpu"
-                    })
             ]);
         var selector = new TranscodeRouteSelector(catalog, [CodecExecutionKeys.Copy]);
         var request = TranscodeRequest.Create(

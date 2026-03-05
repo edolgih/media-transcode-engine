@@ -1,14 +1,18 @@
 namespace MediaTranscodeEngine.Core.Codecs;
 
-public sealed class CodecDescriptor
+public sealed class TranscodeProfile
 {
     private readonly HashSet<string> _supportedContainers;
 
-    public CodecDescriptor(
+    public TranscodeProfile(
         string codecId,
+        string encoderBackend,
+        string strategyKey,
         IEnumerable<string> supportedContainers)
     {
         CodecId = NormalizeToken(codecId, nameof(codecId));
+        EncoderBackend = NormalizeToken(encoderBackend, nameof(encoderBackend));
+        StrategyKey = NormalizeValue(strategyKey, nameof(strategyKey));
         _supportedContainers = new HashSet<string>(
             supportedContainers
                 .Where(static token => !string.IsNullOrWhiteSpace(token))
@@ -21,6 +25,10 @@ public sealed class CodecDescriptor
     }
 
     public string CodecId { get; }
+
+    public string EncoderBackend { get; }
+
+    public string StrategyKey { get; }
 
     public IReadOnlyCollection<string> SupportedContainers => _supportedContainers;
 
@@ -42,5 +50,15 @@ public sealed class CodecDescriptor
         }
 
         return value.Trim().ToLowerInvariant();
+    }
+
+    private static string NormalizeValue(string value, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Value is required.", paramName);
+        }
+
+        return value.Trim();
     }
 }
