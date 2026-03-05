@@ -21,7 +21,7 @@ public class TranscodeRequestTests
         var request = TranscodeRequest.Create(InputPath: "C:\\video\\movie.mkv");
 
         request.TargetContainer.Should().Be(RequestContracts.General.DefaultContainer);
-        request.ComputeMode.Should().Be(RequestContracts.General.DefaultComputeMode);
+        request.EncoderBackend.Should().Be(RequestContracts.General.DefaultEncoderBackend);
         request.VideoPreset.Should().Be(RequestContracts.General.DefaultVideoPreset);
         request.DownscaleAlgo.Should().Be(RequestContracts.General.DefaultDownscaleAlgorithm);
         request.AqStrength.Should().Be(RequestContracts.General.DefaultAqStrength);
@@ -43,14 +43,14 @@ public class TranscodeRequestTests
     [Theory]
     [InlineData("vpu")]
     [InlineData("")]
-    public void Create_WhenComputeModeInvalid_ThrowsArgumentException(string computeMode)
+    public void Create_WhenEncoderBackendInvalid_ThrowsArgumentException(string encoderBackend)
     {
         Action action = () => TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mkv",
-            ComputeMode: computeMode);
+            EncoderBackend: encoderBackend);
 
         action.Should().Throw<ArgumentException>()
-            .WithParameterName("ComputeMode");
+            .WithParameterName("EncoderBackend");
     }
 
     [Fact]

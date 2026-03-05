@@ -38,16 +38,21 @@ public sealed class ScenarioRequestMerger
                 defaultValue: RequestContracts.General.DefaultContainer,
                 presetValue: preset.TargetContainer,
                 isExplicit: IsExplicit(explicitFields, nameof(RawTranscodeRequest.TargetContainer))),
-            ComputeMode = ResolveString(
-                explicitValue: request.ComputeMode,
-                defaultValue: RequestContracts.General.DefaultComputeMode,
-                presetValue: preset.ComputeMode,
-                isExplicit: IsExplicit(explicitFields, nameof(RawTranscodeRequest.ComputeMode))),
+            EncoderBackend = ResolveString(
+                explicitValue: request.EncoderBackend,
+                defaultValue: RequestContracts.General.DefaultEncoderBackend,
+                presetValue: preset.EncoderBackend,
+                isExplicit: IsExplicit(explicitFields, nameof(RawTranscodeRequest.EncoderBackend))),
             VideoPreset = ResolveString(
                 explicitValue: request.VideoPreset,
                 defaultValue: RequestContracts.General.DefaultVideoPreset,
                 presetValue: preset.VideoPreset,
                 isExplicit: IsExplicit(explicitFields, nameof(RawTranscodeRequest.VideoPreset))),
+            TargetVideoCodec = ResolveString(
+                explicitValue: request.TargetVideoCodec,
+                defaultValue: RequestContracts.General.DefaultTargetVideoCodec,
+                presetValue: preset.TargetVideoCodec,
+                isExplicit: IsExplicit(explicitFields, nameof(RawTranscodeRequest.TargetVideoCodec))),
             PreferH264 = ResolveBool(
                 explicitValue: request.PreferH264,
                 defaultValue: false,

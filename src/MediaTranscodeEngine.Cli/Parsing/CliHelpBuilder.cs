@@ -37,7 +37,7 @@ internal static class CliHelpBuilder
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\"");
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --info");
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --keep-source --downscale 576");
-        lines.Add($"  {exeName} --input \"C:\\video\\movie.mp4\" --container mp4 --compute gpu --preset p5");
+        lines.Add($"  {exeName} --input \"C:\\video\\movie.mp4\" --container mp4 --encoder-backend gpu --preset p5");
         lines.Add($"  Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | {exeName} --info");
 
         return string.Join(Environment.NewLine, lines);

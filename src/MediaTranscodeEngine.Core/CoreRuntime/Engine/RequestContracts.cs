@@ -5,18 +5,23 @@ public static class RequestContracts
     public static class General
     {
         public const string DefaultContainer = "mkv";
-        public const string DefaultComputeMode = "gpu";
+        public const string DefaultEncoderBackend = "gpu";
         public const string DefaultVideoPreset = "p6";
+        public const string DefaultTargetVideoCodec = CopyVideoCodec;
         public const string DefaultDownscaleAlgorithm = "bicubic";
         public const int DefaultAqStrength = 4;
 
         public const string MkvContainer = "mkv";
         public const string Mp4Container = "mp4";
-        public const string GpuComputeMode = "gpu";
-        public const string CpuComputeMode = "cpu";
+        public const string GpuEncoderBackend = "gpu";
+        public const string CpuEncoderBackend = "cpu";
+        public const string CopyVideoCodec = "copy";
+        public const string H264VideoCodec = "h264";
+        public const string H265VideoCodec = "h265";
 
         public static readonly IReadOnlyCollection<string> Containers = new[] { MkvContainer, Mp4Container };
-        public static readonly IReadOnlyCollection<string> ComputeModes = new[] { GpuComputeMode, CpuComputeMode };
+        public static readonly IReadOnlyCollection<string> EncoderBackends = new[] { GpuEncoderBackend, CpuEncoderBackend };
+        public static readonly IReadOnlyCollection<string> TargetVideoCodecs = new[] { CopyVideoCodec, H264VideoCodec, H265VideoCodec };
         public static readonly IReadOnlyCollection<string> VideoPresets = new[] { "p1", "p2", "p3", "p4", "p5", "p6", "p7" };
         public static readonly IReadOnlyCollection<string> DownscaleAlgorithms = new[] { "bicubic", "lanczos", "bilinear" };
     }

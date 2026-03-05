@@ -22,8 +22,9 @@ public class CliScenarioPresetTests
         errorText.Should().BeNull();
         merged.Scenario.Should().Be("tomkvgpu");
         merged.TargetContainer.Should().Be(RequestContracts.General.MkvContainer);
-        merged.ComputeMode.Should().Be(RequestContracts.General.GpuComputeMode);
+        merged.EncoderBackend.Should().Be(RequestContracts.General.GpuEncoderBackend);
         merged.PreferH264.Should().BeFalse();
+        merged.TargetVideoCodec.Should().Be(RequestContracts.General.CopyVideoCodec);
     }
 
     [Fact]

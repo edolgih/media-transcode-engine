@@ -5,8 +5,9 @@ public sealed class TranscodeRequest
     private TranscodeRequest(
         string inputPath,
         string targetContainer,
-        string computeMode,
+        string encoderBackend,
         string videoPreset,
+        string targetVideoCodec,
         bool preferH264,
         bool info,
         bool overlayBg,
@@ -31,8 +32,9 @@ public sealed class TranscodeRequest
     {
         InputPath = inputPath;
         TargetContainer = targetContainer;
-        ComputeMode = computeMode;
+        EncoderBackend = encoderBackend;
         VideoPreset = videoPreset;
+        TargetVideoCodec = targetVideoCodec;
         PreferH264 = preferH264;
         Info = info;
         OverlayBg = overlayBg;
@@ -58,8 +60,9 @@ public sealed class TranscodeRequest
 
     public string InputPath { get; }
     public string TargetContainer { get; }
-    public string ComputeMode { get; }
+    public string EncoderBackend { get; }
     public string VideoPreset { get; }
+    public string TargetVideoCodec { get; }
     public bool PreferH264 { get; }
     public bool Info { get; }
     public bool OverlayBg { get; }
@@ -85,8 +88,9 @@ public sealed class TranscodeRequest
     public static TranscodeRequest Create(
         string InputPath,
         string TargetContainer = RequestContracts.General.DefaultContainer,
-        string ComputeMode = RequestContracts.General.DefaultComputeMode,
+        string EncoderBackend = RequestContracts.General.DefaultEncoderBackend,
         string VideoPreset = RequestContracts.General.DefaultVideoPreset,
+        string? TargetVideoCodec = null,
         bool PreferH264 = false,
         bool Info = false,
         bool OverlayBg = false,
@@ -114,16 +118,20 @@ public sealed class TranscodeRequest
             nameof(TargetContainer),
             "TargetContainer must be one of: mkv, mp4.",
             RequestContracts.General.Containers);
-        var normalizedComputeMode = RequireAllowedValue(
-            RequireValue(ComputeMode, nameof(ComputeMode), "ComputeMode is required."),
-            nameof(ComputeMode),
-            "ComputeMode must be one of: gpu, cpu.",
-            RequestContracts.General.ComputeModes);
+        var normalizedEncoderBackend = RequireAllowedValue(
+            RequireValue(EncoderBackend, nameof(EncoderBackend), "EncoderBackend is required."),
+            nameof(EncoderBackend),
+            "EncoderBackend must be one of: gpu, cpu.",
+            RequestContracts.General.EncoderBackends);
         var normalizedVideoPreset = RequireAllowedValue(
             RequireValue(VideoPreset, nameof(VideoPreset), "VideoPreset is required."),
             nameof(VideoPreset),
             "VideoPreset must be one of: p1, p2, p3, p4, p5, p6, p7.",
             RequestContracts.General.VideoPresets);
+        var normalizedTargetVideoCodec = ResolveTargetVideoCodec(
+            targetVideoCodec: TargetVideoCodec,
+            targetContainer: normalizedTargetContainer,
+            preferH264: PreferH264);
         var downscaleAlgoOverridden = !string.IsNullOrWhiteSpace(DownscaleAlgo);
         var normalizedDownscaleAlgo = downscaleAlgoOverridden
             ? RequireAllowedValue(
@@ -173,12 +181,18 @@ public sealed class TranscodeRequest
             throw new ArgumentException("AqStrength must be in range 1..15.", nameof(AqStrength));
         }
 
+        var preferH264Effective = PreferH264 ||
+                                  normalizedTargetVideoCodec.Equals(
+                                      RequestContracts.General.H264VideoCodec,
+                                      StringComparison.OrdinalIgnoreCase);
+
         return new TranscodeRequest(
             inputPath: normalizedInputPath,
             targetContainer: normalizedTargetContainer,
-            computeMode: normalizedComputeMode,
+            encoderBackend: normalizedEncoderBackend,
             videoPreset: normalizedVideoPreset,
-            preferH264: PreferH264,
+            targetVideoCodec: normalizedTargetVideoCodec,
+            preferH264: preferH264Effective,
             info: Info,
             overlayBg: OverlayBg,
             downscale: Downscale,
@@ -199,6 +213,33 @@ public sealed class TranscodeRequest
             denoise: Denoise,
             fixTimestamps: FixTimestamps,
             keepSource: KeepSource);
+    }
+
+    private static string ResolveTargetVideoCodec(
+        string? targetVideoCodec,
+        string targetContainer,
+        bool preferH264)
+    {
+        if (!string.IsNullOrWhiteSpace(targetVideoCodec))
+        {
+            var normalizedTargetVideoCodec = RequireAllowedValue(
+                RequireValue(targetVideoCodec, nameof(TargetVideoCodec), "TargetVideoCodec is required."),
+                nameof(TargetVideoCodec),
+                "TargetVideoCodec must be one of: copy, h264, h265.",
+                RequestContracts.General.TargetVideoCodecs);
+            if (!preferH264 ||
+                !normalizedTargetVideoCodec.Equals(RequestContracts.General.CopyVideoCodec, StringComparison.OrdinalIgnoreCase))
+            {
+                return normalizedTargetVideoCodec;
+            }
+        }
+
+        if (preferH264 || !targetContainer.Equals(RequestContracts.General.MkvContainer, StringComparison.OrdinalIgnoreCase))
+        {
+            return RequestContracts.General.H264VideoCodec;
+        }
+
+        return RequestContracts.General.DefaultTargetVideoCodec;
     }
 
     private static string RequireValue(string? value, string paramName, string message)

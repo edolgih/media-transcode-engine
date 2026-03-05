@@ -20,6 +20,7 @@ public class TranscodeRequestContractTests
     {
         var actual = TranscodeRequest.Create(
             InputPath: " C:\\video\\movie.mp4 ",
+            TargetVideoCodec: RequestContracts.General.H264VideoCodec,
             Info: true,
             OverlayBg: true,
             Downscale: 576,
@@ -37,6 +38,7 @@ public class TranscodeRequestContractTests
             KeepSource: true);
 
         actual.InputPath.Should().Be("C:\\video\\movie.mp4");
+        actual.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
         actual.Info.Should().BeTrue();
         actual.OverlayBg.Should().BeTrue();
         actual.Downscale.Should().Be(576);
@@ -56,10 +58,21 @@ public class TranscodeRequestContractTests
     }
 
     [Fact]
+    public void Create_WhenTargetVideoCodecMissingAndPreferH264True_UsesH264Codec()
+    {
+        var actual = TranscodeRequest.Create(
+            InputPath: "C:\\video\\movie.mp4",
+            PreferH264: true);
+
+        actual.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
+    }
+
+    [Fact]
     public void Create_WhenDefaultsUsed_UsesContractDefaults()
     {
         var actual = TranscodeRequest.Create(InputPath: "C:\\video\\movie.mp4");
 
+        actual.TargetVideoCodec.Should().Be(RequestContracts.General.DefaultTargetVideoCodec);
         actual.ContentProfile.Should().Be(RequestContracts.Transcode.DefaultContentProfile);
         actual.QualityProfile.Should().Be(RequestContracts.Transcode.DefaultQualityProfile);
         actual.AutoSampleMode.Should().Be(RequestContracts.Transcode.DefaultAutoSampleMode);
@@ -151,6 +164,20 @@ public class TranscodeRequestContractTests
         action.Should().Throw<ArgumentException>()
             .WithParameterName("VideoPreset")
             .WithMessage("*VideoPreset must be one of: p1, p2, p3, p4, p5, p6, p7.*");
+    }
+
+    [Theory]
+    [InlineData("bad")]
+    [InlineData("vp9")]
+    public void Create_WhenTargetVideoCodecInvalid_ThrowsArgumentException(string targetVideoCodec)
+    {
+        Action action = () => TranscodeRequest.Create(
+            InputPath: "C:\\video\\movie.mp4",
+            TargetVideoCodec: targetVideoCodec);
+
+        action.Should().Throw<ArgumentException>()
+            .WithParameterName("TargetVideoCodec")
+            .WithMessage("*TargetVideoCodec must be one of: copy, h264, h265.*");
     }
 
     [Theory]

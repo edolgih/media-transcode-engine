@@ -15,23 +15,23 @@ public sealed class CopyRoute : ITranscodeRoute
     public bool CanHandle(TranscodeRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return request.ComputeMode.Equals(RequestContracts.General.GpuComputeMode, StringComparison.OrdinalIgnoreCase) &&
-               !request.PreferH264 &&
+        return request.EncoderBackend.Equals(RequestContracts.General.GpuEncoderBackend, StringComparison.OrdinalIgnoreCase) &&
+               request.TargetVideoCodec.Equals(RequestContracts.General.CopyVideoCodec, StringComparison.OrdinalIgnoreCase) &&
                request.TargetContainer.Equals(RequestContracts.General.MkvContainer, StringComparison.OrdinalIgnoreCase);
     }
 
     public string Process(TranscodeRequest request)
     {
-        return _pipeline.ProcessCopy(request);
+        return _pipeline.ProcessByKey(CodecExecutionKeys.Copy, request);
     }
 
     public string ProcessWithProbeResult(TranscodeRequest request, ProbeResult? probe)
     {
-        return _pipeline.ProcessCopyWithProbeResult(request, probe);
+        return _pipeline.ProcessByKeyWithProbeResult(CodecExecutionKeys.Copy, request, probe);
     }
 
     public string ProcessWithProbeJson(TranscodeRequest request, string? probeJson)
     {
-        return _pipeline.ProcessCopyWithProbeJson(request, probeJson);
+        return _pipeline.ProcessByKeyWithProbeJson(CodecExecutionKeys.Copy, request, probeJson);
     }
 }

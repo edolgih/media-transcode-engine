@@ -15,7 +15,7 @@ public class WrapperPresetContractTests
             new ScenarioPreset(
                 Name: "custom",
                 TargetContainer: RequestContracts.General.Mp4Container,
-                ComputeMode: RequestContracts.General.CpuComputeMode,
+                EncoderBackend: RequestContracts.General.CpuEncoderBackend,
                 Cq: 24)
         ]);
         var ok = CliArgumentParser.TryParse(
@@ -30,7 +30,7 @@ public class WrapperPresetContractTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         domainRequest.TargetContainer.Should().Be(RequestContracts.General.Mp4Container);
-        domainRequest.ComputeMode.Should().Be(RequestContracts.General.CpuComputeMode);
+        domainRequest.EncoderBackend.Should().Be(RequestContracts.General.CpuEncoderBackend);
         domainRequest.Cq.Should().Be(24);
     }
 }

@@ -5,8 +5,9 @@ namespace MediaTranscodeEngine.Core.Scenarios;
 public sealed record ScenarioPreset(
     string Name,
     string? TargetContainer = null,
-    string? ComputeMode = null,
+    string? EncoderBackend = null,
     string? VideoPreset = null,
+    string? TargetVideoCodec = null,
     bool? PreferH264 = null,
     bool? OverlayBg = null,
     int? Downscale = null,
@@ -32,8 +33,9 @@ public sealed record ScenarioPreset(
         return new ScenarioPreset(
             Name: "tomkvgpu",
             TargetContainer: RequestContracts.General.MkvContainer,
-            ComputeMode: RequestContracts.General.GpuComputeMode,
+            EncoderBackend: RequestContracts.General.GpuEncoderBackend,
             VideoPreset: RequestContracts.General.DefaultVideoPreset,
+            TargetVideoCodec: RequestContracts.General.CopyVideoCodec,
             PreferH264: false,
             OverlayBg: false,
             ContentProfile: RequestContracts.Transcode.DefaultContentProfile,

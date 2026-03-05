@@ -118,9 +118,17 @@ internal static class CliContracts
                 {
                     var container = value.StringValue ?? string.Empty;
                     var preferH264 = !container.Equals(RequestContracts.General.MkvContainer, StringComparison.OrdinalIgnoreCase);
+                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
+                    var targetVideoCodec = state.RequestTemplate.TargetVideoCodec;
+                    if (preferH264 && !hasExplicitTargetVideoCodec)
+                    {
+                        targetVideoCodec = RequestContracts.General.H264VideoCodec;
+                    }
+
                     state.RequestTemplate = state.RequestTemplate with
                     {
                         TargetContainer = container,
+                        TargetVideoCodec = targetVideoCodec,
                         PreferH264 = state.RequestTemplate.PreferH264 || preferH264
                     };
                 },
@@ -128,19 +136,31 @@ internal static class CliContracts
                 AffectedTemplateFields:
                 [
                     nameof(RawTranscodeRequest.TargetContainer),
+                    nameof(RawTranscodeRequest.TargetVideoCodec),
                     nameof(RawTranscodeRequest.PreferH264)
                 ]),
+            ["--encoder-backend"] = new CliOptionDefinition(
+                Name: "--encoder-backend",
+                ValueKind: CliOptionValueKind.String,
+                IsRepeatable: false,
+                HelpText: "Encoder backend (gpu|cpu).",
+                ApplyValue: static (state, value) =>
+                {
+                    state.RequestTemplate = state.RequestTemplate with { EncoderBackend = value.StringValue ?? string.Empty };
+                },
+                Usage: "--encoder-backend <gpu|cpu>",
+                AffectedTemplateFields: [nameof(RawTranscodeRequest.EncoderBackend)]),
             ["--compute"] = new CliOptionDefinition(
                 Name: "--compute",
                 ValueKind: CliOptionValueKind.String,
                 IsRepeatable: false,
-                HelpText: "Compute mode (gpu|cpu).",
+                HelpText: "Alias of --encoder-backend.",
                 ApplyValue: static (state, value) =>
                 {
-                    state.RequestTemplate = state.RequestTemplate with { ComputeMode = value.StringValue ?? string.Empty };
+                    state.RequestTemplate = state.RequestTemplate with { EncoderBackend = value.StringValue ?? string.Empty };
                 },
                 Usage: "--compute <gpu|cpu>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.ComputeMode)]),
+                AffectedTemplateFields: [nameof(RawTranscodeRequest.EncoderBackend)]),
             ["--preset"] = new CliOptionDefinition(
                 Name: "--preset",
                 ValueKind: CliOptionValueKind.String,
@@ -152,6 +172,27 @@ internal static class CliContracts
                 },
                 Usage: "--preset <value>",
                 AffectedTemplateFields: [nameof(RawTranscodeRequest.VideoPreset)]),
+            ["--video-codec"] = new CliOptionDefinition(
+                Name: "--video-codec",
+                ValueKind: CliOptionValueKind.String,
+                IsRepeatable: false,
+                HelpText: "Target video codec (copy|h264|h265).",
+                ApplyValue: static (state, value) =>
+                {
+                    var targetVideoCodec = value.StringValue ?? string.Empty;
+                    var preferH264 = targetVideoCodec.Equals(RequestContracts.General.H264VideoCodec, StringComparison.OrdinalIgnoreCase);
+                    state.RequestTemplate = state.RequestTemplate with
+                    {
+                        TargetVideoCodec = targetVideoCodec,
+                        PreferH264 = preferH264
+                    };
+                },
+                Usage: "--video-codec <copy|h264|h265>",
+                AffectedTemplateFields:
+                [
+                    nameof(RawTranscodeRequest.TargetVideoCodec),
+                    nameof(RawTranscodeRequest.PreferH264)
+                ]),
             ["--nvenc-preset"] = new CliOptionDefinition(
                 Name: "--nvenc-preset",
                 ValueKind: CliOptionValueKind.String,
@@ -273,10 +314,23 @@ internal static class CliContracts
                 ValueKind: CliOptionValueKind.Flag,
                 IsRepeatable: false,
                 HelpText: "Keep source FPS.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { KeepFps = true, PreferH264 = true },
+                ApplyValue: static (state, _) =>
+                {
+                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
+                    var targetVideoCodec = hasExplicitTargetVideoCodec
+                        ? state.RequestTemplate.TargetVideoCodec
+                        : RequestContracts.General.H264VideoCodec;
+                    state.RequestTemplate = state.RequestTemplate with
+                    {
+                        KeepFps = true,
+                        TargetVideoCodec = targetVideoCodec,
+                        PreferH264 = true
+                    };
+                },
                 AffectedTemplateFields:
                 [
                     nameof(RawTranscodeRequest.KeepFps),
+                    nameof(RawTranscodeRequest.TargetVideoCodec),
                     nameof(RawTranscodeRequest.PreferH264)
                 ]),
             ["--use-aq"] = new CliOptionDefinition(
@@ -284,10 +338,23 @@ internal static class CliContracts
                 ValueKind: CliOptionValueKind.Flag,
                 IsRepeatable: false,
                 HelpText: "Enable AQ.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { UseAq = true, PreferH264 = true },
+                ApplyValue: static (state, _) =>
+                {
+                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
+                    var targetVideoCodec = hasExplicitTargetVideoCodec
+                        ? state.RequestTemplate.TargetVideoCodec
+                        : RequestContracts.General.H264VideoCodec;
+                    state.RequestTemplate = state.RequestTemplate with
+                    {
+                        UseAq = true,
+                        TargetVideoCodec = targetVideoCodec,
+                        PreferH264 = true
+                    };
+                },
                 AffectedTemplateFields:
                 [
                     nameof(RawTranscodeRequest.UseAq),
+                    nameof(RawTranscodeRequest.TargetVideoCodec),
                     nameof(RawTranscodeRequest.PreferH264)
                 ]),
             ["--aq-strength"] = new CliOptionDefinition(
@@ -295,16 +362,25 @@ internal static class CliContracts
                 ValueKind: CliOptionValueKind.Int,
                 IsRepeatable: false,
                 HelpText: "AQ strength.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with
+                ApplyValue: static (state, value) =>
                 {
-                    AqStrength = value.IntValue ?? RequestContracts.General.DefaultAqStrength,
-                    PreferH264 = true
+                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
+                    var targetVideoCodec = hasExplicitTargetVideoCodec
+                        ? state.RequestTemplate.TargetVideoCodec
+                        : RequestContracts.General.H264VideoCodec;
+                    state.RequestTemplate = state.RequestTemplate with
+                    {
+                        AqStrength = value.IntValue ?? RequestContracts.General.DefaultAqStrength,
+                        TargetVideoCodec = targetVideoCodec,
+                        PreferH264 = true
+                    };
                 },
                 InvalidValueError: "--aq-strength must be an integer.",
                 Usage: "--aq-strength <int>",
                 AffectedTemplateFields:
                 [
                     nameof(RawTranscodeRequest.AqStrength),
+                    nameof(RawTranscodeRequest.TargetVideoCodec),
                     nameof(RawTranscodeRequest.PreferH264)
                 ]),
             ["--denoise"] = new CliOptionDefinition(
@@ -312,10 +388,23 @@ internal static class CliContracts
                 ValueKind: CliOptionValueKind.Flag,
                 IsRepeatable: false,
                 HelpText: "Enable denoise.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { Denoise = true, PreferH264 = true },
+                ApplyValue: static (state, _) =>
+                {
+                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
+                    var targetVideoCodec = hasExplicitTargetVideoCodec
+                        ? state.RequestTemplate.TargetVideoCodec
+                        : RequestContracts.General.H264VideoCodec;
+                    state.RequestTemplate = state.RequestTemplate with
+                    {
+                        Denoise = true,
+                        TargetVideoCodec = targetVideoCodec,
+                        PreferH264 = true
+                    };
+                },
                 AffectedTemplateFields:
                 [
                     nameof(RawTranscodeRequest.Denoise),
+                    nameof(RawTranscodeRequest.TargetVideoCodec),
                     nameof(RawTranscodeRequest.PreferH264)
                 ]),
             ["--fix-timestamps"] = new CliOptionDefinition(
@@ -323,10 +412,23 @@ internal static class CliContracts
                 ValueKind: CliOptionValueKind.Flag,
                 IsRepeatable: false,
                 HelpText: "Force timestamp fixes.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { FixTimestamps = true, PreferH264 = true },
+                ApplyValue: static (state, _) =>
+                {
+                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
+                    var targetVideoCodec = hasExplicitTargetVideoCodec
+                        ? state.RequestTemplate.TargetVideoCodec
+                        : RequestContracts.General.H264VideoCodec;
+                    state.RequestTemplate = state.RequestTemplate with
+                    {
+                        FixTimestamps = true,
+                        TargetVideoCodec = targetVideoCodec,
+                        PreferH264 = true
+                    };
+                },
                 AffectedTemplateFields:
                 [
                     nameof(RawTranscodeRequest.FixTimestamps),
+                    nameof(RawTranscodeRequest.TargetVideoCodec),
                     nameof(RawTranscodeRequest.PreferH264)
                 ]),
             ["--output-mkv"] = new CliOptionDefinition(
@@ -337,11 +439,13 @@ internal static class CliContracts
                 ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with
                 {
                     TargetContainer = RequestContracts.General.MkvContainer,
+                    TargetVideoCodec = RequestContracts.General.H264VideoCodec,
                     PreferH264 = true
                 },
                 AffectedTemplateFields:
                 [
                     nameof(RawTranscodeRequest.TargetContainer),
+                    nameof(RawTranscodeRequest.TargetVideoCodec),
                     nameof(RawTranscodeRequest.PreferH264)
                 ])
         };

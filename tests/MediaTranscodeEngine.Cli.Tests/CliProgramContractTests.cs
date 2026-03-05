@@ -40,7 +40,7 @@ public class CliProgramContractTests
         result.ExitCode.Should().Be(0);
         result.StdOut.Should().Contain("Options:");
         result.StdOut.Should().Contain("--container <mkv|mp4>");
-        result.StdOut.Should().Contain("--compute <gpu|cpu>");
+        result.StdOut.Should().Contain("--encoder-backend <gpu|cpu>");
         result.StdOut.Should().Contain("--preset <value>");
         result.StdOut.Should().Contain("--keep-source");
         result.StdOut.Should().Contain("--output-mkv");
@@ -62,7 +62,7 @@ public class CliProgramContractTests
         var result = await RunCliAsync(
             "--input", "C:\\video\\movie.mp4",
             "--container", "mkv",
-            "--compute", "gpu",
+            "--encoder-backend", "gpu",
             "--preset", "p6");
 
         result.ExitCode.Should().Be(0);

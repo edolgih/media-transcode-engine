@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Cli.Parsing;
+using MediaTranscodeEngine.Core.Engine;
 
 namespace MediaTranscodeEngine.Cli.Tests.Parsing;
 
@@ -18,6 +19,7 @@ public class CliPreferH264MappingTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         parsed.RequestTemplate.PreferH264.Should().BeTrue();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
     }
 
     [Fact]
@@ -31,6 +33,7 @@ public class CliPreferH264MappingTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         parsed.RequestTemplate.PreferH264.Should().BeTrue();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
     }
 
     [Fact]
@@ -44,6 +47,7 @@ public class CliPreferH264MappingTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         parsed.RequestTemplate.PreferH264.Should().BeTrue();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
     }
 
     [Fact]
@@ -57,6 +61,7 @@ public class CliPreferH264MappingTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         parsed.RequestTemplate.PreferH264.Should().BeTrue();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
     }
 
     [Fact]
@@ -70,6 +75,7 @@ public class CliPreferH264MappingTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         parsed.RequestTemplate.PreferH264.Should().BeTrue();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
     }
 
     [Fact]
@@ -83,6 +89,7 @@ public class CliPreferH264MappingTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         parsed.RequestTemplate.PreferH264.Should().BeFalse();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.CopyVideoCodec);
     }
 
     private static bool Parse(

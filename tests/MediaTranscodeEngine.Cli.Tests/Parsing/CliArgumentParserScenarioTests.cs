@@ -30,7 +30,7 @@ public class CliArgumentParserScenarioTests
             [
                 "--input", DefaultInputPath,
                 "--container", "mp4",
-                "--compute", "gpu",
+                "--encoder-backend", "gpu",
                 "--preset", "p5"
             ],
             parsed: out var parsed,
@@ -39,9 +39,28 @@ public class CliArgumentParserScenarioTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         parsed.RequestTemplate.TargetContainer.Should().Be("mp4");
-        parsed.RequestTemplate.ComputeMode.Should().Be("gpu");
+        parsed.RequestTemplate.EncoderBackend.Should().Be("gpu");
         parsed.RequestTemplate.VideoPreset.Should().Be("p5");
         parsed.RequestTemplate.PreferH264.Should().BeTrue();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
+    }
+
+    [Fact]
+    public void TryParse_WithComputeAlias_ReturnsTemplateWithEncoderBackend()
+    {
+        var ok = Parse(
+            args:
+            [
+                "--input", DefaultInputPath,
+                "--compute", "gpu"
+            ],
+            parsed: out var parsed,
+            errorText: out var errorText);
+
+        ok.Should().BeTrue();
+        errorText.Should().BeNull();
+        parsed.RequestTemplate.EncoderBackend.Should().Be("gpu");
+        parsed.ExplicitTemplateFields.Should().Contain(nameof(RawTranscodeRequest.EncoderBackend));
     }
 
     [Fact]
@@ -55,6 +74,21 @@ public class CliArgumentParserScenarioTests
         ok.Should().BeTrue();
         errorText.Should().BeNull();
         parsed.RequestTemplate.PreferH264.Should().BeTrue();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.H264VideoCodec);
+    }
+
+    [Fact]
+    public void TryParse_WithVideoCodecOption_ReturnsTemplateWithTargetVideoCodec()
+    {
+        var ok = Parse(
+            args: ["--input", DefaultInputPath, "--video-codec", RequestContracts.General.H265VideoCodec],
+            parsed: out var parsed,
+            errorText: out var errorText);
+
+        ok.Should().BeTrue();
+        errorText.Should().BeNull();
+        parsed.RequestTemplate.TargetVideoCodec.Should().Be(RequestContracts.General.H265VideoCodec);
+        parsed.ExplicitTemplateFields.Should().Contain(nameof(RawTranscodeRequest.TargetVideoCodec));
     }
 
     private static bool Parse(
