@@ -1,44 +1,23 @@
 # MediaTranscodeEngine
 
-`.NET 9` engine and CLI for building media transcode commands.
+`.NET 9` движок и CLI для генерации команд транскодирования медиа.
 
-## Architecture
+## Структура репозитория
 
-- Core owns domain rules and decision logic.
-- CLI is a thin wrapper (parse -> map -> call Core).
-- Main extension axes are explicit in project structure:
-  - `Codecs`
-  - `Resolutions`
-  - `Scenarios`
-  - `Quality`
-  - `Sampling`
-  - `Classification`
-  - `Compatibility`
-  - `Profiles`
-
-Key design points:
-
-- Codec routing is polymorphic (`ITranscodeRoute` + selector).
-- Execution is strategy-based (`ICodecExecutionStrategy`).
-- Downscale support is data-driven via profile targets (`source -> target` policies).
-- Sampling window policy is configurable from profile data.
-
-## Repository Layout
-
-- `src/MediaTranscodeEngine.Core` - domain, policy, command builders, adapters
-- `src/MediaTranscodeEngine.Cli` - console host
-- `src/MediaTranscodeEngine.Core/Profiles/ToMkvGPU.576.Profiles.yaml` - default profile data
-- `tests/MediaTranscodeEngine.Core.Tests` - xUnit/NSubstitute/FluentAssertions
-- `tests/MediaTranscodeEngine.Cli.Tests` - CLI contract/integration tests
+- `src/MediaTranscodeEngine.Core` - core-логика, политики, построители команд, адаптеры
+- `src/MediaTranscodeEngine.Cli` - консольное приложение
+- `src/MediaTranscodeEngine.Core/Profiles/ToMkvGPU.576.Profiles.yaml` - профильные данные по умолчанию
+- `tests/MediaTranscodeEngine.Core.Tests` - тесты Core (xUnit/NSubstitute/FluentAssertions)
+- `tests/MediaTranscodeEngine.Cli.Tests` - контрактные/интеграционные тесты CLI
 - `MediaTranscodeEngine.sln` - solution
 
-## Runtime Requirements
+## Требования
 
 - `.NET SDK` `9.0.x`
-- `ffprobe` `6.x+` with JSON output support
-- `ffmpeg` `6.x+` with required filters/encoders (`h264_nvenc`, `scale_cuda`, etc.)
+- `ffprobe` `6.x+` с поддержкой JSON-вывода
+- `ffmpeg` `6.x+` с нужными фильтрами/кодировщиками (`h264_nvenc`, `scale_cuda` и т.д.)
 
-## Build And Test
+## Сборка и тесты
 
 ```bash
 dotnet restore
@@ -46,27 +25,27 @@ dotnet build
 dotnet test
 ```
 
-## CLI Usage
+## Использование CLI
 
-Show help:
+Показать справку:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --help
 ```
 
-Generate command with scenario preset:
+Сгенерировать команду по сценарию:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --input "D:\Src\movie.mkv" --scenario tomkvgpu
 ```
 
-Preset with explicit override (`explicit > preset > defaults`):
+Сценарий с явным переопределением параметров:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --input "D:\Src\movie.mkv" --scenario tomkvgpu --cq 21 --downscale 576
 ```
 
-Generate info output for piped paths:
+Режим `info` для путей из pipe:
 
 ```bash
 some_path_producer | dotnet run --project src/MediaTranscodeEngine.Cli -- --info --scenario tomkvgpu
