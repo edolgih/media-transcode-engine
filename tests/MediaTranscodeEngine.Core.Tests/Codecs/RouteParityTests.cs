@@ -74,8 +74,7 @@ public class RouteParityTests
                 profileDefinitionRepository,
                 profilePolicy),
             streamCompatibilityPolicy: new DefaultStreamCompatibilityPolicy());
-        var descriptorRegistry = new InMemoryCodecDescriptorRegistry();
-        var backendRegistry = new InMemoryEncoderBackendRegistry();
+        var catalog = new TranscodeCatalog();
         var registeredStrategyKeys = new[]
         {
             CodecExecutionKeys.Copy,
@@ -83,8 +82,7 @@ public class RouteParityTests
         };
         var orchestrator = new TranscodeOrchestrator(
             new TranscodeRouteSelector(
-                descriptorRegistry,
-                backendRegistry,
+                catalog,
                 registeredStrategyKeys),
             pipeline);
 

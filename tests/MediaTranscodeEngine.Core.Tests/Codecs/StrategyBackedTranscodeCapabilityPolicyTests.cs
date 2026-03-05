@@ -11,8 +11,7 @@ public class TranscodeRouteSelectorCapabilityTests
     public void SelectStrategyKey_WhenGpuCopyToMkvAndCopyStrategyRegistered_ReturnsCopy()
     {
         var selector = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
@@ -29,8 +28,7 @@ public class TranscodeRouteSelectorCapabilityTests
     public void SelectStrategyKey_WhenGpuCopyToMp4_ThrowsNotSupported()
     {
         var selector = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
@@ -48,8 +46,7 @@ public class TranscodeRouteSelectorCapabilityTests
     public void SelectStrategyKey_WhenGpuH265AndStrategyMissing_ThrowsNotSupported()
     {
         var selector = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
@@ -66,8 +63,7 @@ public class TranscodeRouteSelectorCapabilityTests
     public void SelectStrategyKey_WhenGpuH265AndStrategyRegistered_ReturnsSupported()
     {
         var selector = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu, "h265-gpu"]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
@@ -82,22 +78,23 @@ public class TranscodeRouteSelectorCapabilityTests
     [Fact]
     public void SelectStrategyKey_WhenCustomCodecDescriptorAndStrategyRegistered_ReturnsSupported()
     {
-        var descriptorRegistry = new InMemoryCodecDescriptorRegistry(
-        [
-            new CodecDescriptor(
-                codecId: "h266",
-                supportedContainers: [RequestContracts.General.MkvContainer, RequestContracts.General.Mp4Container])
-        ]);
-        var backendRegistry = new InMemoryEncoderBackendRegistry(
-        [
-            new EncoderBackendDescriptor(
-                backendId: RequestContracts.General.GpuEncoderBackend,
-                codecStrategyKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["h266"] = "h266-gpu"
-                })
-        ]);
-        var selector = new TranscodeRouteSelector(descriptorRegistry, backendRegistry, ["h266-gpu"]);
+        var catalog = new TranscodeCatalog(
+            codecs:
+            [
+                new CodecDescriptor(
+                    codecId: "h266",
+                    supportedContainers: [RequestContracts.General.MkvContainer, RequestContracts.General.Mp4Container])
+            ],
+            backends:
+            [
+                new EncoderBackendDescriptor(
+                    backendId: RequestContracts.General.GpuEncoderBackend,
+                    codecStrategyKeys: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["h266"] = "h266-gpu"
+                    })
+            ]);
+        var selector = new TranscodeRouteSelector(catalog, ["h266-gpu"]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
             EncoderBackend: RequestContracts.General.GpuEncoderBackend,
@@ -113,8 +110,7 @@ public class TranscodeRouteSelectorCapabilityTests
     public void SelectStrategyKey_WhenCpuBackend_ThrowsNotSupported()
     {
         var selector = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",

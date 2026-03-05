@@ -5,20 +5,16 @@ namespace MediaTranscodeEngine.Core.Codecs;
 
 public sealed class TranscodeRouteSelector
 {
-    private readonly ICodecDescriptorRegistry _descriptorRegistry;
-    private readonly IEncoderBackendRegistry _backendRegistry;
+    private readonly TranscodeCatalog _catalog;
     private readonly HashSet<string> _strategyKeys;
 
     public TranscodeRouteSelector(
-        ICodecDescriptorRegistry descriptorRegistry,
-        IEncoderBackendRegistry backendRegistry,
+        TranscodeCatalog catalog,
         IEnumerable<string> strategyKeys)
     {
-        ArgumentNullException.ThrowIfNull(descriptorRegistry);
-        ArgumentNullException.ThrowIfNull(backendRegistry);
+        ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(strategyKeys);
-        _descriptorRegistry = descriptorRegistry;
-        _backendRegistry = backendRegistry;
+        _catalog = catalog;
         _strategyKeys = new HashSet<string>(strategyKeys, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -43,7 +39,7 @@ public sealed class TranscodeRouteSelector
             return CodecExecutionKeys.Copy;
         }
 
-        if (!_descriptorRegistry.TryGet(request.TargetVideoCodec, out var codecDescriptor))
+        if (!_catalog.TryGetCodec(request.TargetVideoCodec, out var codecDescriptor))
         {
             throw new NotSupportedException(
                 $"Unsupported transcode combination: encoder backend '{request.EncoderBackend}', codec '{request.TargetVideoCodec}' and container '{request.TargetContainer}'.");
@@ -55,7 +51,7 @@ public sealed class TranscodeRouteSelector
                 $"Unsupported transcode combination: codec '{request.TargetVideoCodec}' with backend '{request.EncoderBackend}' does not support container '{request.TargetContainer}'.");
         }
 
-        if (!_backendRegistry.TryGet(request.EncoderBackend, out var backendDescriptor))
+        if (!_catalog.TryGetBackend(request.EncoderBackend, out var backendDescriptor))
         {
             throw new NotSupportedException(
                 $"Unsupported transcode combination: encoder backend '{request.EncoderBackend}' is not registered.");

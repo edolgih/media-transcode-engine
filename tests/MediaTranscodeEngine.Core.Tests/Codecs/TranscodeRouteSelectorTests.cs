@@ -11,8 +11,7 @@ public class TranscodeRouteSelectorTests
     public void SelectStrategyKey_WhenCopyDescriptorMatches_ReturnsCopyStrategyKey()
     {
         var sut = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu, "h265-gpu"]);
         var request = TranscodeRequest.Create(InputPath: "C:\\video\\movie.mp4");
 
@@ -25,8 +24,7 @@ public class TranscodeRouteSelectorTests
     public void SelectStrategyKey_WhenGpuEncodeMatches_ReturnsCodecBasedStrategyKey()
     {
         var sut = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu, "h265-gpu"]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
@@ -41,8 +39,7 @@ public class TranscodeRouteSelectorTests
     public void SelectStrategyKey_WhenDescriptorMissing_ThrowsNotSupportedException()
     {
         var sut = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu, "h265-gpu"]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
@@ -59,8 +56,7 @@ public class TranscodeRouteSelectorTests
     public void SelectStrategyKey_WhenContainerUnsupported_ThrowsNotSupportedException()
     {
         var sut = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu, "h265-gpu"]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
@@ -77,8 +73,7 @@ public class TranscodeRouteSelectorTests
     public void SelectStrategyKey_WhenStrategyNotRegistered_ThrowsNotSupportedException()
     {
         var sut = new TranscodeRouteSelector(
-            new InMemoryCodecDescriptorRegistry(),
-            new InMemoryEncoderBackendRegistry(),
+            new TranscodeCatalog(),
             [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu]);
         var request = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",

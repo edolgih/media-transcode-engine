@@ -75,12 +75,10 @@ public class GeneralRoutingBaselineTests
                 profileDefinitionRepository,
                 profilePolicy),
             streamCompatibilityPolicy: new DefaultStreamCompatibilityPolicy());
-        var descriptorRegistry = new InMemoryCodecDescriptorRegistry();
-        var backendRegistry = new InMemoryEncoderBackendRegistry();
+        var catalog = new TranscodeCatalog();
         var sut = new TranscodeOrchestrator(
             new TranscodeRouteSelector(
-                descriptorRegistry,
-                backendRegistry,
+                catalog,
                 [CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu]),
             pipeline);
 
