@@ -32,14 +32,16 @@ public class RouteParityTests
             TargetContainer: RequestContracts.General.Mp4Container);
         var cpuRequest = TranscodeRequest.Create(
             InputPath: "C:\\video\\movie.mp4",
-            ComputeMode: RequestContracts.General.CpuComputeMode);
+            EncoderBackend: RequestContracts.General.CpuEncoderBackend,
+            TargetVideoCodec: RequestContracts.General.H264VideoCodec);
 
         orchestrator.ProcessWithProbeResult(copyRequest, probe)
-            .Should().Be(pipeline.ProcessCopyWithProbeResult(copyRequest, probe));
+            .Should().Be(pipeline.ProcessByKeyWithProbeResult(CodecExecutionKeys.Copy, copyRequest, probe));
         orchestrator.ProcessWithProbeResult(h264Request, probe)
-            .Should().Be(pipeline.ProcessH264GpuWithProbeResult(h264Request, probe));
-        orchestrator.ProcessWithProbeResult(cpuRequest, probe)
-            .Should().Be("REM h264 cpu not implemented: C:\\video\\movie.mp4");
+            .Should().Be(pipeline.ProcessByKeyWithProbeResult(CodecExecutionKeys.H264Gpu, h264Request, probe));
+        var unsupported = () => orchestrator.ProcessWithProbeResult(cpuRequest, probe);
+        unsupported.Should().Throw<NotSupportedException>()
+            .WithMessage("*encoder backend 'cpu'*codec 'h264'*");
     }
 
     private static (TranscodeOrchestrator Orchestrator, ITranscodeExecutionPipeline Pipeline, IProbeReader ProbeReader) CreateSut()
@@ -76,9 +78,9 @@ public class RouteParityTests
             new TranscodeRouteSelector(
             [
                 new CopyRoute(pipeline),
-                new H264GpuRoute(pipeline),
-                new H264CpuNotImplementedRoute()
-            ]));
+                new GpuEncodeRoute(pipeline)
+            ],
+                new StrategyBackedTranscodeCapabilityPolicy([CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu])));
 
         return (orchestrator, pipeline, probeReader);
     }

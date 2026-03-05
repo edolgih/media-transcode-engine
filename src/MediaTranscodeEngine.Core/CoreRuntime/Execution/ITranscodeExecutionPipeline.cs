@@ -4,15 +4,9 @@ namespace MediaTranscodeEngine.Core.Execution;
 
 public interface ITranscodeExecutionPipeline
 {
-    string ProcessCopy(TranscodeRequest request);
+    string ProcessByKey(string strategyKey, TranscodeRequest request);
 
-    string ProcessCopyWithProbeResult(TranscodeRequest request, ProbeResult? probe);
+    string ProcessByKeyWithProbeResult(string strategyKey, TranscodeRequest request, ProbeResult? probe);
 
-    string ProcessCopyWithProbeJson(TranscodeRequest request, string? probeJson);
-
-    string ProcessH264Gpu(TranscodeRequest request);
-
-    string ProcessH264GpuWithProbeResult(TranscodeRequest request, ProbeResult? probe);
-
-    string ProcessH264GpuWithProbeJson(TranscodeRequest request, string? probeJson);
+    string ProcessByKeyWithProbeJson(string strategyKey, TranscodeRequest request, string? probeJson);
 }

@@ -68,34 +68,19 @@ public sealed class TranscodeExecutionPipeline : ITranscodeExecutionPipeline
             StringComparer.OrdinalIgnoreCase);
     }
 
-    public string ProcessCopy(TranscodeRequest request)
+    public string ProcessByKey(string strategyKey, TranscodeRequest request)
     {
-        return Process(CodecExecutionKeys.Copy, request, probeOverride: null, useProbeOverride: false);
+        return Process(strategyKey, request, probeOverride: null, useProbeOverride: false);
     }
 
-    public string ProcessCopyWithProbeResult(TranscodeRequest request, ProbeResult? probe)
+    public string ProcessByKeyWithProbeResult(string strategyKey, TranscodeRequest request, ProbeResult? probe)
     {
-        return Process(CodecExecutionKeys.Copy, request, probe, useProbeOverride: true);
+        return Process(strategyKey, request, probe, useProbeOverride: true);
     }
 
-    public string ProcessCopyWithProbeJson(TranscodeRequest request, string? probeJson)
+    public string ProcessByKeyWithProbeJson(string strategyKey, TranscodeRequest request, string? probeJson)
     {
-        return Process(CodecExecutionKeys.Copy, request, ProbeJsonParser.Parse(probeJson), useProbeOverride: true);
-    }
-
-    public string ProcessH264Gpu(TranscodeRequest request)
-    {
-        return Process(CodecExecutionKeys.H264Gpu, request, probeOverride: null, useProbeOverride: false);
-    }
-
-    public string ProcessH264GpuWithProbeResult(TranscodeRequest request, ProbeResult? probe)
-    {
-        return Process(CodecExecutionKeys.H264Gpu, request, probe, useProbeOverride: true);
-    }
-
-    public string ProcessH264GpuWithProbeJson(TranscodeRequest request, string? probeJson)
-    {
-        return Process(CodecExecutionKeys.H264Gpu, request, ProbeJsonParser.Parse(probeJson), useProbeOverride: true);
+        return Process(strategyKey, request, ProbeJsonParser.Parse(probeJson), useProbeOverride: true);
     }
 
     private string Process(

@@ -79,9 +79,9 @@ public class GeneralRoutingBaselineTests
             new TranscodeRouteSelector(
             [
                 new CopyRoute(pipeline),
-                new H264GpuRoute(pipeline),
-                new H264CpuNotImplementedRoute()
-            ]));
+                new GpuEncodeRoute(pipeline)
+            ],
+                new StrategyBackedTranscodeCapabilityPolicy([CodecExecutionKeys.Copy, CodecExecutionKeys.H264Gpu])));
 
         return (sut, probeReader);
     }

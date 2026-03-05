@@ -109,11 +109,13 @@ public static class Program
             builder.Services.AddSingleton<IScenarioPresetRepository, InMemoryScenarioPresetRepository>();
             builder.Services.AddSingleton<ScenarioRequestMerger>();
             builder.Services.AddSingleton<ITranscodeRoute, CopyRoute>();
-            builder.Services.AddSingleton<ITranscodeRoute, H264GpuRoute>();
-            builder.Services.AddSingleton<ITranscodeRoute, H264CpuNotImplementedRoute>();
+            builder.Services.AddSingleton<ITranscodeRoute, GpuEncodeRoute>();
             builder.Services.AddSingleton<ICodecExecutionStrategy, CopyCodecExecutionStrategy>();
             builder.Services.AddSingleton<ICodecExecutionStrategy, H264GpuCodecExecutionStrategy>();
             builder.Services.AddSingleton<ITranscodeExecutionPipeline, TranscodeExecutionPipeline>();
+            builder.Services.AddSingleton<ITranscodeCapabilityPolicy>(services =>
+                new StrategyBackedTranscodeCapabilityPolicy(
+                    services.GetServices<ICodecExecutionStrategy>().Select(static strategy => strategy.Key)));
             builder.Services.AddSingleton<TranscodeRouteSelector>();
             builder.Services.AddSingleton<TranscodeOrchestrator>();
             builder.Services.AddSingleton<IProfileDefinitionRepository, LegacyPolicyConfigProfileRepository>();
