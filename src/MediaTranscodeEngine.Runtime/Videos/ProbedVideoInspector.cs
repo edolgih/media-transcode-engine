@@ -1,3 +1,5 @@
+using MediaTranscodeEngine.Runtime.Inspection;
+
 namespace MediaTranscodeEngine.Runtime.Videos;
 
 /// <summary>

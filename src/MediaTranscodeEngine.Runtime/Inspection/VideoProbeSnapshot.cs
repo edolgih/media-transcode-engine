@@ -1,4 +1,4 @@
-namespace MediaTranscodeEngine.Runtime.Videos;
+namespace MediaTranscodeEngine.Runtime.Inspection;
 
 /// <summary>
 /// Holds raw metadata returned by a probe tool before it is normalized into a source video.

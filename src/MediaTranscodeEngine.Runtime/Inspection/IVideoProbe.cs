@@ -1,4 +1,4 @@
-namespace MediaTranscodeEngine.Runtime.Videos;
+namespace MediaTranscodeEngine.Runtime.Inspection;
 
 /// <summary>
 /// Reads raw stream metadata for a source video from an external probe tool.

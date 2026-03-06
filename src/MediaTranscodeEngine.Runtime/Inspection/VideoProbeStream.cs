@@ -1,4 +1,4 @@
-namespace MediaTranscodeEngine.Runtime.Videos;
+namespace MediaTranscodeEngine.Runtime.Inspection;
 
 /// <summary>
 /// Describes a single raw stream returned by a probe tool.
