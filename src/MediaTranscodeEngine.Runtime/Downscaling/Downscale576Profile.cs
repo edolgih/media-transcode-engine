@@ -69,6 +69,24 @@ internal static class Downscale576Profile
                 new DownscaleDefaults("film", "high", Cq: 24, Maxrate: 3.7m, Bufsize: 7.4m, Algorithm: "bilinear", CqMin: 16, CqMax: 33, MaxrateMin: 2.0m, MaxrateMax: 8.0m),
                 new DownscaleDefaults("film", "default", Cq: 26, Maxrate: 3.4m, Bufsize: 6.9m, Algorithm: "bilinear", CqMin: 18, CqMax: 35, MaxrateMin: 1.6m, MaxrateMax: 8.0m),
                 new DownscaleDefaults("film", "low", Cq: 30, Maxrate: 2.2m, Bufsize: 4.5m, Algorithm: "bilinear", CqMin: 20, CqMax: 38, MaxrateMin: 1.2m, MaxrateMax: 4.0m)
+            ],
+            globalQualityRanges:
+            [
+                new DownscaleQualityRange("high", MinInclusive: 25.0m, MaxInclusive: 40.0m),
+                new DownscaleQualityRange("default", MinExclusive: 40.0m, MaxInclusive: 50.0m),
+                new DownscaleQualityRange("low", MinExclusive: 50.0m)
+            ],
+            globalContentRanges:
+            [
+                new DownscaleRange("anime", "high", MinInclusive: 25.0m, MaxInclusive: 40.0m),
+                new DownscaleRange("anime", "default", MinExclusive: 40.0m, MaxInclusive: 50.0m),
+                new DownscaleRange("anime", "low", MinExclusive: 50.0m, MaxInclusive: 80.0m),
+                new DownscaleRange("mult", "high", MinInclusive: 30.0m, MaxInclusive: 45.0m),
+                new DownscaleRange("mult", "default", MinExclusive: 45.0m, MaxInclusive: 58.0m),
+                new DownscaleRange("mult", "low", MinExclusive: 58.0m, MaxInclusive: 85.0m),
+                new DownscaleRange("film", "high", MinInclusive: 20.0m, MaxInclusive: 38.0m),
+                new DownscaleRange("film", "default", MinExclusive: 38.0m, MaxInclusive: 52.0m),
+                new DownscaleRange("film", "low", MinExclusive: 52.0m, MaxInclusive: 78.0m)
             ]);
     }
 }

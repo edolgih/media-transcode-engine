@@ -41,6 +41,8 @@ internal sealed class DownscaleProfiles
 internal sealed class DownscaleProfile
 {
     private readonly IReadOnlyDictionary<string, DownscaleDefaults> _defaultsByProfile;
+    private readonly IReadOnlyDictionary<string, DownscaleRange> _globalContentRangesByProfile;
+    private readonly IReadOnlyDictionary<string, DownscaleQualityRange> _globalQualityRangesByProfile;
     private readonly string[] _supportedContentProfiles;
     private readonly string[] _supportedQualityProfiles;
 
@@ -51,7 +53,9 @@ internal sealed class DownscaleProfile
         DownscaleRateModel rateModel,
         DownscaleAutoSampling autoSampling,
         IReadOnlyList<SourceHeightBucket> sourceBuckets,
-        IReadOnlyList<DownscaleDefaults> defaults)
+        IReadOnlyList<DownscaleDefaults> defaults,
+        IReadOnlyList<DownscaleRange>? globalContentRanges = null,
+        IReadOnlyList<DownscaleQualityRange>? globalQualityRanges = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetHeight);
         ArgumentException.ThrowIfNullOrWhiteSpace(defaultContentProfile);
@@ -66,8 +70,16 @@ internal sealed class DownscaleProfile
         AutoSampling = autoSampling;
         SourceBuckets = sourceBuckets;
         Defaults = defaults;
+        GlobalContentRanges = globalContentRanges ?? Array.Empty<DownscaleRange>();
+        GlobalQualityRanges = globalQualityRanges ?? Array.Empty<DownscaleQualityRange>();
         _defaultsByProfile = defaults.ToDictionary(
             static entry => BuildDefaultsKey(entry.ContentProfile, entry.QualityProfile),
+            StringComparer.OrdinalIgnoreCase);
+        _globalContentRangesByProfile = GlobalContentRanges.ToDictionary(
+            static entry => BuildDefaultsKey(entry.ContentProfile, entry.QualityProfile),
+            StringComparer.OrdinalIgnoreCase);
+        _globalQualityRangesByProfile = GlobalQualityRanges.ToDictionary(
+            static entry => entry.QualityProfile,
             StringComparer.OrdinalIgnoreCase);
         _supportedContentProfiles = defaults.Select(static entry => entry.ContentProfile).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         _supportedQualityProfiles = defaults.Select(static entry => entry.QualityProfile).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
@@ -87,6 +99,10 @@ internal sealed class DownscaleProfile
 
     public IReadOnlyList<DownscaleDefaults> Defaults { get; }
 
+    public IReadOnlyList<DownscaleRange> GlobalContentRanges { get; }
+
+    public IReadOnlyList<DownscaleQualityRange> GlobalQualityRanges { get; }
+
     public string? ResolveSourceBucket(int? sourceHeight)
     {
         return ResolveSourceBucketDefinition(sourceHeight)?.Name;
@@ -96,7 +112,19 @@ internal sealed class DownscaleProfile
     {
         if (!sourceHeight.HasValue)
         {
-            return $"{TargetHeight} source bucket missing: height is unknown; add SourceBuckets";
+            var fallbackBucket = ResolveSourceBucketDefinition(sourceHeight);
+            if (fallbackBucket is null)
+            {
+                return $"{TargetHeight} source bucket missing: height is unknown; add SourceBuckets";
+            }
+
+            var fallbackIssue = fallbackBucket.ResolveMissingRange(_supportedContentProfiles, _supportedQualityProfiles);
+            if (fallbackIssue is not null)
+            {
+                return $"{TargetHeight} source bucket invalid: missing corridor '{fallbackIssue}'";
+            }
+
+            return null;
         }
 
         var bucket = ResolveSourceBucketDefinition(sourceHeight);
@@ -135,25 +163,41 @@ internal sealed class DownscaleProfile
 
     public DownscaleRange? ResolveRange(int? sourceHeight, string? contentProfile, string? qualityProfile)
     {
-        var bucket = ResolveSourceBucketDefinition(sourceHeight);
-        if (bucket is null)
-        {
-            return null;
-        }
-
         var effectiveContentProfile = NormalizeProfileName(contentProfile) ?? DefaultContentProfile;
         var effectiveQualityProfile = NormalizeProfileName(qualityProfile) ?? DefaultQualityProfile;
-        return bucket.ResolveRange(effectiveContentProfile, effectiveQualityProfile);
+        var bucket = ResolveSourceBucketDefinition(sourceHeight);
+        var bucketRange = bucket?.ResolveRange(effectiveContentProfile, effectiveQualityProfile);
+        if (bucketRange is not null)
+        {
+            return bucketRange;
+        }
+
+        var key = BuildDefaultsKey(effectiveContentProfile, effectiveQualityProfile);
+        if (_globalContentRangesByProfile.TryGetValue(key, out var globalContentRange))
+        {
+            return globalContentRange;
+        }
+
+        if (_globalQualityRangesByProfile.TryGetValue(effectiveQualityProfile, out var globalQualityRange))
+        {
+            return globalQualityRange.ToContentRange(effectiveContentProfile);
+        }
+
+        return null;
     }
 
     private SourceHeightBucket? ResolveSourceBucketDefinition(int? sourceHeight)
     {
-        if (!sourceHeight.HasValue)
+        if (sourceHeight.HasValue)
         {
-            return null;
+            var matched = SourceBuckets.FirstOrDefault(bucket => bucket.Matches(sourceHeight.Value));
+            if (matched is not null)
+            {
+                return matched;
+            }
         }
 
-        return SourceBuckets.FirstOrDefault(bucket => bucket.Matches(sourceHeight.Value));
+        return SourceBuckets.FirstOrDefault(static bucket => bucket.IsDefault);
     }
 
     private static string? NormalizeProfileName(string? value)
@@ -467,6 +511,61 @@ internal sealed record DownscaleRange(
 }
 
 /// <summary>
+/// Represents one quality-only fallback corridor.
+/// </summary>
+internal sealed record DownscaleQualityRange(
+    string QualityProfile,
+    decimal? MinExclusive = null,
+    decimal? MinInclusive = null,
+    decimal? MaxExclusive = null,
+    decimal? MaxInclusive = null)
+{
+    public string QualityProfile { get; init; } = NormalizeRequiredToken(QualityProfile, nameof(QualityProfile));
+
+    public decimal? MinExclusive { get; init; } = NormalizeOptional(MinExclusive, nameof(MinExclusive));
+
+    public decimal? MinInclusive { get; init; } = NormalizeOptional(MinInclusive, nameof(MinInclusive));
+
+    public decimal? MaxExclusive { get; init; } = NormalizeOptional(MaxExclusive, nameof(MaxExclusive));
+
+    public decimal? MaxInclusive { get; init; } = NormalizeOptional(MaxInclusive, nameof(MaxInclusive));
+
+    public bool Matches(string qualityProfile)
+    {
+        return QualityProfile.Equals(qualityProfile, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public DownscaleRange ToContentRange(string contentProfile)
+    {
+        return new DownscaleRange(
+            ContentProfile: contentProfile,
+            QualityProfile: QualityProfile,
+            MinExclusive: MinExclusive,
+            MinInclusive: MinInclusive,
+            MaxExclusive: MaxExclusive,
+            MaxInclusive: MaxInclusive);
+    }
+
+    private static string NormalizeRequiredToken(string? value, string paramName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, paramName);
+        return value.Trim().ToLowerInvariant();
+    }
+
+    private static decimal? NormalizeOptional(decimal? value, string paramName)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value >= 0m
+            ? value.Value
+            : throw new ArgumentOutOfRangeException(paramName, value.Value, "Range value must not be negative.");
+    }
+}
+
+/// <summary>
 /// Represents one autosample window inside a downscale profile.
 /// </summary>
 internal sealed record DownscaleSampleWindow(
@@ -485,7 +584,13 @@ internal sealed record DownscaleSampleWindow(
 /// <summary>
 /// Represents one source-height bucket used by downscale profiles.
 /// </summary>
-internal sealed record SourceHeightBucket(string Name, int MinHeight, int MaxHeight, IReadOnlyList<DownscaleRange>? Ranges = null)
+internal sealed record SourceHeightBucket(
+    string Name,
+    int MinHeight,
+    int MaxHeight,
+    IReadOnlyList<DownscaleRange>? Ranges = null,
+    IReadOnlyList<DownscaleQualityRange>? QualityRanges = null,
+    bool IsDefault = false)
 {
     public string Name { get; init; } = NormalizeRequiredToken(Name, nameof(Name));
 
@@ -499,6 +604,10 @@ internal sealed record SourceHeightBucket(string Name, int MinHeight, int MaxHei
 
     public IReadOnlyList<DownscaleRange> Ranges { get; init; } = Ranges ?? Array.Empty<DownscaleRange>();
 
+    public IReadOnlyList<DownscaleQualityRange> QualityRanges { get; init; } = QualityRanges ?? Array.Empty<DownscaleQualityRange>();
+
+    public bool IsDefault { get; init; } = IsDefault;
+
     public bool Matches(int height)
     {
         return height >= MinHeight && height <= MaxHeight;
@@ -506,19 +615,44 @@ internal sealed record SourceHeightBucket(string Name, int MinHeight, int MaxHei
 
     public DownscaleRange? ResolveRange(string contentProfile, string qualityProfile)
     {
-        return Ranges.FirstOrDefault(range => range.Matches(contentProfile, qualityProfile));
+        var range = Ranges.FirstOrDefault(range => range.Matches(contentProfile, qualityProfile));
+        if (range is not null)
+        {
+            return range;
+        }
+
+        var qualityRange = QualityRanges.FirstOrDefault(range => range.Matches(qualityProfile));
+        return qualityRange?.ToContentRange(contentProfile);
     }
 
     public string? ResolveMissingRange(IEnumerable<string> supportedContentProfiles, IEnumerable<string> supportedQualityProfiles)
     {
-        foreach (var contentProfile in supportedContentProfiles)
+        if (Ranges.Count == 0 && QualityRanges.Count == 0)
         {
-            foreach (var qualityProfile in supportedQualityProfiles)
+            return "ranges";
+        }
+
+        if (Ranges.Count > 0)
+        {
+            foreach (var contentProfile in supportedContentProfiles)
             {
-                if (!Ranges.Any(range => range.Matches(contentProfile, qualityProfile)))
+                foreach (var qualityProfile in supportedQualityProfiles)
                 {
-                    return $"{contentProfile}/{qualityProfile}";
+                    if (!Ranges.Any(range => range.Matches(contentProfile, qualityProfile)))
+                    {
+                        return $"{contentProfile}/{qualityProfile}";
+                    }
                 }
+            }
+
+            return null;
+        }
+
+        foreach (var qualityProfile in supportedQualityProfiles)
+        {
+            if (!QualityRanges.Any(range => range.Matches(qualityProfile)))
+            {
+                return qualityProfile;
             }
         }
 
