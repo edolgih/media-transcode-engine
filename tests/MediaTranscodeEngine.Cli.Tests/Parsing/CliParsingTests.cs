@@ -65,16 +65,17 @@ public sealed class CliParsingTests
         actual.InputPath.Should().Be(@"C:\video\a.mp4");
         actual.ToMkvGpu.KeepSource.Should().BeTrue();
         actual.ToMkvGpu.OverlayBackground.Should().BeTrue();
-        actual.ToMkvGpu.DownscaleTarget.Should().Be(576);
         actual.ToMkvGpu.SynchronizeAudio.Should().BeTrue();
-        actual.ToMkvGpu.ContentProfile.Should().Be("film");
-        actual.ToMkvGpu.QualityProfile.Should().Be("default");
-        actual.ToMkvGpu.NoAutoSample.Should().BeTrue();
-        actual.ToMkvGpu.AutoSampleMode.Should().Be("fast");
-        actual.ToMkvGpu.DownscaleAlgorithm.Should().Be("bicubic");
-        actual.ToMkvGpu.Cq.Should().Be(24);
-        actual.ToMkvGpu.Maxrate.Should().Be(3.7m);
-        actual.ToMkvGpu.Bufsize.Should().Be(7.4m);
+        actual.ToMkvGpu.Downscale.Should().NotBeNull();
+        actual.ToMkvGpu.Downscale!.TargetHeight.Should().Be(576);
+        actual.ToMkvGpu.Downscale.ContentProfile.Should().Be("film");
+        actual.ToMkvGpu.Downscale.QualityProfile.Should().Be("default");
+        actual.ToMkvGpu.Downscale.NoAutoSample.Should().BeTrue();
+        actual.ToMkvGpu.Downscale.AutoSampleMode.Should().Be("fast");
+        actual.ToMkvGpu.Downscale.Algorithm.Should().Be("bicubic");
+        actual.ToMkvGpu.Downscale.Cq.Should().Be(24);
+        actual.ToMkvGpu.Downscale.Maxrate.Should().Be(3.7m);
+        actual.ToMkvGpu.Downscale.Bufsize.Should().Be(7.4m);
         actual.ToMkvGpu.NvencPreset.Should().Be("p6");
     }
 }

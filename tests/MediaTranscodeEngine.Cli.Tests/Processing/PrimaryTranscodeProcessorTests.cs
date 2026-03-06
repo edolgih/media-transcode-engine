@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Cli.Processing;
+using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Tools;
 using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
@@ -91,7 +92,7 @@ public sealed class PrimaryTranscodeProcessorTests
             InputPath: @"C:\video\a.mp4",
             ScenarioName: "tomkvgpu",
             Info: false,
-            ToMkvGpu: new ToMkvGpuRequest(downscaleTarget: 720)));
+            ToMkvGpu: new ToMkvGpuRequest(downscale: new DownscaleRequest(targetHeight: 720))));
 
         actual.Should().Be("REM Downscale 720 not implemented: a.mp4");
     }

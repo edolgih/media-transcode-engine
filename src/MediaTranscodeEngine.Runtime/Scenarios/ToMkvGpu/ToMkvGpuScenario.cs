@@ -42,12 +42,13 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
     /// <returns>A tool-agnostic plan describing the required MKV conversion work.</returns>
     protected override TranscodePlan BuildPlanCore(SourceVideo video)
     {
-        if (Request.DownscaleTarget == 720)
+        if (Request.Downscale?.TargetHeight == 720)
         {
             throw new NotSupportedException("Downscale 720 is not implemented for ToMkvGpu.");
         }
 
-        var applyDownscale = Request.DownscaleTarget.HasValue && video.Height > Request.DownscaleTarget.Value;
+        var applyDownscale = Request.Downscale?.TargetHeight.HasValue == true &&
+                             video.Height > Request.Downscale.TargetHeight.Value;
         var requiresTimestampFix = TimestampSensitiveExtensions.Contains(video.FileExtension);
         var copyVideo = VideoCopyCodecs.Contains(video.VideoCodec) &&
                         !requiresTimestampFix &&
@@ -61,7 +62,7 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
             targetContainer: "mkv",
             targetVideoCodec: copyVideo ? null : "h264",
             preferredBackend: copyVideo ? null : "gpu",
-            targetHeight: applyDownscale ? Request.DownscaleTarget : null,
+            targetHeight: applyDownscale ? Request.Downscale!.TargetHeight : null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
             copyVideo: copyVideo,

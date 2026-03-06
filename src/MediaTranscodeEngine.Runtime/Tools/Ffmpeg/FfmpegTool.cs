@@ -1,6 +1,6 @@
 using System.Globalization;
+using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Plans;
-using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
@@ -10,7 +10,7 @@ namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 /// </summary>
 public sealed class FfmpegTool : ITranscodeTool
 {
-    private static readonly ToMkvGpuDownscaleProfiles DownscaleProfiles = ToMkvGpuDownscaleProfiles.Default;
+    private static readonly DownscaleProfiles DownscaleProfiles = DownscaleProfiles.Default;
     private readonly string _ffmpegPath;
 
     /// <summary>
@@ -219,7 +219,7 @@ public sealed class FfmpegTool : ITranscodeTool
 
         if (plan.ApplyOverlayBackground)
         {
-            var filter = BuildOverlayFilter(video, plan.TargetHeight, settings.DownscaleAlgorithm);
+            var filter = BuildOverlayFilter(video, plan.TargetHeight, settings.Algorithm);
             return $"-filter_complex {Quote(filter)} -map \"[v]\" -fps_mode:v cfr " +
                    $"-c:v {encoder} -preset p6 -rc vbr_hq -cq {settings.Cq} -b:v 0 -maxrate {FormatRate(settings.Maxrate)} -bufsize {FormatRate(settings.Bufsize)} {aqPart} " +
                    $"-pix_fmt yuv420p -profile:v high -level:v 4.1 -r {fpsToken} -g {gop}";
@@ -227,7 +227,7 @@ public sealed class FfmpegTool : ITranscodeTool
 
         if (plan.TargetHeight.HasValue)
         {
-            return $"-map 0:v:0 -fps_mode:v cfr -vf \"scale_cuda=-2:{plan.TargetHeight.Value}:interp_algo={settings.DownscaleAlgorithm}:format=nv12\" " +
+            return $"-map 0:v:0 -fps_mode:v cfr -vf \"scale_cuda=-2:{plan.TargetHeight.Value}:interp_algo={settings.Algorithm}:format=nv12\" " +
                    $"-c:v {encoder} -preset p6 -rc vbr_hq -cq {settings.Cq} -b:v 0 -maxrate {FormatRate(settings.Maxrate)} -bufsize {FormatRate(settings.Bufsize)} {aqPart} " +
                    $"-profile:v high -level:v 4.1 -r {fpsToken} -g {gop}";
         }
@@ -270,7 +270,7 @@ public sealed class FfmpegTool : ITranscodeTool
         return (int)Math.Max(12, Math.Round(fps * 2.0));
     }
 
-    private static ToMkvGpuDownscaleDefaults ResolveVideoSettings(TranscodePlan plan)
+    private static DownscaleDefaults ResolveVideoSettings(TranscodePlan plan)
     {
         if (plan.TargetHeight == 576)
         {
@@ -278,13 +278,13 @@ public sealed class FfmpegTool : ITranscodeTool
             return profile.ResolveDefaults(contentProfile: null, qualityProfile: null);
         }
 
-        return new ToMkvGpuDownscaleDefaults(
+        return new DownscaleDefaults(
             ContentProfile: "default",
             QualityProfile: "default",
             Cq: 21,
             Maxrate: 4m,
             Bufsize: 8m,
-            DownscaleAlgorithm: "bilinear");
+            Algorithm: "bilinear");
     }
 
     private static string FormatRate(decimal value)

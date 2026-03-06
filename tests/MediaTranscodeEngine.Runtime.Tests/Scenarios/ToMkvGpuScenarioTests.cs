@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Videos;
 
@@ -175,9 +176,9 @@ public sealed class ToMkvGpuScenarioTests
     {
         return new ToMkvGpuScenario(new ToMkvGpuRequest(
             overlayBackground: overlayBackground,
-            downscaleTarget: downscaleTarget,
             synchronizeAudio: synchronizeAudio,
-            keepSource: keepSource));
+            keepSource: keepSource,
+            downscale: downscaleTarget.HasValue ? new DownscaleRequest(targetHeight: downscaleTarget) : null));
     }
 
     private static SourceVideo CreateVideo(

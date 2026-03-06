@@ -1,3 +1,4 @@
+using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 
 namespace MediaTranscodeEngine.Cli.Parsing;
@@ -14,17 +15,25 @@ internal static class CliRequestMappers
             Info: template.Info,
             ToMkvGpu: new ToMkvGpuRequest(
                 overlayBackground: template.OverlayBackground,
-                downscaleTarget: template.DownscaleTarget,
                 synchronizeAudio: template.SynchronizeAudio,
                 keepSource: template.KeepSource,
-                contentProfile: template.ContentProfile,
-                qualityProfile: template.QualityProfile,
-                noAutoSample: template.NoAutoSample,
-                autoSampleMode: template.AutoSampleMode,
-                downscaleAlgorithm: template.DownscaleAlgorithm,
-                cq: template.Cq,
-                maxrate: template.Maxrate,
-                bufsize: template.Bufsize,
+                downscale: BuildDownscaleRequest(template),
                 nvencPreset: template.NvencPreset));
+    }
+
+    private static DownscaleRequest? BuildDownscaleRequest(CliRequestTemplate template)
+    {
+        var downscale = new DownscaleRequest(
+            targetHeight: template.DownscaleTarget,
+            contentProfile: template.ContentProfile,
+            qualityProfile: template.QualityProfile,
+            noAutoSample: template.NoAutoSample,
+            autoSampleMode: template.AutoSampleMode,
+            algorithm: template.DownscaleAlgorithm,
+            cq: template.Cq,
+            maxrate: template.Maxrate,
+            bufsize: template.Bufsize);
+
+        return downscale.HasValue ? downscale : null;
     }
 }

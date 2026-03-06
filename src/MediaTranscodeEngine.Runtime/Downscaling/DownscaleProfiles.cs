@@ -1,55 +1,55 @@
-namespace MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
+namespace MediaTranscodeEngine.Runtime.Downscaling;
 
 /// <summary>
-/// Provides typed downscale profiles used by the ToMkvGpu workflow.
+/// Provides typed downscale profiles used by Runtime.
 /// </summary>
-internal sealed class ToMkvGpuDownscaleProfiles
+internal sealed class DownscaleProfiles
 {
-    private readonly IReadOnlyDictionary<int, ToMkvGpuDownscaleProfile> _profilesByTargetHeight;
+    private readonly IReadOnlyDictionary<int, DownscaleProfile> _profilesByTargetHeight;
 
-    private ToMkvGpuDownscaleProfiles(IReadOnlyDictionary<int, ToMkvGpuDownscaleProfile> profilesByTargetHeight)
+    private DownscaleProfiles(IReadOnlyDictionary<int, DownscaleProfile> profilesByTargetHeight)
     {
         _profilesByTargetHeight = profilesByTargetHeight;
     }
 
-    public static ToMkvGpuDownscaleProfiles Default { get; } = CreateDefault();
+    public static DownscaleProfiles Default { get; } = CreateDefault();
 
-    public ToMkvGpuDownscaleProfile GetRequiredProfile(int targetHeight)
+    public DownscaleProfile GetRequiredProfile(int targetHeight)
     {
         if (_profilesByTargetHeight.TryGetValue(targetHeight, out var profile))
         {
             return profile;
         }
 
-        throw new InvalidOperationException($"ToMkvGpu downscale profile '{targetHeight}' is not configured.");
+        throw new InvalidOperationException($"Downscale profile '{targetHeight}' is not configured.");
     }
 
-    private static ToMkvGpuDownscaleProfiles CreateDefault()
+    private static DownscaleProfiles CreateDefault()
     {
-        var profile576 = new ToMkvGpuDownscaleProfile(
+        var profile576 = new DownscaleProfile(
             targetHeight: 576,
             defaultContentProfile: "film",
             defaultQualityProfile: "default",
             sourceBuckets:
             [
-                new ToMkvGpuSourceBucket("hd_720", MinHeight: 650, MaxHeight: 899),
-                new ToMkvGpuSourceBucket("fhd_1080", MinHeight: 1000, MaxHeight: 1300)
+                new SourceHeightBucket("hd_720", MinHeight: 650, MaxHeight: 899),
+                new SourceHeightBucket("fhd_1080", MinHeight: 1000, MaxHeight: 1300)
             ],
             defaults:
             [
-                new ToMkvGpuDownscaleDefaults("anime", "high", Cq: 22, Maxrate: 3.3m, Bufsize: 6.5m, DownscaleAlgorithm: "bilinear"),
-                new ToMkvGpuDownscaleDefaults("anime", "default", Cq: 23, Maxrate: 2.4m, Bufsize: 4.8m, DownscaleAlgorithm: "bilinear"),
-                new ToMkvGpuDownscaleDefaults("anime", "low", Cq: 29, Maxrate: 2.1m, Bufsize: 4.1m, DownscaleAlgorithm: "bilinear"),
-                new ToMkvGpuDownscaleDefaults("mult", "high", Cq: 24, Maxrate: 2.7m, Bufsize: 5.3m, DownscaleAlgorithm: "bilinear"),
-                new ToMkvGpuDownscaleDefaults("mult", "default", Cq: 26, Maxrate: 2.4m, Bufsize: 4.8m, DownscaleAlgorithm: "bilinear"),
-                new ToMkvGpuDownscaleDefaults("mult", "low", Cq: 29, Maxrate: 1.7m, Bufsize: 3.5m, DownscaleAlgorithm: "bilinear"),
-                new ToMkvGpuDownscaleDefaults("film", "high", Cq: 24, Maxrate: 3.7m, Bufsize: 7.4m, DownscaleAlgorithm: "bilinear"),
-                new ToMkvGpuDownscaleDefaults("film", "default", Cq: 26, Maxrate: 3.4m, Bufsize: 6.9m, DownscaleAlgorithm: "bilinear"),
-                new ToMkvGpuDownscaleDefaults("film", "low", Cq: 30, Maxrate: 2.2m, Bufsize: 4.5m, DownscaleAlgorithm: "bilinear")
+                new DownscaleDefaults("anime", "high", Cq: 22, Maxrate: 3.3m, Bufsize: 6.5m, Algorithm: "bilinear"),
+                new DownscaleDefaults("anime", "default", Cq: 23, Maxrate: 2.4m, Bufsize: 4.8m, Algorithm: "bilinear"),
+                new DownscaleDefaults("anime", "low", Cq: 29, Maxrate: 2.1m, Bufsize: 4.1m, Algorithm: "bilinear"),
+                new DownscaleDefaults("mult", "high", Cq: 24, Maxrate: 2.7m, Bufsize: 5.3m, Algorithm: "bilinear"),
+                new DownscaleDefaults("mult", "default", Cq: 26, Maxrate: 2.4m, Bufsize: 4.8m, Algorithm: "bilinear"),
+                new DownscaleDefaults("mult", "low", Cq: 29, Maxrate: 1.7m, Bufsize: 3.5m, Algorithm: "bilinear"),
+                new DownscaleDefaults("film", "high", Cq: 24, Maxrate: 3.7m, Bufsize: 7.4m, Algorithm: "bilinear"),
+                new DownscaleDefaults("film", "default", Cq: 26, Maxrate: 3.4m, Bufsize: 6.9m, Algorithm: "bilinear"),
+                new DownscaleDefaults("film", "low", Cq: 30, Maxrate: 2.2m, Bufsize: 4.5m, Algorithm: "bilinear")
             ]);
 
-        return new ToMkvGpuDownscaleProfiles(
-            new Dictionary<int, ToMkvGpuDownscaleProfile>
+        return new DownscaleProfiles(
+            new Dictionary<int, DownscaleProfile>
             {
                 [profile576.TargetHeight] = profile576
             });
@@ -59,16 +59,16 @@ internal sealed class ToMkvGpuDownscaleProfiles
 /// <summary>
 /// Represents one typed downscale profile keyed by target height.
 /// </summary>
-internal sealed class ToMkvGpuDownscaleProfile
+internal sealed class DownscaleProfile
 {
-    private readonly IReadOnlyDictionary<string, ToMkvGpuDownscaleDefaults> _defaultsByProfile;
+    private readonly IReadOnlyDictionary<string, DownscaleDefaults> _defaultsByProfile;
 
-    public ToMkvGpuDownscaleProfile(
+    public DownscaleProfile(
         int targetHeight,
         string defaultContentProfile,
         string defaultQualityProfile,
-        IReadOnlyList<ToMkvGpuSourceBucket> sourceBuckets,
-        IReadOnlyList<ToMkvGpuDownscaleDefaults> defaults)
+        IReadOnlyList<SourceHeightBucket> sourceBuckets,
+        IReadOnlyList<DownscaleDefaults> defaults)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetHeight);
         ArgumentException.ThrowIfNullOrWhiteSpace(defaultContentProfile);
@@ -90,9 +90,9 @@ internal sealed class ToMkvGpuDownscaleProfile
 
     public string DefaultQualityProfile { get; }
 
-    public IReadOnlyList<ToMkvGpuSourceBucket> SourceBuckets { get; }
+    public IReadOnlyList<SourceHeightBucket> SourceBuckets { get; }
 
-    public IReadOnlyList<ToMkvGpuDownscaleDefaults> Defaults { get; }
+    public IReadOnlyList<DownscaleDefaults> Defaults { get; }
 
     public string? ResolveSourceBucket(int? sourceHeight)
     {
@@ -104,7 +104,7 @@ internal sealed class ToMkvGpuDownscaleProfile
         return SourceBuckets.FirstOrDefault(bucket => bucket.Matches(sourceHeight.Value))?.Name;
     }
 
-    public ToMkvGpuDownscaleDefaults ResolveDefaults(string? contentProfile, string? qualityProfile)
+    public DownscaleDefaults ResolveDefaults(string? contentProfile, string? qualityProfile)
     {
         var effectiveContentProfile = NormalizeProfileName(contentProfile) ?? DefaultContentProfile;
         var effectiveQualityProfile = NormalizeProfileName(qualityProfile) ?? DefaultQualityProfile;
@@ -115,7 +115,7 @@ internal sealed class ToMkvGpuDownscaleProfile
         }
 
         throw new InvalidOperationException(
-            $"ToMkvGpu downscale defaults are not configured for content '{effectiveContentProfile}' and quality '{effectiveQualityProfile}'.");
+            $"Downscale defaults are not configured for content '{effectiveContentProfile}' and quality '{effectiveQualityProfile}'.");
     }
 
     private static string? NormalizeProfileName(string? value)
@@ -135,15 +135,15 @@ internal sealed class ToMkvGpuDownscaleProfile
 }
 
 /// <summary>
-/// Represents one default encode preset entry inside a typed downscale profile.
+/// Represents one default settings entry inside a typed downscale profile.
 /// </summary>
-internal sealed record ToMkvGpuDownscaleDefaults(
+internal sealed record DownscaleDefaults(
     string ContentProfile,
     string QualityProfile,
     int Cq,
     decimal Maxrate,
     decimal Bufsize,
-    string DownscaleAlgorithm)
+    string Algorithm)
 {
     public string ContentProfile { get; init; } = NormalizeRequiredToken(ContentProfile, nameof(ContentProfile));
 
@@ -161,7 +161,7 @@ internal sealed record ToMkvGpuDownscaleDefaults(
         ? Bufsize
         : throw new ArgumentOutOfRangeException(nameof(Bufsize), Bufsize, "Bufsize must be greater than zero.");
 
-    public string DownscaleAlgorithm { get; init; } = NormalizeRequiredToken(DownscaleAlgorithm, nameof(DownscaleAlgorithm));
+    public string Algorithm { get; init; } = NormalizeRequiredToken(Algorithm, nameof(Algorithm));
 
     private static string NormalizeRequiredToken(string? value, string paramName)
     {
@@ -171,9 +171,9 @@ internal sealed record ToMkvGpuDownscaleDefaults(
 }
 
 /// <summary>
-/// Represents one source-height bucket used by the ToMkvGpu downscale profiles.
+/// Represents one source-height bucket used by downscale profiles.
 /// </summary>
-internal sealed record ToMkvGpuSourceBucket(string Name, int MinHeight, int MaxHeight)
+internal sealed record SourceHeightBucket(string Name, int MinHeight, int MaxHeight)
 {
     public string Name { get; init; } = NormalizeRequiredToken(Name, nameof(Name));
 

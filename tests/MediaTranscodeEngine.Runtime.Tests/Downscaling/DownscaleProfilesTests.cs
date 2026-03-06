@@ -1,14 +1,14 @@
 using FluentAssertions;
-using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
+using MediaTranscodeEngine.Runtime.Downscaling;
 
-namespace MediaTranscodeEngine.Runtime.Tests.Scenarios;
+namespace MediaTranscodeEngine.Runtime.Tests.Downscaling;
 
-public sealed class ToMkvGpuDownscaleProfilesTests
+public sealed class DownscaleProfilesTests
 {
     [Fact]
     public void Default_When576ProfileIsRequested_ReturnsConfiguredSourceBuckets()
     {
-        var sut = ToMkvGpuDownscaleProfiles.Default;
+        var sut = DownscaleProfiles.Default;
 
         var actual = sut.GetRequiredProfile(576);
 
@@ -24,7 +24,7 @@ public sealed class ToMkvGpuDownscaleProfilesTests
     [Fact]
     public void ResolveDefaults_WhenContentAndQualityAreMissing_UsesFilmDefaultEntry()
     {
-        var sut = ToMkvGpuDownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveDefaults(contentProfile: null, qualityProfile: null);
 
@@ -33,13 +33,13 @@ public sealed class ToMkvGpuDownscaleProfilesTests
         actual.Cq.Should().Be(26);
         actual.Maxrate.Should().Be(3.4m);
         actual.Bufsize.Should().Be(6.9m);
-        actual.DownscaleAlgorithm.Should().Be("bilinear");
+        actual.Algorithm.Should().Be("bilinear");
     }
 
     [Fact]
     public void ResolveDefaults_WhenOnlyContentProfileIsProvided_UsesDefaultQualityForThatContent()
     {
-        var sut = ToMkvGpuDownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveDefaults(contentProfile: "anime", qualityProfile: null);
 
@@ -53,7 +53,7 @@ public sealed class ToMkvGpuDownscaleProfilesTests
     [Fact]
     public void ResolveDefaults_WhenOnlyQualityProfileIsProvided_UsesFilmAsDefaultContent()
     {
-        var sut = ToMkvGpuDownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveDefaults(contentProfile: null, qualityProfile: "high");
 
@@ -74,7 +74,7 @@ public sealed class ToMkvGpuDownscaleProfilesTests
     [InlineData(1301, null)]
     public void ResolveSourceBucket_WhenHeightIsOnBoundary_MatchesConfiguredBuckets(int sourceHeight, string? expectedBucket)
     {
-        var sut = ToMkvGpuDownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveSourceBucket(sourceHeight);
 
