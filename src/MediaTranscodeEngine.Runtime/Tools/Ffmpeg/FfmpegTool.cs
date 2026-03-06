@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Plans;
@@ -12,21 +13,28 @@ public sealed class FfmpegTool : ITranscodeTool
 {
     private readonly string _ffmpegPath;
     private readonly DownscaleProfiles _downscaleProfiles;
+    private readonly DownscaleAutoSampler _autoSampler;
+    private readonly Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?> _sampleReductionProvider;
 
     /// <summary>
     /// Initializes an ffmpeg-backed transcode tool.
     /// </summary>
     /// <param name="ffmpegPath">Executable path or command name for ffmpeg.</param>
     public FfmpegTool(string ffmpegPath = "ffmpeg")
-        : this(ffmpegPath, DownscaleProfiles.Default)
+        : this(ffmpegPath, DownscaleProfiles.Default, null)
     {
     }
 
-    internal FfmpegTool(string ffmpegPath, DownscaleProfiles downscaleProfiles)
+    internal FfmpegTool(
+        string ffmpegPath,
+        DownscaleProfiles downscaleProfiles,
+        Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ffmpegPath);
         _ffmpegPath = ffmpegPath.Trim();
         _downscaleProfiles = downscaleProfiles ?? throw new ArgumentNullException(nameof(downscaleProfiles));
+        _autoSampler = new DownscaleAutoSampler(_downscaleProfiles);
+        _sampleReductionProvider = sampleReductionProvider ?? MeasureSampleAverageReduction;
     }
 
     /// <summary>
@@ -306,77 +314,14 @@ public sealed class FfmpegTool : ITranscodeTool
             return defaults;
         }
 
-        var request = plan.Downscale;
-        if (request.NoAutoSample || request.Cq.HasValue || request.Maxrate.HasValue || request.Bufsize.HasValue)
-        {
-            return defaults;
-        }
-
-        var profile = _downscaleProfiles.GetRequiredProfile(576);
-        var mode = request.AutoSampleMode ?? profile.AutoSampling.ModeDefault;
-        if (!mode.Equals("fast", StringComparison.OrdinalIgnoreCase))
-        {
-            return defaults;
-        }
-
-        if (video.Duration <= TimeSpan.Zero || !video.Bitrate.HasValue || video.Bitrate.Value <= 0)
-        {
-            return defaults;
-        }
-
-        var range = profile.ResolveRange(video.Height, request.ContentProfile, request.QualityProfile);
-        if (range is null)
-        {
-            return defaults;
-        }
-
-        var cq = defaults.Cq;
-        var maxrate = defaults.Maxrate;
-        var hasAudio = video.AudioCodecs.Count > 0;
-
-        for (var i = 0; i < profile.AutoSampling.MaxIterations; i++)
-        {
-            var reduction = EstimateReductionFromBitrate(
-                sourceBitrateBps: video.Bitrate.Value,
-                maxrateMbps: maxrate,
-                hasAudio: hasAudio,
-                audioBitrateEstimateMbps: profile.AutoSampling.AudioBitrateEstimateMbps);
-
-            if (range.Contains(reduction))
-            {
-                break;
-            }
-
-            var previousCq = cq;
-            var previousMaxrate = maxrate;
-
-            if (IsBelowRange(range, reduction))
-            {
-                if (cq < defaults.CqMax)
-                {
-                    cq++;
-                }
-
-                maxrate = Math.Max(maxrate - profile.RateModel.CqStepToMaxrateStep, defaults.MaxrateMin);
-            }
-            else
-            {
-                if (cq > defaults.CqMin)
-                {
-                    cq--;
-                }
-
-                maxrate = Math.Min(maxrate + profile.RateModel.CqStepToMaxrateStep, defaults.MaxrateMax);
-            }
-
-            if (previousCq == cq && previousMaxrate == maxrate)
-            {
-                break;
-            }
-        }
-
-        var bufsize = maxrate * profile.RateModel.BufsizeMultiplier;
-        return defaults with { Cq = cq, Maxrate = maxrate, Bufsize = bufsize };
+        return _autoSampler.Resolve(
+            request: plan.Downscale,
+            baseSettings: defaults,
+            sourceHeight: video.Height,
+            duration: video.Duration,
+            sourceBitrate: video.Bitrate,
+            hasAudio: video.AudioCodecs.Count > 0,
+            accurateReductionProvider: (settings, windows) => _sampleReductionProvider(video.FilePath, settings, windows));
     }
 
     private DownscaleDefaults ResolveBaseDefaults(TranscodePlan plan)
@@ -456,37 +401,194 @@ public sealed class FfmpegTool : ITranscodeTool
         return $"{value.ToString("0.###", CultureInfo.InvariantCulture)}M";
     }
 
-    private static decimal EstimateReductionFromBitrate(
-        long sourceBitrateBps,
-        decimal maxrateMbps,
-        bool hasAudio,
-        decimal audioBitrateEstimateMbps)
+    private decimal? MeasureSampleAverageReduction(
+        string inputPath,
+        DownscaleDefaults settings,
+        IReadOnlyList<DownscaleSampleWindow> windows)
     {
-        var sourceMbps = sourceBitrateBps / 1_000_000m;
-        if (sourceMbps <= 0m)
+        if (string.IsNullOrWhiteSpace(inputPath) || windows.Count == 0)
         {
-            return 0m;
+            return null;
         }
 
-        var targetMbps = maxrateMbps + (hasAudio ? audioBitrateEstimateMbps : 0m);
-        var reduction = (1m - (targetMbps / sourceMbps)) * 100m;
-        reduction = Math.Round(reduction, 2, MidpointRounding.AwayFromZero);
-        return Clamp(reduction, -100m, 100m);
+        var reductions = new List<decimal>();
+        foreach (var window in windows)
+        {
+            var sourceSample = CreateSourceSample(inputPath, window);
+            if (sourceSample is null)
+            {
+                continue;
+            }
+
+            try
+            {
+                var encodedSize = EncodeSample(sourceSample.Path, settings);
+                if (!encodedSize.HasValue || encodedSize.Value <= 0 || sourceSample.SizeBytes <= 0)
+                {
+                    continue;
+                }
+
+                var reduction = (1m - (encodedSize.Value / sourceSample.SizeBytes)) * 100m;
+                reduction = Clamp(reduction, -100m, 100m);
+                reductions.Add(Math.Round(reduction, 2, MidpointRounding.AwayFromZero));
+            }
+            finally
+            {
+                TryDelete(sourceSample.Path);
+            }
+        }
+
+        if (reductions.Count == 0)
+        {
+            return null;
+        }
+
+        return Math.Round(reductions.Average(), 2, MidpointRounding.AwayFromZero);
     }
 
-    private static bool IsBelowRange(DownscaleRange range, decimal value)
+    private SourceSample? CreateSourceSample(string inputPath, DownscaleSampleWindow window)
     {
-        if (range.MinInclusive.HasValue)
+        if (!File.Exists(inputPath) || window.DurationSeconds < 1)
         {
-            return value < range.MinInclusive.Value;
+            return null;
         }
 
-        if (range.MinExclusive.HasValue)
+        var samplePath = Path.Combine(Path.GetTempPath(), $"tomkvgpu-srcsample-{Guid.NewGuid():N}.mkv");
+        var arguments = new[]
         {
-            return value <= range.MinExclusive.Value;
+            "-hide_banner",
+            "-loglevel", "error",
+            "-y",
+            "-ss", window.StartSeconds.ToString(CultureInfo.InvariantCulture),
+            "-t", window.DurationSeconds.ToString(CultureInfo.InvariantCulture),
+            "-i", inputPath,
+            "-map", "0:v:0",
+            "-map", "0:a?",
+            "-c", "copy",
+            "-sn",
+            samplePath
+        };
+
+        if (!TryExecuteProcess(arguments) || !File.Exists(samplePath))
+        {
+            TryDelete(samplePath);
+            return null;
         }
 
-        return false;
+        var size = new FileInfo(samplePath).Length;
+        if (size <= 0)
+        {
+            TryDelete(samplePath);
+            return null;
+        }
+
+        return new SourceSample(samplePath, size);
+    }
+
+    private long? EncodeSample(string samplePath, DownscaleDefaults settings)
+    {
+        if (!File.Exists(samplePath))
+        {
+            return null;
+        }
+
+        var outputPath = Path.Combine(Path.GetTempPath(), $"tomkvgpu-outsample-{Guid.NewGuid():N}.mkv");
+        var arguments = new[]
+        {
+            "-hide_banner",
+            "-loglevel", "error",
+            "-y",
+            "-hwaccel", "cuda",
+            "-hwaccel_output_format", "cuda",
+            "-i", samplePath,
+            "-map", "0:v:0",
+            "-fps_mode:v", "cfr",
+            "-vf", $"scale_cuda=-2:576:interp_algo={settings.Algorithm}:format=nv12",
+            "-c:v", "h264_nvenc",
+            "-preset", "p6",
+            "-rc", "vbr_hq",
+            "-cq", settings.Cq.ToString(CultureInfo.InvariantCulture),
+            "-b:v", "0",
+            "-maxrate", FormatRate(settings.Maxrate),
+            "-bufsize", FormatRate(settings.Bufsize),
+            "-spatial_aq", "1",
+            "-temporal_aq", "1",
+            "-rc-lookahead", "32",
+            "-profile:v", "high",
+            "-level:v", "4.1",
+            "-g", "48",
+            "-map", "0:a?",
+            "-c:a", "aac",
+            "-ar", "48000",
+            "-ac", "2",
+            "-b:a", "192k",
+            "-af", "aresample=async=1:first_pts=0",
+            "-sn",
+            "-max_muxing_queue_size", "4096",
+            outputPath
+        };
+
+        try
+        {
+            if (!TryExecuteProcess(arguments) || !File.Exists(outputPath))
+            {
+                return null;
+            }
+
+            var size = new FileInfo(outputPath).Length;
+            return size > 0 ? size : null;
+        }
+        finally
+        {
+            TryDelete(outputPath);
+        }
+    }
+
+    private bool TryExecuteProcess(IReadOnlyList<string> arguments)
+    {
+        using var process = new Process();
+        process.StartInfo = CreateStartInfo(arguments);
+        process.Start();
+        process.WaitForExit();
+        return process.ExitCode == 0;
+    }
+
+    private ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = _ffmpegPath,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        return startInfo;
+    }
+
+    private static void TryDelete(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 
     private static string BuildOverlayFilter(SourceVideo video, int? targetHeight, string downscaleAlgorithm)
@@ -534,4 +636,6 @@ public sealed class FfmpegTool : ITranscodeTool
     }
 
     private static string Quote(string value) => $"\"{value}\"";
+
+    private sealed record SourceSample(string Path, decimal SizeBytes);
 }

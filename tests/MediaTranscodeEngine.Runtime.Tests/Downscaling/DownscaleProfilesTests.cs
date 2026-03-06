@@ -120,9 +120,9 @@ public sealed class DownscaleProfilesTests
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(8));
 
         actual.Should().Equal(
-            TimeSpan.FromSeconds(120),
-            TimeSpan.FromSeconds(120),
-            TimeSpan.FromSeconds(120));
+            new DownscaleSampleWindow(StartSeconds: 60, DurationSeconds: 120),
+            new DownscaleSampleWindow(StartSeconds: 180, DurationSeconds: 120),
+            new DownscaleSampleWindow(StartSeconds: 300, DurationSeconds: 120));
     }
 
     [Fact]
@@ -133,8 +133,8 @@ public sealed class DownscaleProfilesTests
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(3));
 
         actual.Should().Equal(
-            TimeSpan.FromSeconds(120),
-            TimeSpan.FromSeconds(120));
+            new DownscaleSampleWindow(StartSeconds: 45, DurationSeconds: 120),
+            new DownscaleSampleWindow(StartSeconds: 30, DurationSeconds: 120));
     }
 
     [Fact]
@@ -144,7 +144,17 @@ public sealed class DownscaleProfilesTests
 
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(2));
 
-        actual.Should().Equal(TimeSpan.FromSeconds(90));
+        actual.Should().Equal(new DownscaleSampleWindow(StartSeconds: 15, DurationSeconds: 90));
+    }
+
+    [Fact]
+    public void GetSampleWindows_WhenDurationIsMissing_ReturnsEmptySet()
+    {
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+
+        var actual = sut.GetSampleWindows(TimeSpan.Zero);
+
+        actual.Should().BeEmpty();
     }
 
     [Fact]

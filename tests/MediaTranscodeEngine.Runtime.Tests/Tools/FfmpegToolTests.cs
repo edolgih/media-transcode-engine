@@ -283,7 +283,7 @@ public sealed class FfmpegToolTests
             filePath: @"C:\video\input.mp4",
             height: 1080,
             duration: TimeSpan.FromMinutes(10),
-            bitrate: 8_000_000);
+            bitrate: 4_500_000);
         var plan = CreatePlan(
             copyVideo: false,
             copyAudio: false,
@@ -323,6 +323,205 @@ public sealed class FfmpegToolTests
 
         actual.Commands[0].Should().Contain("-cq 26");
         actual.Commands[0].Should().Contain("-maxrate 3.4M -bufsize 6.9M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleAccurateAutoSampleIsRequested_UsesMeasuredSettings()
+    {
+        IReadOnlyList<DownscaleSampleWindow>? actualWindows = null;
+        var sut = CreateSut(sampleReductionProvider: (_, settings, windows) =>
+        {
+            actualWindows = windows;
+            settings.Cq.Should().Be(23);
+            settings.Maxrate.Should().Be(2.4m);
+            return 45m;
+        });
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.FromMinutes(10));
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "accurate"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-cq 23");
+        actual.Commands[0].Should().Contain("-maxrate 2.4M -bufsize 4.8M");
+        actualWindows.Should().Equal(
+            new DownscaleSampleWindow(StartSeconds: 60, DurationSeconds: 120),
+            new DownscaleSampleWindow(StartSeconds: 240, DurationSeconds: 120),
+            new DownscaleSampleWindow(StartSeconds: 420, DurationSeconds: 120));
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleAutoSampleModeIsOmitted_UsesAccurateByDefault()
+    {
+        var providerCalls = 0;
+        var sut = CreateSut(sampleReductionProvider: (_, _, _) =>
+        {
+            providerCalls++;
+            return 45m;
+        });
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.FromMinutes(10));
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        providerCalls.Should().Be(1);
+        actual.Commands[0].Should().Contain("-cq 23");
+        actual.Commands[0].Should().Contain("-maxrate 2.4M -bufsize 4.8M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleHybridAutoSampleFastSeedIsInCorridor_SkipsMeasuredRefinement()
+    {
+        var providerCalls = 0;
+        var sut = CreateSut(
+            downscaleProfiles: CreateDownscaleProfiles(maxIterations: 1, hybridAccurateIterations: 1),
+            sampleReductionProvider: (_, _, _) =>
+            {
+                providerCalls++;
+                return 45m;
+            });
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.FromMinutes(10),
+            bitrate: 5_184_000);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "hybrid"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        providerCalls.Should().Be(0);
+        actual.Commands[0].Should().Contain("-cq 23");
+        actual.Commands[0].Should().Contain("-maxrate 2.4M -bufsize 4.8M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleHybridAutoSampleFastSeedIsOutsideCorridor_UsesMeasuredRefinement()
+    {
+        DownscaleDefaults? actualStart = null;
+        var sut = CreateSut(
+            downscaleProfiles: CreateDownscaleProfiles(maxIterations: 1, hybridAccurateIterations: 1),
+            sampleReductionProvider: (_, settings, _) =>
+            {
+                actualStart ??= settings;
+                return 45m;
+            });
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.FromMinutes(10),
+            bitrate: 4_500_000);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "hybrid"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actualStart.Should().NotBeNull();
+        actualStart!.Cq.Should().Be(24);
+        actualStart.Maxrate.Should().Be(2.0m);
+        actual.Commands[0].Should().Contain("-cq 24");
+        actual.Commands[0].Should().Contain("-maxrate 2M -bufsize 4M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleManualMaxrateIsProvided_SkipsAutoSample()
+    {
+        var providerCalls = 0;
+        var sut = CreateSut(sampleReductionProvider: (_, _, _) =>
+        {
+            providerCalls++;
+            return 45m;
+        });
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.FromMinutes(10),
+            bitrate: 8_000_000);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", maxrate: 2.7m),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        providerCalls.Should().Be(0);
+        actual.Commands[0].Should().Contain("-maxrate 2.7M -bufsize 5.4M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleManualBufsizeIsProvided_SkipsAutoSample()
+    {
+        var providerCalls = 0;
+        var sut = CreateSut(sampleReductionProvider: (_, _, _) =>
+        {
+            providerCalls++;
+            return 45m;
+        });
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.FromMinutes(10),
+            bitrate: 8_000_000);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", bufsize: 7.0m),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        providerCalls.Should().Be(0);
+        actual.Commands[0].Should().Contain("-maxrate 2.4M -bufsize 7M");
     }
 
     [Fact]
@@ -459,9 +658,30 @@ public sealed class FfmpegToolTests
         actual.Should().BeFalse();
     }
 
-    private static FfmpegTool CreateSut(string ffmpegPath = "ffmpeg")
+    private static FfmpegTool CreateSut(
+        string ffmpegPath = "ffmpeg",
+        DownscaleProfiles? downscaleProfiles = null,
+        Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider = null)
     {
-        return new FfmpegTool(ffmpegPath);
+        return new FfmpegTool(ffmpegPath, downscaleProfiles ?? DownscaleProfiles.Default, sampleReductionProvider);
+    }
+
+    private static DownscaleProfiles CreateDownscaleProfiles(int maxIterations, int hybridAccurateIterations)
+    {
+        var profile = Downscale576Profile.Create();
+        return DownscaleProfiles.Create(
+            new DownscaleProfile(
+                targetHeight: profile.TargetHeight,
+                defaultContentProfile: profile.DefaultContentProfile,
+                defaultQualityProfile: profile.DefaultQualityProfile,
+                rateModel: profile.RateModel,
+                autoSampling: profile.AutoSampling with
+                {
+                    MaxIterations = maxIterations,
+                    HybridAccurateIterations = hybridAccurateIterations
+                },
+                sourceBuckets: profile.SourceBuckets,
+                defaults: profile.Defaults));
     }
 
     private static SourceVideo CreateVideo(

@@ -128,7 +128,7 @@ internal sealed class DownscaleProfile
             $"Downscale defaults are not configured for content '{effectiveContentProfile}' and quality '{effectiveQualityProfile}'.");
     }
 
-    public IReadOnlyList<TimeSpan> GetSampleWindows(TimeSpan duration)
+    public IReadOnlyList<DownscaleSampleWindow> GetSampleWindows(TimeSpan duration)
     {
         return AutoSampling.GetSampleWindows(duration);
     }
@@ -306,19 +306,84 @@ internal sealed record DownscaleAutoSampling(
         ? ShortWindowDuration
         : throw new ArgumentOutOfRangeException(nameof(ShortWindowDuration), ShortWindowDuration, "ShortWindowDuration must be greater than zero.");
 
-    public IReadOnlyList<TimeSpan> GetSampleWindows(TimeSpan duration)
+    public IReadOnlyList<DownscaleSampleWindow> GetSampleWindows(TimeSpan duration)
     {
+        if (duration <= TimeSpan.Zero)
+        {
+            return [];
+        }
+
         if (duration >= LongMinDuration)
         {
-            return Enumerable.Repeat(LongWindowDuration, LongWindowCount).ToArray();
+            return BuildWindows(
+                duration,
+                [
+                    new DownscaleSampleWindow(StartSeconds: 60, DurationSeconds: (int)LongWindowDuration.TotalSeconds),
+                    new DownscaleSampleWindow(
+                        StartSeconds: (int)Math.Floor(Math.Max((duration.TotalSeconds / 2.0) - (LongWindowDuration.TotalSeconds / 2.0), 0.0)),
+                        DurationSeconds: (int)LongWindowDuration.TotalSeconds),
+                    new DownscaleSampleWindow(
+                        StartSeconds: (int)Math.Floor(Math.Max(duration.TotalSeconds - LongWindowDuration.TotalSeconds - 60.0, 0.0)),
+                        DurationSeconds: (int)LongWindowDuration.TotalSeconds)
+                ],
+                LongWindowCount);
         }
 
         if (duration >= MediumMinDuration)
         {
-            return Enumerable.Repeat(MediumWindowDuration, MediumWindowCount).ToArray();
+            return BuildWindows(
+                duration,
+                [
+                    new DownscaleSampleWindow(StartSeconds: 45, DurationSeconds: (int)MediumWindowDuration.TotalSeconds),
+                    new DownscaleSampleWindow(
+                        StartSeconds: (int)Math.Floor(Math.Max((duration.TotalSeconds / 2.0) - (MediumWindowDuration.TotalSeconds / 2.0), 0.0)),
+                        DurationSeconds: (int)MediumWindowDuration.TotalSeconds)
+                ],
+                MediumWindowCount);
         }
 
-        return Enumerable.Repeat(ShortWindowDuration, ShortWindowCount).ToArray();
+        return BuildWindows(
+            duration,
+            [
+                new DownscaleSampleWindow(
+                    StartSeconds: (int)Math.Floor(Math.Max((duration.TotalSeconds / 2.0) - (ShortWindowDuration.TotalSeconds / 2.0), 0.0)),
+                    DurationSeconds: (int)ShortWindowDuration.TotalSeconds)
+            ],
+            ShortWindowCount);
+    }
+
+    private static IReadOnlyList<DownscaleSampleWindow> BuildWindows(
+        TimeSpan totalDuration,
+        IReadOnlyList<DownscaleSampleWindow> slots,
+        int count)
+    {
+        if (count < 1)
+        {
+            count = 1;
+        }
+
+        var maxDurationSeconds = Math.Max((int)Math.Floor(totalDuration.TotalSeconds), 1);
+        var result = new List<DownscaleSampleWindow>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var slot in slots.Take(count))
+        {
+            var durationSeconds = Math.Min(slot.DurationSeconds, maxDurationSeconds);
+            if (durationSeconds < 1)
+            {
+                continue;
+            }
+
+            var maxStart = Math.Max((int)Math.Floor(totalDuration.TotalSeconds) - durationSeconds, 0);
+            var startSeconds = Math.Min(Math.Max(slot.StartSeconds, 0), maxStart);
+            var key = $"{startSeconds}|{durationSeconds}";
+            if (seen.Add(key))
+            {
+                result.Add(new DownscaleSampleWindow(startSeconds, durationSeconds));
+            }
+        }
+
+        return result;
     }
 
     private static string NormalizeRequiredToken(string? value, string paramName)
@@ -399,6 +464,22 @@ internal sealed record DownscaleRange(
             ? value.Value
             : throw new ArgumentOutOfRangeException(paramName, value.Value, "Range value must not be negative.");
     }
+}
+
+/// <summary>
+/// Represents one autosample window inside a downscale profile.
+/// </summary>
+internal sealed record DownscaleSampleWindow(
+    int StartSeconds,
+    int DurationSeconds)
+{
+    public int StartSeconds { get; init; } = StartSeconds >= 0
+        ? StartSeconds
+        : throw new ArgumentOutOfRangeException(nameof(StartSeconds), StartSeconds, "StartSeconds must not be negative.");
+
+    public int DurationSeconds { get; init; } = DurationSeconds > 0
+        ? DurationSeconds
+        : throw new ArgumentOutOfRangeException(nameof(DurationSeconds), DurationSeconds, "DurationSeconds must be greater than zero.");
 }
 
 /// <summary>
