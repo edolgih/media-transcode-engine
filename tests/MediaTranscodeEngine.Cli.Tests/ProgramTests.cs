@@ -82,6 +82,42 @@ public sealed class ProgramTests
         }
     }
 
+    [Fact]
+    public void RunCli_WhenNonInfoProcessorReturnsEmptyLine_WritesOnlyChcp()
+    {
+        var services = new ServiceCollection()
+            .AddSingleton<ITranscodeProcessor>(new StubProcessor(string.Empty))
+            .BuildServiceProvider();
+        using var loggerFactory = LoggerFactory.Create(static _ => { });
+        var logger = loggerFactory.CreateLogger("test");
+        var runtimeValues = new RuntimeValues
+        {
+            FfprobePath = "ffprobe",
+            FfmpegPath = "ffmpeg"
+        };
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+
+        Console.SetOut(output);
+        Console.SetError(error);
+        try
+        {
+            var exitCode = Program.RunCli(["--input", @"C:\video\a.mkv"], logger, services, runtimeValues);
+
+            exitCode.Should().Be(0);
+            output.ToString().Trim().Should().Be("chcp 65001");
+            error.ToString().Should().BeEmpty();
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
+    }
+
     private sealed class StubProcessor : ITranscodeProcessor
     {
         private readonly string _line;

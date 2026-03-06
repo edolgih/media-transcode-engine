@@ -40,6 +40,20 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void BuildExecution_WhenPathsContainSpaces_QuotesInputOutputAndDeleteSteps()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", filePath: @"C:\video\my file (1).mp4");
+        var plan = CreatePlan(copyVideo: true, copyAudio: true, outputPath: @"C:\video\my file (1).mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-i \"C:\\video\\my file (1).mp4\"");
+        actual.Commands[0].Should().Contain("\"C:\\video\\my file (1).mkv\"");
+        actual.Commands[1].Should().Be("del \"C:\\video\\my file (1).mp4\"");
+    }
+
+    [Fact]
     public void BuildExecution_WhenVideoEncodingIsRequired_BuildsNvencCommandWithAudioEncode()
     {
         var sut = CreateSut();
@@ -60,6 +74,19 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("-fps_mode:v cfr");
         actual.Commands[0].Should().Contain("-cq 21");
         actual.Commands[0].Should().Contain("-maxrate 4M -bufsize 8M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenAudioTracksAreMissing_UsesOptionalAudioCopyPath()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", audioCodecs: [], filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(copyVideo: true, copyAudio: true, outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-map 0:a? -c:a copy");
+        actual.Commands[0].Should().NotContain("-c:a aac");
     }
 
     [Fact]
@@ -121,6 +148,47 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("\"C:\\video\\input_temp.mkv\"");
         actual.Commands[1].Should().Be("del \"C:\\video\\input.mkv\"");
         actual.Commands[2].Should().Be("ren \"C:\\video\\input_temp.mkv\" \"input.mkv\"");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenOnlyAudioEncodingIsNeededForContainerChange_UsesSoftSanitizeWithoutIgndts()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "h264", audioCodecs: ["mp3"], filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(copyVideo: true, copyAudio: false, outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-c:v copy");
+        actual.Commands[0].Should().Contain("-fflags +genpts -avoid_negative_ts make_zero");
+        actual.Commands[0].Should().NotContain("+igndts");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenOnlyAudioEncodingIsNeededForMkvWithoutSyncAudio_UsesOnlyAvoidNegativeTs()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "h264", audioCodecs: ["ac3"], filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(copyVideo: true, copyAudio: false, outputPath: @"C:\video\input_out.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-c:v copy");
+        actual.Commands[0].Should().Contain("-avoid_negative_ts make_zero");
+        actual.Commands[0].Should().NotContain("-fflags +genpts");
+        actual.Commands[0].Should().NotContain("+igndts");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenCommandIsBuilt_AlwaysDisablesSubtitles()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "av1", audioCodecs: ["aac"], filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(copyVideo: false, copyAudio: false, targetVideoCodec: "h264", preferredBackend: "gpu", outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-sn");
     }
 
     [Fact]
