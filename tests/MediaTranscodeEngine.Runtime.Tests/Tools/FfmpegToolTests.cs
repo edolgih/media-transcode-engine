@@ -120,7 +120,7 @@ public sealed class FfmpegToolTests
         actual.Commands.Should().HaveCount(3);
         actual.Commands[0].Should().Contain("\"C:\\video\\input_temp.mkv\"");
         actual.Commands[1].Should().Be("del \"C:\\video\\input.mkv\"");
-        actual.Commands[2].Should().Be("move /Y \"C:\\video\\input_temp.mkv\" \"C:\\video\\input.mkv\"");
+        actual.Commands[2].Should().Be("ren \"C:\\video\\input_temp.mkv\" \"input.mkv\"");
     }
 
     [Fact]

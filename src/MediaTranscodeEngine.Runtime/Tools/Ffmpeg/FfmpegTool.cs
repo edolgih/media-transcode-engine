@@ -147,7 +147,7 @@ public sealed class FfmpegTool : ITranscodeTool
         if (finalOutputPath.Equals(video.FilePath, StringComparison.OrdinalIgnoreCase))
         {
             commands.Add($"del {Quote(video.FilePath)}");
-            commands.Add($"move /Y {Quote(workingOutputPath)} {Quote(finalOutputPath)}");
+            commands.Add($"ren {Quote(workingOutputPath)} {Quote(Path.GetFileName(finalOutputPath))}");
             return;
         }
 

@@ -83,7 +83,7 @@ public static class Program
         }
     }
 
-    private static int RunCli(
+    internal static int RunCli(
         string[] args,
         Microsoft.Extensions.Logging.ILogger logger,
         IServiceProvider services,
@@ -113,6 +113,10 @@ public static class Program
         }
 
         var processor = services.GetRequiredService<ITranscodeProcessor>();
+        if (!parsed.RequestTemplate.Info)
+        {
+            Console.WriteLine("chcp 65001");
+        }
 
         foreach (var input in parsed.Inputs)
         {

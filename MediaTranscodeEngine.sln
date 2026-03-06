@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MediaTranscodeEngine.Runtim
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MediaTranscodeEngine.Runtime.Tests", "tests\MediaTranscodeEngine.Runtime.Tests\MediaTranscodeEngine.Runtime.Tests.csproj", "{8C4B51A6-A4E4-4533-9204-3F7438FDCE62}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MediaTranscodeEngine.Cli.Tests", "tests\MediaTranscodeEngine.Cli.Tests\MediaTranscodeEngine.Cli.Tests.csproj", "{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -52,8 +54,22 @@ Global
 		{8C4B51A6-A4E4-4533-9204-3F7438FDCE62}.Release|x64.Build.0 = Release|Any CPU
 		{8C4B51A6-A4E4-4533-9204-3F7438FDCE62}.Release|x86.ActiveCfg = Release|Any CPU
 		{8C4B51A6-A4E4-4533-9204-3F7438FDCE62}.Release|x86.Build.0 = Release|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Debug|x64.Build.0 = Debug|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Debug|x86.Build.0 = Debug|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Release|x64.ActiveCfg = Release|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Release|x64.Build.0 = Release|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Release|x86.ActiveCfg = Release|Any CPU
+		{EB3E1465-F31F-4588-B91B-6E2F6C355C3B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection
 EndGlobal
