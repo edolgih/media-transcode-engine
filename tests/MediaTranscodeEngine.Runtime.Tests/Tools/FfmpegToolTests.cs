@@ -248,6 +248,84 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void BuildExecution_WhenDownscaleFastAutoSampleIsRequested_UsesFastResolvedSettings()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.FromMinutes(10),
+            bitrate: 8_000_000);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, autoSampleMode: "fast"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-cq 24");
+        actual.Commands[0].Should().Contain("-maxrate 4.2M -bufsize 8.4M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleFastAutoSampleIsRequestedButNoAutoSampleIsSet_UsesBaseProfileSettings()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.FromMinutes(10),
+            bitrate: 8_000_000);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, autoSampleMode: "fast", noAutoSample: true),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-cq 26");
+        actual.Commands[0].Should().Contain("-maxrate 3.4M -bufsize 6.9M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleFastAutoSampleIsRequestedButDurationIsMissing_UsesBaseProfileSettings()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "h264",
+            filePath: @"C:\video\input.mp4",
+            height: 1080,
+            duration: TimeSpan.Zero,
+            bitrate: 8_000_000);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, autoSampleMode: "fast"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-cq 26");
+        actual.Commands[0].Should().Contain("-maxrate 3.4M -bufsize 6.9M");
+    }
+
+    [Fact]
     public void BuildExecution_WhenOverlayBackgroundIsRequested_UsesFilterComplexPath()
     {
         var sut = CreateSut();
@@ -393,7 +471,9 @@ public sealed class FfmpegToolTests
         int width = 1920,
         int height = 1080,
         double framesPerSecond = 29.97,
-        string filePath = @"C:\video\input.mkv")
+        string filePath = @"C:\video\input.mkv",
+        TimeSpan? duration = null,
+        long? bitrate = null)
     {
         return new SourceVideo(
             filePath: filePath,
@@ -403,7 +483,8 @@ public sealed class FfmpegToolTests
             width: width,
             height: height,
             framesPerSecond: framesPerSecond,
-            duration: TimeSpan.FromMinutes(10));
+            duration: duration ?? TimeSpan.FromMinutes(10),
+            bitrate: bitrate);
     }
 
     private static TranscodePlan CreatePlan(

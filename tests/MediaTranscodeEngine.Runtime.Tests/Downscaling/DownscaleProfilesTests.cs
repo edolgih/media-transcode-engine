@@ -109,6 +109,7 @@ public sealed class DownscaleProfilesTests
         sut.AutoSampling.ModeDefault.Should().Be("accurate");
         sut.AutoSampling.MaxIterations.Should().Be(8);
         sut.AutoSampling.HybridAccurateIterations.Should().Be(2);
+        sut.AutoSampling.AudioBitrateEstimateMbps.Should().Be(0.192m);
     }
 
     [Fact]

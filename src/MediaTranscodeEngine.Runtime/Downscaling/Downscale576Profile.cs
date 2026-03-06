@@ -14,6 +14,7 @@ internal static class Downscale576Profile
                 ModeDefault: "accurate",
                 MaxIterations: 8,
                 HybridAccurateIterations: 2,
+                AudioBitrateEstimateMbps: 0.192m,
                 LongMinDuration: TimeSpan.FromMinutes(8),
                 LongWindowCount: 3,
                 LongWindowDuration: TimeSpan.FromSeconds(120),

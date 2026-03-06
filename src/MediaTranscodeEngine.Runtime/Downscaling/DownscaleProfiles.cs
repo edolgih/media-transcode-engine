@@ -250,6 +250,7 @@ internal sealed record DownscaleAutoSampling(
     string ModeDefault,
     int MaxIterations,
     int HybridAccurateIterations,
+    decimal AudioBitrateEstimateMbps,
     TimeSpan LongMinDuration,
     int LongWindowCount,
     TimeSpan LongWindowDuration,
@@ -268,6 +269,10 @@ internal sealed record DownscaleAutoSampling(
     public int HybridAccurateIterations { get; init; } = HybridAccurateIterations >= 0
         ? HybridAccurateIterations
         : throw new ArgumentOutOfRangeException(nameof(HybridAccurateIterations), HybridAccurateIterations, "HybridAccurateIterations must not be negative.");
+
+    public decimal AudioBitrateEstimateMbps { get; init; } = AudioBitrateEstimateMbps >= 0m
+        ? AudioBitrateEstimateMbps
+        : throw new ArgumentOutOfRangeException(nameof(AudioBitrateEstimateMbps), AudioBitrateEstimateMbps, "AudioBitrateEstimateMbps must not be negative.");
 
     public TimeSpan LongMinDuration { get; init; } = LongMinDuration > TimeSpan.Zero
         ? LongMinDuration

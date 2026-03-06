@@ -116,11 +116,12 @@ public sealed class VideoInspectorTests
             container: "mp4",
             streams:
             [
-                new VideoProbeStream(streamType: "video", codec: "h264", width: 1920, height: 1080, framesPerSecond: 23.976),
-                new VideoProbeStream(streamType: "audio", codec: "aac"),
-                new VideoProbeStream(streamType: "audio", codec: "ac3")
+                new VideoProbeStream(streamType: "video", codec: "h264", width: 1920, height: 1080, framesPerSecond: 23.976, bitrate: 4_000_000),
+                new VideoProbeStream(streamType: "audio", codec: "aac", bitrate: 192_000),
+                new VideoProbeStream(streamType: "audio", codec: "ac3", bitrate: 384_000)
             ],
-            duration: TimeSpan.FromMinutes(10)));
+            duration: TimeSpan.FromMinutes(10),
+            formatBitrate: 5_500_000));
 
         var actual = sut.Load(@"C:\video\input.mp4");
 
@@ -131,6 +132,7 @@ public sealed class VideoInspectorTests
         actual.Height.Should().Be(1080);
         actual.FramesPerSecond.Should().Be(23.976);
         actual.Duration.Should().Be(TimeSpan.FromMinutes(10));
+        actual.Bitrate.Should().Be(5_500_000);
         actual.FilePath.Should().Be(Path.GetFullPath(@"C:\video\input.mp4"));
     }
 

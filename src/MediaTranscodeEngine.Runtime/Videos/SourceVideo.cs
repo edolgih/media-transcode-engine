@@ -16,6 +16,7 @@ public sealed record SourceVideo
     /// <param name="height">Source video height in pixels as reported by inspection.</param>
     /// <param name="framesPerSecond">Source frame rate.</param>
     /// <param name="duration">Source duration.</param>
+    /// <param name="bitrate">Optional normalized source bitrate in bits per second.</param>
     public SourceVideo(
         string filePath,
         string container,
@@ -24,7 +25,8 @@ public sealed record SourceVideo
         int width,
         int height,
         double framesPerSecond,
-        TimeSpan duration)
+        TimeSpan duration,
+        long? bitrate = null)
     {
         FilePath = NormalizeFilePath(filePath);
         Container = NormalizeToken(container, nameof(container));
@@ -42,6 +44,9 @@ public sealed record SourceVideo
         Duration = duration >= TimeSpan.Zero
             ? duration
             : throw new ArgumentOutOfRangeException(nameof(duration), duration, "Duration must not be negative.");
+        Bitrate = bitrate is null || bitrate >= 0
+            ? bitrate
+            : throw new ArgumentOutOfRangeException(nameof(bitrate), bitrate, "Bitrate must not be negative.");
     }
 
     /// <summary>
@@ -83,6 +88,11 @@ public sealed record SourceVideo
     /// Gets the source duration.
     /// </summary>
     public TimeSpan Duration { get; }
+
+    /// <summary>
+    /// Gets the normalized source bitrate in bits per second when inspection could resolve it.
+    /// </summary>
+    public long? Bitrate { get; }
 
     /// <summary>
     /// Gets the source file name without directory segments.

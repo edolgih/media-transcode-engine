@@ -70,6 +70,7 @@ public sealed class VideoInspector
             .Where(stream => stream.streamType.Equals("audio", StringComparison.OrdinalIgnoreCase))
             .Select(stream => stream.codec)
             .ToArray();
+        var bitrate = ResolveBitrate(snapshot);
 
         return new SourceVideo(
             filePath: normalizedPath,
@@ -79,6 +80,26 @@ public sealed class VideoInspector
             width: videoStream.width.Value,
             height: videoStream.height.Value,
             framesPerSecond: videoStream.framesPerSecond.Value,
-            duration: snapshot.duration ?? TimeSpan.Zero);
+            duration: snapshot.duration ?? TimeSpan.Zero,
+            bitrate: bitrate);
+    }
+
+    private static long? ResolveBitrate(VideoProbeSnapshot snapshot)
+    {
+        if (snapshot.formatBitrate.HasValue && snapshot.formatBitrate.Value > 0)
+        {
+            return snapshot.formatBitrate.Value;
+        }
+
+        long sum = 0;
+        foreach (var stream in snapshot.streams)
+        {
+            if (stream.bitrate.HasValue && stream.bitrate.Value > 0)
+            {
+                sum += stream.bitrate.Value;
+            }
+        }
+
+        return sum > 0 ? sum : null;
     }
 }

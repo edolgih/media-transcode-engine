@@ -218,7 +218,7 @@ public sealed class FfmpegTool : ITranscodeTool
         }
 
         var encoder = ResolveVideoEncoder(plan);
-        var settings = ResolveVideoSettings(plan);
+        var settings = ResolveVideoSettings(video, plan);
         var fpsToken = ResolveFrameRateToken(video, plan);
         var gop = ResolveGop(video, plan);
         var aqPart = "-spatial_aq 1 -temporal_aq 1 -rc-lookahead 32";
@@ -277,11 +277,12 @@ public sealed class FfmpegTool : ITranscodeTool
         return (int)Math.Max(12, Math.Round(fps * 2.0));
     }
 
-    private DownscaleDefaults ResolveVideoSettings(TranscodePlan plan)
+    private DownscaleDefaults ResolveVideoSettings(SourceVideo video, TranscodePlan plan)
     {
         if (plan.Downscale is not null)
         {
             var defaults = ResolveBaseDefaults(plan);
+            defaults = ResolveAutoSampledDefaults(video, plan, defaults);
             return ApplyOverrides(defaults, plan.Downscale);
         }
 
@@ -296,6 +297,86 @@ public sealed class FfmpegTool : ITranscodeTool
             CqMax: int.MaxValue,
             MaxrateMin: 0.001m,
             MaxrateMax: decimal.MaxValue);
+    }
+
+    private DownscaleDefaults ResolveAutoSampledDefaults(SourceVideo video, TranscodePlan plan, DownscaleDefaults defaults)
+    {
+        if (plan.TargetHeight != 576 || plan.Downscale is null)
+        {
+            return defaults;
+        }
+
+        var request = plan.Downscale;
+        if (request.NoAutoSample || request.Cq.HasValue || request.Maxrate.HasValue || request.Bufsize.HasValue)
+        {
+            return defaults;
+        }
+
+        var profile = _downscaleProfiles.GetRequiredProfile(576);
+        var mode = request.AutoSampleMode ?? profile.AutoSampling.ModeDefault;
+        if (!mode.Equals("fast", StringComparison.OrdinalIgnoreCase))
+        {
+            return defaults;
+        }
+
+        if (video.Duration <= TimeSpan.Zero || !video.Bitrate.HasValue || video.Bitrate.Value <= 0)
+        {
+            return defaults;
+        }
+
+        var range = profile.ResolveRange(video.Height, request.ContentProfile, request.QualityProfile);
+        if (range is null)
+        {
+            return defaults;
+        }
+
+        var cq = defaults.Cq;
+        var maxrate = defaults.Maxrate;
+        var hasAudio = video.AudioCodecs.Count > 0;
+
+        for (var i = 0; i < profile.AutoSampling.MaxIterations; i++)
+        {
+            var reduction = EstimateReductionFromBitrate(
+                sourceBitrateBps: video.Bitrate.Value,
+                maxrateMbps: maxrate,
+                hasAudio: hasAudio,
+                audioBitrateEstimateMbps: profile.AutoSampling.AudioBitrateEstimateMbps);
+
+            if (range.Contains(reduction))
+            {
+                break;
+            }
+
+            var previousCq = cq;
+            var previousMaxrate = maxrate;
+
+            if (IsBelowRange(range, reduction))
+            {
+                if (cq < defaults.CqMax)
+                {
+                    cq++;
+                }
+
+                maxrate = Math.Max(maxrate - profile.RateModel.CqStepToMaxrateStep, defaults.MaxrateMin);
+            }
+            else
+            {
+                if (cq > defaults.CqMin)
+                {
+                    cq--;
+                }
+
+                maxrate = Math.Min(maxrate + profile.RateModel.CqStepToMaxrateStep, defaults.MaxrateMax);
+            }
+
+            if (previousCq == cq && previousMaxrate == maxrate)
+            {
+                break;
+            }
+        }
+
+        var bufsize = maxrate * profile.RateModel.BufsizeMultiplier;
+        return defaults with { Cq = cq, Maxrate = maxrate, Bufsize = bufsize };
     }
 
     private DownscaleDefaults ResolveBaseDefaults(TranscodePlan plan)
@@ -373,6 +454,39 @@ public sealed class FfmpegTool : ITranscodeTool
     private static string FormatRate(decimal value)
     {
         return $"{value.ToString("0.###", CultureInfo.InvariantCulture)}M";
+    }
+
+    private static decimal EstimateReductionFromBitrate(
+        long sourceBitrateBps,
+        decimal maxrateMbps,
+        bool hasAudio,
+        decimal audioBitrateEstimateMbps)
+    {
+        var sourceMbps = sourceBitrateBps / 1_000_000m;
+        if (sourceMbps <= 0m)
+        {
+            return 0m;
+        }
+
+        var targetMbps = maxrateMbps + (hasAudio ? audioBitrateEstimateMbps : 0m);
+        var reduction = (1m - (targetMbps / sourceMbps)) * 100m;
+        reduction = Math.Round(reduction, 2, MidpointRounding.AwayFromZero);
+        return Clamp(reduction, -100m, 100m);
+    }
+
+    private static bool IsBelowRange(DownscaleRange range, decimal value)
+    {
+        if (range.MinInclusive.HasValue)
+        {
+            return value < range.MinInclusive.Value;
+        }
+
+        if (range.MinExclusive.HasValue)
+        {
+            return value <= range.MinExclusive.Value;
+        }
+
+        return false;
     }
 
     private static string BuildOverlayFilter(SourceVideo video, int? targetHeight, string downscaleAlgorithm)
