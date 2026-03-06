@@ -47,7 +47,7 @@ public static class Program
                 return new FfprobeVideoProbe(options.FfprobePath!);
             });
             builder.Services.AddSingleton<VideoInspector>(static services =>
-                new ProbedVideoInspector(services.GetRequiredService<IVideoProbe>()));
+                new VideoInspector(services.GetRequiredService<IVideoProbe>()));
             builder.Services.AddSingleton<ITranscodeTool>(static services =>
             {
                 var options = services.GetRequiredService<IOptions<RuntimeValues>>().Value;
@@ -89,7 +89,17 @@ public static class Program
         IServiceProvider services,
         RuntimeValues runtimeValues)
     {
-        var effectiveArgs = BuildEffectiveArgs(args);
+        return RunCli(args, logger, services, runtimeValues, readRedirectedStdIn: true);
+    }
+
+    internal static int RunCli(
+        string[] args,
+        Microsoft.Extensions.Logging.ILogger logger,
+        IServiceProvider services,
+        RuntimeValues runtimeValues,
+        bool readRedirectedStdIn)
+    {
+        var effectiveArgs = BuildEffectiveArgs(args, readRedirectedStdIn);
 
         if (effectiveArgs.Length == 0 || effectiveArgs.Any(IsHelpToken))
         {
@@ -140,9 +150,9 @@ public static class Program
         return 0;
     }
 
-    private static string[] BuildEffectiveArgs(string[] args)
+    private static string[] BuildEffectiveArgs(string[] args, bool readRedirectedStdIn)
     {
-        if (!Console.IsInputRedirected)
+        if (!readRedirectedStdIn || !Console.IsInputRedirected)
         {
             return args;
         }

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Cli.Processing;
 using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.Inspection;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Tools;
 using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
@@ -14,7 +15,7 @@ public sealed class PrimaryTranscodeProcessorTests
     public void Process_WhenNonInfoEncodeIsNeeded_ReturnsSingleLegacyCommandLine()
     {
         var sut = new PrimaryTranscodeProcessor(
-            new StubVideoInspector(CreateVideo(filePath: @"C:\video\a.mkv", container: "mkv", videoCodec: "av1")),
+            CreateInspector(CreateVideo(filePath: @"C:\video\a.mkv", container: "mkv", videoCodec: "av1")),
             new FfmpegTool("ffmpeg"),
             new ToMkvGpuInfoFormatter());
 
@@ -33,7 +34,7 @@ public sealed class PrimaryTranscodeProcessorTests
     public void Process_WhenProbeReturnsNoVideoStream_ReturnsLegacyRemLine()
     {
         var sut = new PrimaryTranscodeProcessor(
-            new ThrowingVideoInspector(new InvalidOperationException("Video probe did not return a video stream.")),
+            CreateThrowingInspector(new InvalidOperationException("Video probe did not return a video stream.")),
             new StubTool(),
             new ToMkvGpuInfoFormatter());
 
@@ -50,7 +51,7 @@ public sealed class PrimaryTranscodeProcessorTests
     public void Process_WhenProbeFails_ReturnsLegacyFfprobeRemLine()
     {
         var sut = new PrimaryTranscodeProcessor(
-            new ThrowingVideoInspector(new InvalidOperationException("ffprobe returned invalid JSON output.")),
+            CreateThrowingInspector(new InvalidOperationException("ffprobe returned invalid JSON output.")),
             new StubTool(),
             new ToMkvGpuInfoFormatter());
 
@@ -67,7 +68,7 @@ public sealed class PrimaryTranscodeProcessorTests
     public void Process_WhenOverlayHasUnknownDimensions_ReturnsLegacyUnknownDimensionsRemLine()
     {
         var sut = new PrimaryTranscodeProcessor(
-            new ThrowingVideoInspector(new InvalidOperationException("Video probe did not return a valid video width.")),
+            CreateThrowingInspector(new InvalidOperationException("Video probe did not return a valid video width.")),
             new StubTool(),
             new ToMkvGpuInfoFormatter());
 
@@ -84,7 +85,7 @@ public sealed class PrimaryTranscodeProcessorTests
     public void Process_WhenDownscale720IsRequested_ReturnsLegacyDownscaleRemLine()
     {
         var sut = new PrimaryTranscodeProcessor(
-            new StubVideoInspector(CreateVideo(filePath: @"C:\video\a.mp4", container: "mp4", videoCodec: "h264")),
+            CreateInspector(CreateVideo(filePath: @"C:\video\a.mp4", container: "mp4", videoCodec: "h264")),
             new StubTool(),
             new ToMkvGpuInfoFormatter());
 
@@ -101,7 +102,7 @@ public sealed class PrimaryTranscodeProcessorTests
     public void Process_WhenInfoModeProbeFails_ReturnsInfoMarker()
     {
         var sut = new PrimaryTranscodeProcessor(
-            new ThrowingVideoInspector(new InvalidOperationException("ffprobe returned invalid JSON output.")),
+            CreateThrowingInspector(new InvalidOperationException("ffprobe returned invalid JSON output.")),
             new StubTool(),
             new ToMkvGpuInfoFormatter());
 
@@ -131,31 +132,48 @@ public sealed class PrimaryTranscodeProcessorTests
             duration: TimeSpan.FromMinutes(10));
     }
 
-    private sealed class StubVideoInspector : VideoInspector
+    private static VideoInspector CreateInspector(SourceVideo video)
+    {
+        return new VideoInspector(new StubVideoProbe(video));
+    }
+
+    private static VideoInspector CreateThrowingInspector(Exception exception)
+    {
+        return new VideoInspector(new ThrowingVideoProbe(exception));
+    }
+
+    private sealed class StubVideoProbe : IVideoProbe
     {
         private readonly SourceVideo _video;
 
-        public StubVideoInspector(SourceVideo video)
+        public StubVideoProbe(SourceVideo video)
         {
             _video = video;
         }
 
-        protected override SourceVideo LoadCore(string filePath)
+        public VideoProbeSnapshot Probe(string filePath)
         {
-            return _video;
+            return new VideoProbeSnapshot(
+                container: _video.Container,
+                streams:
+                [
+                    new VideoProbeStream("video", _video.VideoCodec, _video.Width, _video.Height, _video.FramesPerSecond),
+                    .. _video.AudioCodecs.Select(codec => new VideoProbeStream("audio", codec))
+                ],
+                duration: _video.Duration);
         }
     }
 
-    private sealed class ThrowingVideoInspector : VideoInspector
+    private sealed class ThrowingVideoProbe : IVideoProbe
     {
         private readonly Exception _exception;
 
-        public ThrowingVideoInspector(Exception exception)
+        public ThrowingVideoProbe(Exception exception)
         {
             _exception = exception;
         }
 
-        protected override SourceVideo LoadCore(string filePath)
+        public VideoProbeSnapshot Probe(string filePath)
         {
             throw _exception;
         }

@@ -140,6 +140,8 @@ public sealed class ToMkvGpuScenarioTests
         var actual = sut.BuildPlan(video);
 
         actual.TargetHeight.Should().Be(576);
+        actual.Downscale.Should().NotBeNull();
+        actual.Downscale!.TargetHeight.Should().Be(576);
         actual.CopyVideo.Should().BeFalse();
         actual.TargetVideoCodec.Should().Be("h264");
     }

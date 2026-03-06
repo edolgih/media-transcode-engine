@@ -272,10 +272,23 @@ public sealed class FfmpegTool : ITranscodeTool
 
     private static DownscaleDefaults ResolveVideoSettings(TranscodePlan plan)
     {
-        if (plan.TargetHeight == 576)
+        if (plan.Downscale?.TargetHeight == 576)
         {
             var profile = DownscaleProfiles.GetRequiredProfile(576);
-            return profile.ResolveDefaults(contentProfile: null, qualityProfile: null);
+            var defaults = profile.ResolveDefaults(
+                contentProfile: plan.Downscale.ContentProfile,
+                qualityProfile: plan.Downscale.QualityProfile);
+
+            var maxrate = plan.Downscale.Maxrate ?? defaults.Maxrate;
+            var bufsize = plan.Downscale.Bufsize ?? (plan.Downscale.Maxrate.HasValue ? plan.Downscale.Maxrate.Value * 2m : defaults.Bufsize);
+
+            return new DownscaleDefaults(
+                ContentProfile: defaults.ContentProfile,
+                QualityProfile: defaults.QualityProfile,
+                Cq: plan.Downscale.Cq ?? defaults.Cq,
+                Maxrate: maxrate,
+                Bufsize: bufsize,
+                Algorithm: plan.Downscale.Algorithm ?? defaults.Algorithm);
         }
 
         return new DownscaleDefaults(

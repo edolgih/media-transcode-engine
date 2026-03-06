@@ -1,3 +1,5 @@
+using MediaTranscodeEngine.Runtime.Downscaling;
+
 namespace MediaTranscodeEngine.Runtime.Plans;
 
 /// <summary>
@@ -14,6 +16,7 @@ public sealed record TranscodePlan
     /// <param name="targetHeight">Target video height in pixels.</param>
     /// <param name="targetFramesPerSecond">Target frame rate.</param>
     /// <param name="useFrameInterpolation">Whether frame interpolation is requested.</param>
+    /// <param name="downscale">Optional reusable downscale intent.</param>
     /// <param name="copyVideo">Whether the source video stream should be copied without re-encoding.</param>
     /// <param name="copyAudio">Whether compatible audio streams should be copied.</param>
     /// <param name="fixTimestamps">Whether timestamp normalization is requested.</param>
@@ -28,6 +31,7 @@ public sealed record TranscodePlan
         int? targetHeight,
         double? targetFramesPerSecond,
         bool useFrameInterpolation,
+        DownscaleRequest? downscale,
         bool copyVideo,
         bool copyAudio,
         bool fixTimestamps,
@@ -39,6 +43,7 @@ public sealed record TranscodePlan
         TargetContainer = NormalizeRequiredToken(targetContainer, nameof(targetContainer));
         TargetHeight = NormalizeOptionalPositiveInt(targetHeight, nameof(targetHeight));
         TargetFramesPerSecond = NormalizeOptionalPositiveDouble(targetFramesPerSecond, nameof(targetFramesPerSecond));
+        Downscale = NormalizeOptionalDownscale(downscale, TargetHeight);
         CopyVideo = copyVideo;
         CopyAudio = copyAudio;
         FixTimestamps = fixTimestamps;
@@ -108,6 +113,11 @@ public sealed record TranscodePlan
     /// Gets a value indicating whether frame interpolation is required.
     /// </summary>
     public bool UseFrameInterpolation { get; }
+
+    /// <summary>
+    /// Gets reusable downscale intent when the plan changes resolution.
+    /// </summary>
+    public DownscaleRequest? Downscale { get; }
 
     /// <summary>
     /// Gets a value indicating whether the source video stream should be copied.
@@ -206,5 +216,25 @@ public sealed record TranscodePlan
         return value.Value > 0
             ? value.Value
             : throw new ArgumentOutOfRangeException(paramName, value.Value, "Value must be greater than zero.");
+    }
+
+    private static DownscaleRequest? NormalizeOptionalDownscale(DownscaleRequest? downscale, int? targetHeight)
+    {
+        if (downscale is null)
+        {
+            return null;
+        }
+
+        if (targetHeight.HasValue && downscale.TargetHeight != targetHeight)
+        {
+            throw new ArgumentException("Downscale target must match target height when both are provided.", nameof(downscale));
+        }
+
+        if (!targetHeight.HasValue && downscale.TargetHeight.HasValue)
+        {
+            throw new ArgumentException("Downscale target requires target height in the transcode plan.", nameof(downscale));
+        }
+
+        return downscale.HasValue ? downscale : null;
     }
 }

@@ -31,7 +31,7 @@ public sealed class ProgramTests
         Console.SetError(error);
         try
         {
-            var exitCode = Program.RunCli(["--input", @"C:\video\a.mp4"], logger, services, runtimeValues);
+            var exitCode = Program.RunCli(["--input", @"C:\video\a.mp4"], logger, services, runtimeValues, readRedirectedStdIn: false);
 
             exitCode.Should().Be(0);
             output.ToString().Should().Contain("chcp 65001");
@@ -68,7 +68,7 @@ public sealed class ProgramTests
         Console.SetError(error);
         try
         {
-            var exitCode = Program.RunCli(["--input", @"C:\video\a.mp4", "--info"], logger, services, runtimeValues);
+            var exitCode = Program.RunCli(["--input", @"C:\video\a.mp4", "--info"], logger, services, runtimeValues, readRedirectedStdIn: false);
 
             exitCode.Should().Be(0);
             output.ToString().Should().NotContain("chcp 65001");
@@ -105,7 +105,7 @@ public sealed class ProgramTests
         Console.SetError(error);
         try
         {
-            var exitCode = Program.RunCli(["--input", @"C:\video\a.mkv"], logger, services, runtimeValues);
+            var exitCode = Program.RunCli(["--input", @"C:\video\a.mkv"], logger, services, runtimeValues, readRedirectedStdIn: false);
 
             exitCode.Should().Be(0);
             output.ToString().Trim().Should().Be("chcp 65001");

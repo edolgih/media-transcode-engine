@@ -139,6 +139,7 @@ public sealed class ToMkvGpuInfoFormatterTests
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
+            downscale: null,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
             fixTimestamps: false,

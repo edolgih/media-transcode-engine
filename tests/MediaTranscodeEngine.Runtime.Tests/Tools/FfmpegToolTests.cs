@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 using MediaTranscodeEngine.Runtime.Videos;
@@ -100,6 +101,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -108,6 +110,84 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("scale_cuda=-2:576:interp_algo=bilinear:format=nv12");
         actual.Commands[0].Should().Contain("-cq 26");
         actual.Commands[0].Should().Contain("-maxrate 3.4M -bufsize 6.9M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleUsesAnimeDefaultProfile_UsesAnimeDefaults()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "h264", filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-cq 23");
+        actual.Commands[0].Should().Contain("-maxrate 2.4M -bufsize 4.8M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleUsesFilmHighProfile_UsesSelectedQualityDefaults()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "h264", filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, qualityProfile: "high"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-cq 24");
+        actual.Commands[0].Should().Contain("-maxrate 3.7M -bufsize 7.4M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleAlgorithmIsOverridden_UsesExplicitAlgorithm()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "h264", filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, algorithm: "lanczos"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("interp_algo=lanczos");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscaleMaxrateIsOverriddenWithoutBufsize_ComputesBufsizeByMultiplier()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "h264", filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, maxrate: 2.5m),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-maxrate 2.5M -bufsize 5M");
     }
 
     [Fact]
@@ -241,6 +321,7 @@ public sealed class FfmpegToolTests
         int? targetHeight = null,
         double? targetFramesPerSecond = null,
         bool useFrameInterpolation = false,
+        DownscaleRequest? downscale = null,
         bool fixTimestamps = false,
         bool keepSource = false,
         string outputPath = @"C:\video\input.mkv",
@@ -254,6 +335,7 @@ public sealed class FfmpegToolTests
             targetHeight: targetHeight,
             targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: useFrameInterpolation,
+            downscale: downscale,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
             fixTimestamps: fixTimestamps,

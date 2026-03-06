@@ -65,6 +65,7 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
             targetHeight: applyDownscale ? Request.Downscale!.TargetHeight : null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
+            downscale: applyDownscale ? Request.Downscale : null,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
             fixTimestamps: requiresTimestampFix || !copyVideo,
