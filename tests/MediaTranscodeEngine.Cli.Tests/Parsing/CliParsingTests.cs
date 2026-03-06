@@ -1,0 +1,80 @@
+using FluentAssertions;
+using MediaTranscodeEngine.Cli.Parsing;
+
+namespace MediaTranscodeEngine.Cli.Tests.Parsing;
+
+public sealed class CliParsingTests
+{
+    [Fact]
+    public void TryParse_WhenToMkvGpuProfileOptionsAreProvided_PopulatesRequestTemplate()
+    {
+        var actual = CliArgumentParser.TryParse(
+            [
+                "--input", @"C:\video\a.mp4",
+                "--downscale", "576",
+                "--content-profile", "Anime",
+                "--quality-profile", "High",
+                "--no-autosample",
+                "--autosample-mode", "Hybrid",
+                "--downscale-algo", "Lanczos",
+                "--cq", "23",
+                "--maxrate", "3.4",
+                "--bufsize", "6.8",
+                "--nvenc-preset", "P5"
+            ],
+            out var parsed,
+            out var errorText);
+
+        actual.Should().BeTrue();
+        errorText.Should().BeNull();
+        parsed.Inputs.Should().ContainSingle().Which.Should().Be(@"C:\video\a.mp4");
+        parsed.RequestTemplate.DownscaleTarget.Should().Be(576);
+        parsed.RequestTemplate.ContentProfile.Should().Be("Anime");
+        parsed.RequestTemplate.QualityProfile.Should().Be("High");
+        parsed.RequestTemplate.NoAutoSample.Should().BeTrue();
+        parsed.RequestTemplate.AutoSampleMode.Should().Be("Hybrid");
+        parsed.RequestTemplate.DownscaleAlgorithm.Should().Be("Lanczos");
+        parsed.RequestTemplate.Cq.Should().Be(23);
+        parsed.RequestTemplate.Maxrate.Should().Be(3.4m);
+        parsed.RequestTemplate.Bufsize.Should().Be(6.8m);
+        parsed.RequestTemplate.NvencPreset.Should().Be("P5");
+    }
+
+    [Fact]
+    public void BuildRequest_WhenTemplateContainsToMkvGpuProfileOptions_MapsNestedRuntimeRequest()
+    {
+        var template = new CliRequestTemplate(
+            Scenario: "tomkvgpu",
+            Info: false,
+            KeepSource: true,
+            OverlayBackground: true,
+            DownscaleTarget: 576,
+            SynchronizeAudio: true,
+            ContentProfile: "Film",
+            QualityProfile: "Default",
+            NoAutoSample: true,
+            AutoSampleMode: "Fast",
+            DownscaleAlgorithm: "Bicubic",
+            Cq: 24,
+            Maxrate: 3.7m,
+            Bufsize: 7.4m,
+            NvencPreset: "P6");
+
+        var actual = CliRequestMappers.BuildRequest(template, @"C:\video\a.mp4");
+
+        actual.InputPath.Should().Be(@"C:\video\a.mp4");
+        actual.ToMkvGpu.KeepSource.Should().BeTrue();
+        actual.ToMkvGpu.OverlayBackground.Should().BeTrue();
+        actual.ToMkvGpu.DownscaleTarget.Should().Be(576);
+        actual.ToMkvGpu.SynchronizeAudio.Should().BeTrue();
+        actual.ToMkvGpu.ContentProfile.Should().Be("film");
+        actual.ToMkvGpu.QualityProfile.Should().Be("default");
+        actual.ToMkvGpu.NoAutoSample.Should().BeTrue();
+        actual.ToMkvGpu.AutoSampleMode.Should().Be("fast");
+        actual.ToMkvGpu.DownscaleAlgorithm.Should().Be("bicubic");
+        actual.ToMkvGpu.Cq.Should().Be(24);
+        actual.ToMkvGpu.Maxrate.Should().Be(3.7m);
+        actual.ToMkvGpu.Bufsize.Should().Be(7.4m);
+        actual.ToMkvGpu.NvencPreset.Should().Be("p6");
+    }
+}

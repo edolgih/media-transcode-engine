@@ -21,49 +21,19 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
     };
 
     /// <summary>
-    /// Initializes a ToMkvGpu scenario with optional runtime directives.
+    /// Initializes a ToMkvGpu scenario with scenario-specific directives.
     /// </summary>
-    /// <param name="overlayBackground">Whether background overlay should be applied during video encoding.</param>
-    /// <param name="downscaleTarget">Requested downscale target height.</param>
-    /// <param name="synchronizeAudio">Whether the audio sync-safe path should be forced.</param>
-    /// <param name="keepSource">Whether the source file should be preserved after execution.</param>
-    public ToMkvGpuScenario(
-        bool overlayBackground = false,
-        int? downscaleTarget = null,
-        bool synchronizeAudio = false,
-        bool keepSource = false)
+    /// <param name="request">Scenario-specific directives for the ToMkvGpu workflow.</param>
+    public ToMkvGpuScenario(ToMkvGpuRequest? request = null)
         : base("tomkvgpu")
     {
-        if (downscaleTarget.HasValue && downscaleTarget.Value <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(downscaleTarget), downscaleTarget.Value, "Downscale target must be greater than zero.");
-        }
-
-        OverlayBackground = overlayBackground;
-        DownscaleTarget = downscaleTarget;
-        SynchronizeAudio = synchronizeAudio;
-        KeepSource = keepSource;
+        Request = request ?? new ToMkvGpuRequest();
     }
 
     /// <summary>
-    /// Gets a value indicating whether the scenario requests background overlay for encoded video.
+    /// Gets the scenario-specific directives carried by the ToMkvGpu workflow.
     /// </summary>
-    public bool OverlayBackground { get; }
-
-    /// <summary>
-    /// Gets the requested downscale target when the scenario asks for resizing.
-    /// </summary>
-    public int? DownscaleTarget { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether the scenario forces the audio sync-safe path.
-    /// </summary>
-    public bool SynchronizeAudio { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether the source file should be preserved after execution.
-    /// </summary>
-    public bool KeepSource { get; }
+    public ToMkvGpuRequest Request { get; }
 
     /// <summary>
     /// Builds a ToMkvGpu plan from the supplied source video.
@@ -72,18 +42,18 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
     /// <returns>A tool-agnostic plan describing the required MKV conversion work.</returns>
     protected override TranscodePlan BuildPlanCore(SourceVideo video)
     {
-        if (DownscaleTarget == 720)
+        if (Request.DownscaleTarget == 720)
         {
             throw new NotSupportedException("Downscale 720 is not implemented for ToMkvGpu.");
         }
 
-        var applyDownscale = DownscaleTarget.HasValue && video.Height > DownscaleTarget.Value;
+        var applyDownscale = Request.DownscaleTarget.HasValue && video.Height > Request.DownscaleTarget.Value;
         var requiresTimestampFix = TimestampSensitiveExtensions.Contains(video.FileExtension);
         var copyVideo = VideoCopyCodecs.Contains(video.VideoCodec) &&
                         !requiresTimestampFix &&
-                        !OverlayBackground &&
+                        !Request.OverlayBackground &&
                         !applyDownscale;
-        var copyAudio = !SynchronizeAudio &&
+        var copyAudio = !Request.SynchronizeAudio &&
                         copyVideo &&
                         AreAudioStreamsCopyCompatible(video.AudioCodecs);
 
@@ -91,16 +61,16 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
             targetContainer: "mkv",
             targetVideoCodec: copyVideo ? null : "h264",
             preferredBackend: copyVideo ? null : "gpu",
-            targetHeight: applyDownscale ? DownscaleTarget : null,
+            targetHeight: applyDownscale ? Request.DownscaleTarget : null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
             fixTimestamps: requiresTimestampFix || !copyVideo,
-            keepSource: KeepSource,
+            keepSource: Request.KeepSource,
             outputPath: ResolveOutputPath(video, copyVideo, copyAudio),
-            applyOverlayBackground: OverlayBackground,
-            synchronizeAudio: SynchronizeAudio);
+            applyOverlayBackground: Request.OverlayBackground,
+            synchronizeAudio: Request.SynchronizeAudio);
     }
 
     private static bool AreAudioStreamsCopyCompatible(IReadOnlyList<string> audioCodecs)
@@ -122,7 +92,7 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
         }
 
         var outputPath = Path.Combine(directory, $"{video.FileNameWithoutExtension}.mkv");
-        if (!KeepSource ||
+        if (!Request.KeepSource ||
             !video.Container.Equals("mkv", StringComparison.OrdinalIgnoreCase) ||
             (copyVideo && copyAudio))
         {

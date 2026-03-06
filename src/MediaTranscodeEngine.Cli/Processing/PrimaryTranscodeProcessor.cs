@@ -55,11 +55,7 @@ internal sealed class PrimaryTranscodeProcessor : ITranscodeProcessor
             throw new NotSupportedException($"Scenario '{request.ScenarioName}' is not supported by Runtime CLI.");
         }
 
-        return new ToMkvGpuScenario(
-            overlayBackground: request.OverlayBackground,
-            downscaleTarget: request.DownscaleTarget,
-            synchronizeAudio: request.SynchronizeAudio,
-            keepSource: request.KeepSource);
+        return new ToMkvGpuScenario(request.ToMkvGpu);
     }
 
     private string FormatFailure(CliTranscodeRequest request, Exception exception)
@@ -70,7 +66,7 @@ internal sealed class PrimaryTranscodeProcessor : ITranscodeProcessor
         }
 
         var fileName = Path.GetFileName(request.InputPath);
-        if (request.OverlayBackground && IsUnknownDimensionsFailure(exception))
+        if (request.ToMkvGpu.OverlayBackground && IsUnknownDimensionsFailure(exception))
         {
             return $"REM Unknown dimensions: {fileName}";
         }

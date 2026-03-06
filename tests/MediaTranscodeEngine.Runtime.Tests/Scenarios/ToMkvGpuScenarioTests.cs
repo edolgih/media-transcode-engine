@@ -173,11 +173,11 @@ public sealed class ToMkvGpuScenarioTests
         bool synchronizeAudio = false,
         bool keepSource = false)
     {
-        return new ToMkvGpuScenario(
+        return new ToMkvGpuScenario(new ToMkvGpuRequest(
             overlayBackground: overlayBackground,
             downscaleTarget: downscaleTarget,
             synchronizeAudio: synchronizeAudio,
-            keepSource: keepSource);
+            keepSource: keepSource));
     }
 
     private static SourceVideo CreateVideo(

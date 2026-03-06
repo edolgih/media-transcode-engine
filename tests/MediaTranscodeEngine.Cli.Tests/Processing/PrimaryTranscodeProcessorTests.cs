@@ -21,10 +21,7 @@ public sealed class PrimaryTranscodeProcessorTests
             InputPath: @"C:\video\a.mkv",
             ScenarioName: "tomkvgpu",
             Info: false,
-            KeepSource: false,
-            OverlayBackground: false,
-            DownscaleTarget: null,
-            SynchronizeAudio: false));
+            ToMkvGpu: new ToMkvGpuRequest()));
 
         actual.Should().StartWith("ffmpeg ");
         actual.Should().Contain(" && del \"C:\\video\\a.mkv\" && ren \"C:\\video\\a_temp.mkv\" \"a.mkv\"");
@@ -43,10 +40,7 @@ public sealed class PrimaryTranscodeProcessorTests
             InputPath: @"C:\video\a.mp4",
             ScenarioName: "tomkvgpu",
             Info: false,
-            KeepSource: false,
-            OverlayBackground: false,
-            DownscaleTarget: null,
-            SynchronizeAudio: false));
+            ToMkvGpu: new ToMkvGpuRequest()));
 
         actual.Should().Be("REM Нет видеопотока: a.mp4");
     }
@@ -63,10 +57,7 @@ public sealed class PrimaryTranscodeProcessorTests
             InputPath: @"C:\video\a.mp4",
             ScenarioName: "tomkvgpu",
             Info: false,
-            KeepSource: false,
-            OverlayBackground: false,
-            DownscaleTarget: null,
-            SynchronizeAudio: false));
+            ToMkvGpu: new ToMkvGpuRequest()));
 
         actual.Should().Be("REM ffprobe failed: a.mp4");
     }
@@ -83,10 +74,7 @@ public sealed class PrimaryTranscodeProcessorTests
             InputPath: @"C:\video\a.mp4",
             ScenarioName: "tomkvgpu",
             Info: false,
-            KeepSource: false,
-            OverlayBackground: true,
-            DownscaleTarget: null,
-            SynchronizeAudio: false));
+            ToMkvGpu: new ToMkvGpuRequest(overlayBackground: true)));
 
         actual.Should().Be("REM Unknown dimensions: a.mp4");
     }
@@ -103,10 +91,7 @@ public sealed class PrimaryTranscodeProcessorTests
             InputPath: @"C:\video\a.mp4",
             ScenarioName: "tomkvgpu",
             Info: false,
-            KeepSource: false,
-            OverlayBackground: false,
-            DownscaleTarget: 720,
-            SynchronizeAudio: false));
+            ToMkvGpu: new ToMkvGpuRequest(downscaleTarget: 720)));
 
         actual.Should().Be("REM Downscale 720 not implemented: a.mp4");
     }
@@ -123,10 +108,7 @@ public sealed class PrimaryTranscodeProcessorTests
             InputPath: @"C:\video\a.mp4",
             ScenarioName: "tomkvgpu",
             Info: true,
-            KeepSource: false,
-            OverlayBackground: false,
-            DownscaleTarget: null,
-            SynchronizeAudio: false));
+            ToMkvGpu: new ToMkvGpuRequest()));
 
         actual.Should().Be("a.mp4: [ffprobe failed]");
     }

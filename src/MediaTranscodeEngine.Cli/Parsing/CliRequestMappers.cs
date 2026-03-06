@@ -1,3 +1,5 @@
+using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
+
 namespace MediaTranscodeEngine.Cli.Parsing;
 
 internal static class CliRequestMappers
@@ -10,9 +12,19 @@ internal static class CliRequestMappers
             InputPath: inputPath,
             ScenarioName: template.Scenario,
             Info: template.Info,
-            KeepSource: template.KeepSource,
-            OverlayBackground: template.OverlayBackground,
-            DownscaleTarget: template.DownscaleTarget,
-            SynchronizeAudio: template.SynchronizeAudio);
+            ToMkvGpu: new ToMkvGpuRequest(
+                overlayBackground: template.OverlayBackground,
+                downscaleTarget: template.DownscaleTarget,
+                synchronizeAudio: template.SynchronizeAudio,
+                keepSource: template.KeepSource,
+                contentProfile: template.ContentProfile,
+                qualityProfile: template.QualityProfile,
+                noAutoSample: template.NoAutoSample,
+                autoSampleMode: template.AutoSampleMode,
+                downscaleAlgorithm: template.DownscaleAlgorithm,
+                cq: template.Cq,
+                maxrate: template.Maxrate,
+                bufsize: template.Bufsize,
+                nvencPreset: template.NvencPreset));
     }
 }

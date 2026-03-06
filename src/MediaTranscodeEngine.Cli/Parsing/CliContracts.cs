@@ -6,12 +6,14 @@ internal enum CliOptionValueKind
 {
     Flag,
     String,
-    Int
+    Int,
+    Decimal
 }
 
 internal readonly record struct CliParsedValue(
     string? StringValue = null,
-    int? IntValue = null);
+    int? IntValue = null,
+    decimal? DecimalValue = null);
 
 internal sealed record CliOptionDefinition(
     string Name,
@@ -28,7 +30,16 @@ internal sealed record CliRequestTemplate(
     bool KeepSource,
     bool OverlayBackground,
     int? DownscaleTarget,
-    bool SynchronizeAudio);
+    bool SynchronizeAudio,
+    string? ContentProfile,
+    string? QualityProfile,
+    bool NoAutoSample,
+    string? AutoSampleMode,
+    string? DownscaleAlgorithm,
+    int? Cq,
+    decimal? Maxrate,
+    decimal? Bufsize,
+    string? NvencPreset);
 
 internal sealed class CliMutableParseState
 {
@@ -41,7 +52,16 @@ internal sealed class CliMutableParseState
             KeepSource: false,
             OverlayBackground: false,
             DownscaleTarget: null,
-            SynchronizeAudio: false);
+            SynchronizeAudio: false,
+            ContentProfile: null,
+            QualityProfile: null,
+            NoAutoSample: false,
+            AutoSampleMode: null,
+            DownscaleAlgorithm: null,
+            Cq: null,
+            Maxrate: null,
+            Bufsize: null,
+            NvencPreset: null);
 }
 
 internal static class CliContracts
@@ -131,7 +151,72 @@ internal static class CliContracts
                 ValueKind: CliOptionValueKind.Flag,
                 IsRepeatable: false,
                 HelpText: "Force sync-safe audio path.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { SynchronizeAudio = true })
+                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { SynchronizeAudio = true }),
+            ["--content-profile"] = new CliOptionDefinition(
+                Name: "--content-profile",
+                ValueKind: CliOptionValueKind.String,
+                IsRepeatable: false,
+                HelpText: "576 profile content kind.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { ContentProfile = value.StringValue },
+                Usage: "--content-profile <anime|mult|film>"),
+            ["--quality-profile"] = new CliOptionDefinition(
+                Name: "--quality-profile",
+                ValueKind: CliOptionValueKind.String,
+                IsRepeatable: false,
+                HelpText: "576 profile quality kind.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { QualityProfile = value.StringValue },
+                Usage: "--quality-profile <high|default|low>"),
+            ["--no-autosample"] = new CliOptionDefinition(
+                Name: "--no-autosample",
+                ValueKind: CliOptionValueKind.Flag,
+                IsRepeatable: false,
+                HelpText: "Disable 576 autosample adjustments.",
+                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { NoAutoSample = true }),
+            ["--autosample-mode"] = new CliOptionDefinition(
+                Name: "--autosample-mode",
+                ValueKind: CliOptionValueKind.String,
+                IsRepeatable: false,
+                HelpText: "576 autosample mode.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { AutoSampleMode = value.StringValue },
+                Usage: "--autosample-mode <accurate|fast|hybrid>"),
+            ["--downscale-algo"] = new CliOptionDefinition(
+                Name: "--downscale-algo",
+                ValueKind: CliOptionValueKind.String,
+                IsRepeatable: false,
+                HelpText: "Explicit downscale algorithm override.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { DownscaleAlgorithm = value.StringValue },
+                Usage: "--downscale-algo <bilinear|bicubic|lanczos>"),
+            ["--cq"] = new CliOptionDefinition(
+                Name: "--cq",
+                ValueKind: CliOptionValueKind.Int,
+                IsRepeatable: false,
+                HelpText: "Explicit NVENC CQ override.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { Cq = value.IntValue },
+                InvalidValueError: "--cq must be an integer.",
+                Usage: "--cq <int>"),
+            ["--maxrate"] = new CliOptionDefinition(
+                Name: "--maxrate",
+                ValueKind: CliOptionValueKind.Decimal,
+                IsRepeatable: false,
+                HelpText: "Explicit VBV maxrate in Mbit/s.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { Maxrate = value.DecimalValue },
+                InvalidValueError: "--maxrate must be a number.",
+                Usage: "--maxrate <number>"),
+            ["--bufsize"] = new CliOptionDefinition(
+                Name: "--bufsize",
+                ValueKind: CliOptionValueKind.Decimal,
+                IsRepeatable: false,
+                HelpText: "Explicit VBV bufsize in Mbit/s.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { Bufsize = value.DecimalValue },
+                InvalidValueError: "--bufsize must be a number.",
+                Usage: "--bufsize <number>"),
+            ["--nvenc-preset"] = new CliOptionDefinition(
+                Name: "--nvenc-preset",
+                ValueKind: CliOptionValueKind.String,
+                IsRepeatable: false,
+                HelpText: "Explicit NVENC preset override.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { NvencPreset = value.StringValue },
+                Usage: "--nvenc-preset <preset>")
         };
     }
 
@@ -159,6 +244,15 @@ internal static class CliContracts
                 }
 
                 parsedValue = new CliParsedValue(IntValue: intValue);
+                return true;
+            case CliOptionValueKind.Decimal:
+                if (!decimal.TryParse(token, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue))
+                {
+                    errorText = option.InvalidValueError ?? $"{option.Name} must be a number.";
+                    return false;
+                }
+
+                parsedValue = new CliParsedValue(DecimalValue: decimalValue);
                 return true;
             default:
                 errorText = $"Unsupported value kind: {option.ValueKind}";
