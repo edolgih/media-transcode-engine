@@ -1,5 +1,4 @@
 using System.Globalization;
-using MediaTranscodeEngine.Core.Engine;
 
 namespace MediaTranscodeEngine.Cli.Parsing;
 
@@ -7,14 +6,12 @@ internal enum CliOptionValueKind
 {
     Flag,
     String,
-    Int,
-    Double
+    Int
 }
 
 internal readonly record struct CliParsedValue(
     string? StringValue = null,
-    int? IntValue = null,
-    double? DoubleValue = null);
+    int? IntValue = null);
 
 internal sealed record CliOptionDefinition(
     string Name,
@@ -23,42 +20,44 @@ internal sealed record CliOptionDefinition(
     string HelpText,
     Action<CliMutableParseState, CliParsedValue> ApplyValue,
     string? InvalidValueError = null,
-    string? Usage = null,
-    IReadOnlyList<string>? AffectedTemplateFields = null);
+    string? Usage = null);
+
+internal sealed record CliRequestTemplate(
+    string Scenario,
+    bool Info,
+    bool KeepSource,
+    bool OverlayBackground,
+    int? DownscaleTarget,
+    bool SynchronizeAudio);
 
 internal sealed class CliMutableParseState
 {
     public List<string> Inputs { get; } = [];
 
-    public HashSet<string> ExplicitTemplateFields { get; } = new(StringComparer.Ordinal);
-
-    public RawTranscodeRequest RequestTemplate { get; set; } =
-        new(InputPath: "__input__");
-
-    public void MarkExplicitFields(IReadOnlyList<string>? fieldNames)
-    {
-        if (fieldNames is null)
-        {
-            return;
-        }
-
-        foreach (var fieldName in fieldNames)
-        {
-            if (!string.IsNullOrWhiteSpace(fieldName))
-            {
-                ExplicitTemplateFields.Add(fieldName);
-            }
-        }
-    }
+    public CliRequestTemplate RequestTemplate { get; set; } =
+        new(
+            Scenario: CliContracts.SupportedScenario,
+            Info: false,
+            KeepSource: false,
+            OverlayBackground: false,
+            DownscaleTarget: null,
+            SynchronizeAudio: false);
 }
 
 internal static class CliContracts
 {
+    public const string SupportedScenario = "tomkvgpu";
+
     public static readonly IReadOnlyDictionary<string, CliOptionDefinition> OptionsByName = CreateOptions();
 
     public static bool TryGetOption(string token, out CliOptionDefinition option)
     {
         return OptionsByName.TryGetValue(token, out option!);
+    }
+
+    public static bool IsSupportedScenario(string? scenarioName)
+    {
+        return string.Equals(scenarioName, SupportedScenario, StringComparison.OrdinalIgnoreCase);
     }
 
     private static IReadOnlyDictionary<string, CliOptionDefinition> CreateOptions()
@@ -91,339 +90,48 @@ internal static class CliContracts
                     }
                 },
                 Usage: "--input <path>"),
-            ["--keep-source"] = new CliOptionDefinition(
-                Name: "--keep-source",
-                ValueKind: CliOptionValueKind.Flag,
-                IsRepeatable: false,
-                HelpText: "Keep input source file; write output to a new file.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { KeepSource = true },
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.KeepSource)]),
             ["--scenario"] = new CliOptionDefinition(
                 Name: "--scenario",
                 ValueKind: CliOptionValueKind.String,
                 IsRepeatable: false,
-                HelpText: "Scenario preset name.",
-                ApplyValue: static (state, value) =>
+                HelpText: "Scenario name. Only tomkvgpu is supported.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with
                 {
-                    state.RequestTemplate = state.RequestTemplate with { Scenario = value.StringValue };
+                    Scenario = value.StringValue?.Trim() ?? string.Empty
                 },
-                Usage: "--scenario <name>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.Scenario)]),
-            ["--container"] = new CliOptionDefinition(
-                Name: "--container",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Target container (mkv|mp4).",
-                ApplyValue: static (state, value) =>
-                {
-                    var container = value.StringValue ?? string.Empty;
-                    var useEncodeCodecByDefault = !container.Equals(RequestContracts.General.MkvContainer, StringComparison.OrdinalIgnoreCase);
-                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
-                    var targetVideoCodec = state.RequestTemplate.TargetVideoCodec;
-                    if (useEncodeCodecByDefault && !hasExplicitTargetVideoCodec)
-                    {
-                        targetVideoCodec = RequestContracts.General.H264VideoCodec;
-                    }
-
-                    state.RequestTemplate = state.RequestTemplate with
-                    {
-                        TargetContainer = container,
-                        TargetVideoCodec = targetVideoCodec
-                    };
-                },
-                Usage: "--container <mkv|mp4>",
-                AffectedTemplateFields:
-                [
-                    nameof(RawTranscodeRequest.TargetContainer),
-                    nameof(RawTranscodeRequest.TargetVideoCodec)
-                ]),
-            ["--encoder-backend"] = new CliOptionDefinition(
-                Name: "--encoder-backend",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Encoder backend (gpu|cpu).",
-                ApplyValue: static (state, value) =>
-                {
-                    state.RequestTemplate = state.RequestTemplate with { EncoderBackend = value.StringValue ?? string.Empty };
-                },
-                Usage: "--encoder-backend <gpu|cpu>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.EncoderBackend)]),
-            ["--compute"] = new CliOptionDefinition(
-                Name: "--compute",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Alias of --encoder-backend.",
-                ApplyValue: static (state, value) =>
-                {
-                    state.RequestTemplate = state.RequestTemplate with { EncoderBackend = value.StringValue ?? string.Empty };
-                },
-                Usage: "--compute <gpu|cpu>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.EncoderBackend)]),
-            ["--preset"] = new CliOptionDefinition(
-                Name: "--preset",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Video preset.",
-                ApplyValue: static (state, value) =>
-                {
-                    state.RequestTemplate = state.RequestTemplate with { VideoPreset = value.StringValue ?? string.Empty };
-                },
-                Usage: "--preset <value>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.VideoPreset)]),
-            ["--video-codec"] = new CliOptionDefinition(
-                Name: "--video-codec",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Target video codec (copy|h264|h265).",
-                ApplyValue: static (state, value) =>
-                {
-                    state.RequestTemplate = state.RequestTemplate with { TargetVideoCodec = value.StringValue ?? string.Empty };
-                },
-                Usage: "--video-codec <copy|h264|h265>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.TargetVideoCodec)]),
-            ["--nvenc-preset"] = new CliOptionDefinition(
-                Name: "--nvenc-preset",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Alias of --preset.",
-                ApplyValue: static (state, value) =>
-                {
-                    state.RequestTemplate = state.RequestTemplate with { VideoPreset = value.StringValue ?? string.Empty };
-                },
-                Usage: "--nvenc-preset <value>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.VideoPreset)]),
-
+                Usage: "--scenario tomkvgpu"),
             ["--info"] = new CliOptionDefinition(
                 Name: "--info",
                 ValueKind: CliOptionValueKind.Flag,
                 IsRepeatable: false,
-                HelpText: "Info mode.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { Info = true },
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.Info)]),
+                HelpText: "Show per-file runtime decision markers.",
+                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { Info = true }),
+            ["--keep-source"] = new CliOptionDefinition(
+                Name: "--keep-source",
+                ValueKind: CliOptionValueKind.Flag,
+                IsRepeatable: false,
+                HelpText: "Keep source file and write output to a new path.",
+                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { KeepSource = true }),
             ["--overlay-bg"] = new CliOptionDefinition(
                 Name: "--overlay-bg",
                 ValueKind: CliOptionValueKind.Flag,
                 IsRepeatable: false,
-                HelpText: "Enable overlay background mode.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { OverlayBg = true },
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.OverlayBg)]),
+                HelpText: "Apply overlay background path during encode.",
+                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { OverlayBackground = true }),
             ["--downscale"] = new CliOptionDefinition(
                 Name: "--downscale",
                 ValueKind: CliOptionValueKind.Int,
                 IsRepeatable: false,
-                HelpText: "Downscale target.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { Downscale = value.IntValue },
+                HelpText: "Downscale target height.",
+                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { DownscaleTarget = value.IntValue },
                 InvalidValueError: "--downscale must be an integer.",
-                Usage: "--downscale <int>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.Downscale)]),
-            ["--downscale-algo"] = new CliOptionDefinition(
-                Name: "--downscale-algo",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Downscale algorithm.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { DownscaleAlgo = value.StringValue },
-                Usage: "--downscale-algo <value>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.DownscaleAlgo)]),
-            ["--content-profile"] = new CliOptionDefinition(
-                Name: "--content-profile",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Content profile.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { ContentProfile = value.StringValue ?? state.RequestTemplate.ContentProfile },
-                Usage: "--content-profile <value>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.ContentProfile)]),
-            ["--quality-profile"] = new CliOptionDefinition(
-                Name: "--quality-profile",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Quality profile.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { QualityProfile = value.StringValue ?? state.RequestTemplate.QualityProfile },
-                Usage: "--quality-profile <value>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.QualityProfile)]),
-            ["--no-auto-sample"] = new CliOptionDefinition(
-                Name: "--no-auto-sample",
-                ValueKind: CliOptionValueKind.Flag,
-                IsRepeatable: false,
-                HelpText: "Disable auto sample.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { NoAutoSample = true },
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.NoAutoSample)]),
-            ["--auto-sample-mode"] = new CliOptionDefinition(
-                Name: "--auto-sample-mode",
-                ValueKind: CliOptionValueKind.String,
-                IsRepeatable: false,
-                HelpText: "Auto sample mode.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { AutoSampleMode = value.StringValue ?? state.RequestTemplate.AutoSampleMode },
-                Usage: "--auto-sample-mode <value>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.AutoSampleMode)]),
+                Usage: "--downscale <int>"),
             ["--sync-audio"] = new CliOptionDefinition(
                 Name: "--sync-audio",
                 ValueKind: CliOptionValueKind.Flag,
                 IsRepeatable: false,
-                HelpText: "Force audio sync path.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { SyncAudio = true },
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.SyncAudio)]),
-            ["--force-video-encode"] = new CliOptionDefinition(
-                Name: "--force-video-encode",
-                ValueKind: CliOptionValueKind.Flag,
-                IsRepeatable: false,
-                HelpText: "Force video encode.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { ForceVideoEncode = true },
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.ForceVideoEncode)]),
-            ["--cq"] = new CliOptionDefinition(
-                Name: "--cq",
-                ValueKind: CliOptionValueKind.Int,
-                IsRepeatable: false,
-                HelpText: "CQ override.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { Cq = value.IntValue },
-                InvalidValueError: "--cq must be an integer.",
-                Usage: "--cq <int>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.Cq)]),
-            ["--maxrate"] = new CliOptionDefinition(
-                Name: "--maxrate",
-                ValueKind: CliOptionValueKind.Double,
-                IsRepeatable: false,
-                HelpText: "Maxrate override.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { Maxrate = value.DoubleValue },
-                InvalidValueError: "--maxrate must be a number.",
-                Usage: "--maxrate <number>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.Maxrate)]),
-            ["--bufsize"] = new CliOptionDefinition(
-                Name: "--bufsize",
-                ValueKind: CliOptionValueKind.Double,
-                IsRepeatable: false,
-                HelpText: "Bufsize override.",
-                ApplyValue: static (state, value) => state.RequestTemplate = state.RequestTemplate with { Bufsize = value.DoubleValue },
-                InvalidValueError: "--bufsize must be a number.",
-                Usage: "--bufsize <number>",
-                AffectedTemplateFields: [nameof(RawTranscodeRequest.Bufsize)]),
-
-            ["--keep-fps"] = new CliOptionDefinition(
-                Name: "--keep-fps",
-                ValueKind: CliOptionValueKind.Flag,
-                IsRepeatable: false,
-                HelpText: "Keep source FPS.",
-                ApplyValue: static (state, _) =>
-                {
-                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
-                    var targetVideoCodec = hasExplicitTargetVideoCodec
-                        ? state.RequestTemplate.TargetVideoCodec
-                        : RequestContracts.General.H264VideoCodec;
-                    state.RequestTemplate = state.RequestTemplate with
-                    {
-                        KeepFps = true,
-                        TargetVideoCodec = targetVideoCodec
-                    };
-                },
-                AffectedTemplateFields:
-                [
-                    nameof(RawTranscodeRequest.KeepFps),
-                    nameof(RawTranscodeRequest.TargetVideoCodec)
-                ]),
-            ["--use-aq"] = new CliOptionDefinition(
-                Name: "--use-aq",
-                ValueKind: CliOptionValueKind.Flag,
-                IsRepeatable: false,
-                HelpText: "Enable AQ.",
-                ApplyValue: static (state, _) =>
-                {
-                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
-                    var targetVideoCodec = hasExplicitTargetVideoCodec
-                        ? state.RequestTemplate.TargetVideoCodec
-                        : RequestContracts.General.H264VideoCodec;
-                    state.RequestTemplate = state.RequestTemplate with
-                    {
-                        UseAq = true,
-                        TargetVideoCodec = targetVideoCodec
-                    };
-                },
-                AffectedTemplateFields:
-                [
-                    nameof(RawTranscodeRequest.UseAq),
-                    nameof(RawTranscodeRequest.TargetVideoCodec)
-                ]),
-            ["--aq-strength"] = new CliOptionDefinition(
-                Name: "--aq-strength",
-                ValueKind: CliOptionValueKind.Int,
-                IsRepeatable: false,
-                HelpText: "AQ strength.",
-                ApplyValue: static (state, value) =>
-                {
-                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
-                    var targetVideoCodec = hasExplicitTargetVideoCodec
-                        ? state.RequestTemplate.TargetVideoCodec
-                        : RequestContracts.General.H264VideoCodec;
-                    state.RequestTemplate = state.RequestTemplate with
-                    {
-                        AqStrength = value.IntValue ?? RequestContracts.General.DefaultAqStrength,
-                        TargetVideoCodec = targetVideoCodec
-                    };
-                },
-                InvalidValueError: "--aq-strength must be an integer.",
-                Usage: "--aq-strength <int>",
-                AffectedTemplateFields:
-                [
-                    nameof(RawTranscodeRequest.AqStrength),
-                    nameof(RawTranscodeRequest.TargetVideoCodec)
-                ]),
-            ["--denoise"] = new CliOptionDefinition(
-                Name: "--denoise",
-                ValueKind: CliOptionValueKind.Flag,
-                IsRepeatable: false,
-                HelpText: "Enable denoise.",
-                ApplyValue: static (state, _) =>
-                {
-                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
-                    var targetVideoCodec = hasExplicitTargetVideoCodec
-                        ? state.RequestTemplate.TargetVideoCodec
-                        : RequestContracts.General.H264VideoCodec;
-                    state.RequestTemplate = state.RequestTemplate with
-                    {
-                        Denoise = true,
-                        TargetVideoCodec = targetVideoCodec
-                    };
-                },
-                AffectedTemplateFields:
-                [
-                    nameof(RawTranscodeRequest.Denoise),
-                    nameof(RawTranscodeRequest.TargetVideoCodec)
-                ]),
-            ["--fix-timestamps"] = new CliOptionDefinition(
-                Name: "--fix-timestamps",
-                ValueKind: CliOptionValueKind.Flag,
-                IsRepeatable: false,
-                HelpText: "Force timestamp fixes.",
-                ApplyValue: static (state, _) =>
-                {
-                    var hasExplicitTargetVideoCodec = state.ExplicitTemplateFields.Contains(nameof(RawTranscodeRequest.TargetVideoCodec));
-                    var targetVideoCodec = hasExplicitTargetVideoCodec
-                        ? state.RequestTemplate.TargetVideoCodec
-                        : RequestContracts.General.H264VideoCodec;
-                    state.RequestTemplate = state.RequestTemplate with
-                    {
-                        FixTimestamps = true,
-                        TargetVideoCodec = targetVideoCodec
-                    };
-                },
-                AffectedTemplateFields:
-                [
-                    nameof(RawTranscodeRequest.FixTimestamps),
-                    nameof(RawTranscodeRequest.TargetVideoCodec)
-                ]),
-            ["--output-mkv"] = new CliOptionDefinition(
-                Name: "--output-mkv",
-                ValueKind: CliOptionValueKind.Flag,
-                IsRepeatable: false,
-                HelpText: "Alias for h264 flow with mkv output container.",
-                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with
-                {
-                    TargetContainer = RequestContracts.General.MkvContainer,
-                    TargetVideoCodec = RequestContracts.General.H264VideoCodec
-                },
-                AffectedTemplateFields:
-                [
-                    nameof(RawTranscodeRequest.TargetContainer),
-                    nameof(RawTranscodeRequest.TargetVideoCodec)
-                ])
+                HelpText: "Force sync-safe audio path.",
+                ApplyValue: static (state, _) => state.RequestTemplate = state.RequestTemplate with { SynchronizeAudio = true })
         };
     }
 
@@ -451,15 +159,6 @@ internal static class CliContracts
                 }
 
                 parsedValue = new CliParsedValue(IntValue: intValue);
-                return true;
-            case CliOptionValueKind.Double:
-                if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleValue))
-                {
-                    errorText = option.InvalidValueError ?? $"{option.Name} must be a number.";
-                    return false;
-                }
-
-                parsedValue = new CliParsedValue(DoubleValue: doubleValue);
                 return true;
             default:
                 errorText = $"Unsupported value kind: {option.ValueKind}";

@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\MediaTranscodeEngine.Core\MediaTranscodeEngine.Core.csproj" />
+    <ProjectReference Include="..\MediaTranscodeEngine.Runtime\MediaTranscodeEngine.Runtime.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,12 +22,6 @@
     <None Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
-
-  <ItemGroup>
-    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-      <_Parameter1>MediaTranscodeEngine.Cli.Tests</_Parameter1>
-    </AssemblyAttribute>
   </ItemGroup>
 
   <PropertyGroup>

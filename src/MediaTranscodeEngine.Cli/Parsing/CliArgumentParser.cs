@@ -1,11 +1,8 @@
-using MediaTranscodeEngine.Core.Engine;
-
 namespace MediaTranscodeEngine.Cli.Parsing;
 
 internal sealed record CliParseResult(
     IReadOnlyList<string> Inputs,
-    RawTranscodeRequest RequestTemplate,
-    IReadOnlySet<string> ExplicitTemplateFields);
+    CliRequestTemplate RequestTemplate);
 
 internal static class CliArgumentParser
 {
@@ -26,7 +23,7 @@ internal static class CliArgumentParser
             var token = args[i];
             if (IsLegacyCommandToken(token))
             {
-                errorText = "Do not use legacy scenario command tokens. Use CLI switches directly.";
+                errorText = "Do not use legacy scenario command tokens. Use --scenario tomkvgpu.";
                 return false;
             }
 
@@ -53,13 +50,17 @@ internal static class CliArgumentParser
             }
 
             option.ApplyValue(state, value);
-            state.MarkExplicitFields(option.AffectedTemplateFields);
+        }
+
+        if (!CliContracts.IsSupportedScenario(state.RequestTemplate.Scenario))
+        {
+            errorText = $"Unsupported scenario: {state.RequestTemplate.Scenario}. Only '{CliContracts.SupportedScenario}' is available.";
+            return false;
         }
 
         parsed = new CliParseResult(
             Inputs: state.Inputs,
-            RequestTemplate: state.RequestTemplate,
-            ExplicitTemplateFields: state.ExplicitTemplateFields);
+            RequestTemplate: state.RequestTemplate);
         return true;
     }
 

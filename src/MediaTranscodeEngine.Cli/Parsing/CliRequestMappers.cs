@@ -1,11 +1,18 @@
-using MediaTranscodeEngine.Core.Engine;
-
 namespace MediaTranscodeEngine.Cli.Parsing;
 
 internal static class CliRequestMappers
 {
-    public static TranscodeRequest BuildRequest(RawTranscodeRequest template, string inputPath)
+    public static CliTranscodeRequest BuildRequest(CliRequestTemplate template, string inputPath)
     {
-        return (template with { InputPath = inputPath }).ToDomain();
+        ArgumentException.ThrowIfNullOrWhiteSpace(inputPath);
+
+        return new CliTranscodeRequest(
+            InputPath: inputPath,
+            ScenarioName: template.Scenario,
+            Info: template.Info,
+            KeepSource: template.KeepSource,
+            OverlayBackground: template.OverlayBackground,
+            DownscaleTarget: template.DownscaleTarget,
+            SynchronizeAudio: template.SynchronizeAudio);
     }
 }
