@@ -82,6 +82,32 @@ public sealed class PrimaryTranscodeProcessorTests
     }
 
     [Fact]
+    public void Process_WhenOverlayHasNonPositiveDimensions_Uses1920x1080FallbackCommand()
+    {
+        var sut = new PrimaryTranscodeProcessor(
+            CreateInspector(new VideoProbeSnapshot(
+                container: "mp4",
+                streams:
+                [
+                    new VideoProbeStream(streamType: "video", codec: "av1", width: 0, height: 0, framesPerSecond: 25),
+                    new VideoProbeStream(streamType: "audio", codec: "aac")
+                ],
+                duration: TimeSpan.FromMinutes(10))),
+            new FfmpegTool("ffmpeg"),
+            new ToMkvGpuInfoFormatter());
+
+        var actual = sut.Process(new CliTranscodeRequest(
+            InputPath: @"C:\video\a.mp4",
+            ScenarioName: "tomkvgpu",
+            Info: false,
+            ToMkvGpu: new ToMkvGpuRequest(overlayBackground: true)));
+
+        actual.Should().Contain("scale=1920:-1,crop=1920:1080");
+        actual.Should().Contain("-map \"[v]\"");
+        actual.Should().NotContain("REM Unknown dimensions");
+    }
+
+    [Fact]
     public void Process_WhenDownscale720IsRequested_ReturnsLegacyDownscaleRemLine()
     {
         var sut = new PrimaryTranscodeProcessor(
@@ -171,6 +197,11 @@ public sealed class PrimaryTranscodeProcessorTests
         return new VideoInspector(new StubVideoProbe(video));
     }
 
+    private static VideoInspector CreateInspector(VideoProbeSnapshot snapshot)
+    {
+        return new VideoInspector(new SnapshotVideoProbe(snapshot));
+    }
+
     private static VideoInspector CreateThrowingInspector(Exception exception)
     {
         return new VideoInspector(new ThrowingVideoProbe(exception));
@@ -210,6 +241,21 @@ public sealed class PrimaryTranscodeProcessorTests
         public VideoProbeSnapshot Probe(string filePath)
         {
             throw _exception;
+        }
+    }
+
+    private sealed class SnapshotVideoProbe : IVideoProbe
+    {
+        private readonly VideoProbeSnapshot _snapshot;
+
+        public SnapshotVideoProbe(VideoProbeSnapshot snapshot)
+        {
+            _snapshot = snapshot;
+        }
+
+        public VideoProbeSnapshot Probe(string filePath)
+        {
+            return _snapshot;
         }
     }
 

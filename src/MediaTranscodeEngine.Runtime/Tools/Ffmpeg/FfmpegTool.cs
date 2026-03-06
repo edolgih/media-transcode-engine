@@ -380,6 +380,12 @@ public sealed class FfmpegTool : ITranscodeTool
         var outputWidth = video.Width;
         var outputHeight = video.Height;
 
+        if (outputWidth <= 0 || outputHeight <= 0)
+        {
+            outputWidth = 1920;
+            outputHeight = 1080;
+        }
+
         if (outputWidth < outputHeight)
         {
             (outputWidth, outputHeight) = (outputHeight, outputWidth);

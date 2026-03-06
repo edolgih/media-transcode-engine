@@ -74,6 +74,42 @@ public sealed class VideoInspectorTests
     }
 
     [Fact]
+    public void Load_WhenProbeReturnsNonPositiveDimensions_PreservesThemInSourceVideo()
+    {
+        var sut = CreateSut(_ => new VideoProbeSnapshot(
+            container: "mp4",
+            streams:
+            [
+                new VideoProbeStream(streamType: "video", codec: "h264", width: 0, height: 0, framesPerSecond: 25),
+                new VideoProbeStream(streamType: "audio", codec: "aac")
+            ],
+            duration: TimeSpan.FromMinutes(10)));
+
+        var actual = sut.Load(@"C:\video\input.mp4");
+
+        actual.Width.Should().Be(0);
+        actual.Height.Should().Be(0);
+    }
+
+    [Fact]
+    public void Load_WhenDimensionsAreMissing_Throws()
+    {
+        var sut = CreateSut(_ => new VideoProbeSnapshot(
+            container: "mp4",
+            streams:
+            [
+                new VideoProbeStream(streamType: "video", codec: "h264", framesPerSecond: 25),
+                new VideoProbeStream(streamType: "audio", codec: "aac")
+            ],
+            duration: TimeSpan.FromMinutes(10)));
+
+        Action action = () => sut.Load(@"C:\video\input.mp4");
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*valid video width*");
+    }
+
+    [Fact]
     public void Load_WhenProbeReturnsVideoAndAudio_ReturnsSourceVideo()
     {
         var sut = CreateSut(_ => new VideoProbeSnapshot(

@@ -268,6 +268,42 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void BuildExecution_WhenOverlayBackgroundUsesPortraitSource_RotatesCanvasToLandscape()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(width: 720, height: 1280, container: "mp4", videoCodec: "av1", filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            applyOverlayBackground: true,
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("scale=1280:-1,crop=1280:720");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenOverlayBackgroundHasNonPositiveDimensions_Uses1920x1080FallbackCanvas()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(width: 0, height: 0, container: "mp4", videoCodec: "av1", filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            outputPath: @"C:\video\input.mkv",
+            applyOverlayBackground: true);
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("scale=1920:-1,crop=1920:1080");
+    }
+
+    [Fact]
     public void BuildExecution_WhenReplacingMkvInPlace_UsesTemporaryOutputAndMoveStep()
     {
         var sut = CreateSut();

@@ -47,12 +47,12 @@ public sealed class VideoInspector
             throw new InvalidOperationException("Video probe did not return a video stream.");
         }
 
-        if (!videoStream.width.HasValue || videoStream.width.Value <= 0)
+        if (!videoStream.width.HasValue)
         {
             throw new InvalidOperationException("Video probe did not return a valid video width.");
         }
 
-        if (!videoStream.height.HasValue || videoStream.height.Value <= 0)
+        if (!videoStream.height.HasValue)
         {
             throw new InvalidOperationException("Video probe did not return a valid video height.");
         }

@@ -12,8 +12,8 @@ public sealed record SourceVideo
     /// <param name="container">Normalized source container identifier.</param>
     /// <param name="videoCodec">Normalized source video codec identifier.</param>
     /// <param name="audioCodecs">Normalized source audio codec identifiers.</param>
-    /// <param name="width">Source video width in pixels.</param>
-    /// <param name="height">Source video height in pixels.</param>
+    /// <param name="width">Source video width in pixels as reported by inspection.</param>
+    /// <param name="height">Source video height in pixels as reported by inspection.</param>
     /// <param name="framesPerSecond">Source frame rate.</param>
     /// <param name="duration">Source duration.</param>
     public SourceVideo(
@@ -30,12 +30,12 @@ public sealed record SourceVideo
         Container = NormalizeToken(container, nameof(container));
         VideoCodec = NormalizeToken(videoCodec, nameof(videoCodec));
         AudioCodecs = NormalizeAudioCodecs(audioCodecs);
-        Width = width > 0
+        Width = width >= 0
             ? width
-            : throw new ArgumentOutOfRangeException(nameof(width), width, "Video width must be greater than zero.");
-        Height = height > 0
+            : throw new ArgumentOutOfRangeException(nameof(width), width, "Video width must not be negative.");
+        Height = height >= 0
             ? height
-            : throw new ArgumentOutOfRangeException(nameof(height), height, "Video height must be greater than zero.");
+            : throw new ArgumentOutOfRangeException(nameof(height), height, "Video height must not be negative.");
         FramesPerSecond = framesPerSecond > 0
             ? framesPerSecond
             : throw new ArgumentOutOfRangeException(nameof(framesPerSecond), framesPerSecond, "Frame rate must be greater than zero.");
@@ -65,12 +65,12 @@ public sealed record SourceVideo
     public IReadOnlyList<string> AudioCodecs { get; }
 
     /// <summary>
-    /// Gets the source video width in pixels.
+    /// Gets the source video width in pixels as reported by inspection.
     /// </summary>
     public int Width { get; }
 
     /// <summary>
-    /// Gets the source video height in pixels.
+    /// Gets the source video height in pixels as reported by inspection.
     /// </summary>
     public int Height { get; }
 
