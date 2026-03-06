@@ -8,4 +8,5 @@ public sealed record VideoProbeStream(
     string codec,
     int? width = null,
     int? height = null,
-    double? framesPerSecond = null);
+    double? framesPerSecond = null,
+    long? bitrate = null);

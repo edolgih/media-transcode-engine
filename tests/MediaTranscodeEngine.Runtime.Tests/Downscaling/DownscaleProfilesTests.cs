@@ -99,4 +99,94 @@ public sealed class DownscaleProfilesTests
         sut.RateModel.CqStepToMaxrateStep.Should().Be(0.4m);
         sut.RateModel.BufsizeMultiplier.Should().Be(2.0m);
     }
+
+    [Fact]
+    public void Default_When576ProfileIsRequested_ReturnsConfiguredAutoSampling()
+    {
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+
+        sut.AutoSampling.EnabledByDefault.Should().BeTrue();
+        sut.AutoSampling.ModeDefault.Should().Be("accurate");
+        sut.AutoSampling.MaxIterations.Should().Be(8);
+        sut.AutoSampling.HybridAccurateIterations.Should().Be(2);
+    }
+
+    [Fact]
+    public void GetSampleWindows_WhenDurationIsLong_ReturnsThree120SecondWindows()
+    {
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+
+        var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(8));
+
+        actual.Should().Equal(
+            TimeSpan.FromSeconds(120),
+            TimeSpan.FromSeconds(120),
+            TimeSpan.FromSeconds(120));
+    }
+
+    [Fact]
+    public void GetSampleWindows_WhenDurationIsMedium_ReturnsTwo120SecondWindows()
+    {
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+
+        var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(3));
+
+        actual.Should().Equal(
+            TimeSpan.FromSeconds(120),
+            TimeSpan.FromSeconds(120));
+    }
+
+    [Fact]
+    public void GetSampleWindows_WhenDurationIsShort_ReturnsOne90SecondWindow()
+    {
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+
+        var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(2));
+
+        actual.Should().Equal(TimeSpan.FromSeconds(90));
+    }
+
+    [Fact]
+    public void ResolveRange_WhenContentProfileAnimeAndQualityDefault_ReturnsConfiguredBucketRange()
+    {
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+
+        var actual = sut.ResolveRange(sourceHeight: 1080, contentProfile: "anime", qualityProfile: "default");
+
+        actual.Should().NotBeNull();
+        actual!.MinInclusive.Should().Be(45.0m);
+        actual.MaxInclusive.Should().Be(60.0m);
+    }
+
+    [Fact]
+    public void Contains_WhenValueEqualsLowerInclusive_ReturnsTrue()
+    {
+        var sut = new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m);
+
+        sut.Contains(35.0m).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Contains_WhenValueEqualsLowerExclusive_ReturnsFalse()
+    {
+        var sut = new DownscaleRange("film", "default", MinExclusive: 35.0m, MaxInclusive: 50.0m);
+
+        sut.Contains(35.0m).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Contains_WhenValueEqualsUpperInclusive_ReturnsTrue()
+    {
+        var sut = new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m);
+
+        sut.Contains(50.0m).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Contains_WhenValueEqualsUpperExclusive_ReturnsFalse()
+    {
+        var sut = new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxExclusive: 50.0m);
+
+        sut.Contains(50.0m).Should().BeFalse();
+    }
 }

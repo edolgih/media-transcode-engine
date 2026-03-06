@@ -23,14 +23,17 @@ public sealed class FfprobeVideoProbeTests
         capturedPath.Should().Be(Path.GetFullPath(@".\input.mp4"));
         actual.container.Should().Be("mp4");
         actual.duration.Should().Be(TimeSpan.FromSeconds(600.123));
+        actual.formatBitrate.Should().Be(4567000);
         actual.streams.Should().HaveCount(2);
         actual.streams[0].streamType.Should().Be("video");
         actual.streams[0].codec.Should().Be("h264");
         actual.streams[0].width.Should().Be(1920);
         actual.streams[0].height.Should().Be(1080);
         actual.streams[0].framesPerSecond.Should().BeApproximately(30000d / 1001d, 0.0001);
+        actual.streams[0].bitrate.Should().Be(3456000);
         actual.streams[1].streamType.Should().Be("audio");
         actual.streams[1].codec.Should().Be("aac");
+        actual.streams[1].bitrate.Should().Be(192000);
     }
 
     [Fact]
@@ -95,7 +98,8 @@ public sealed class FfprobeVideoProbeTests
                {
                  "format": {
                    "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
-                   "duration": "600.123"
+                   "duration": "600.123",
+                   "bit_rate": "4567000"
                  },
                  "streams": [
                    {
@@ -103,11 +107,13 @@ public sealed class FfprobeVideoProbeTests
                      "codec_name": "h264",
                      "width": 1920,
                      "height": 1080,
-                     "r_frame_rate": "30000/1001"
+                     "r_frame_rate": "30000/1001",
+                     "bit_rate": "3456000"
                    },
                    {
                      "codec_type": "audio",
-                     "codec_name": "aac"
+                     "codec_name": "aac",
+                     "bit_rate": "192000"
                    }
                  ]
                }

@@ -6,4 +6,5 @@ namespace MediaTranscodeEngine.Runtime.Inspection;
 public sealed record VideoProbeSnapshot(
     string? container,
     IReadOnlyList<VideoProbeStream> streams,
-    TimeSpan? duration);
+    TimeSpan? duration,
+    long? formatBitrate = null);

@@ -86,16 +86,19 @@ public sealed class FfprobeVideoProbe : IVideoProbe
                 codec: codec,
                 width: TryGetInt(streamElement, "width"),
                 height: TryGetInt(streamElement, "height"),
-                framesPerSecond: framesPerSecond));
+                framesPerSecond: framesPerSecond,
+                bitrate: TryGetLong(streamElement, "bit_rate")));
         }
 
         var duration = TryGetDuration(root);
+        var formatBitrate = TryGetFormatBitrate(root);
         var container = ResolveContainer(filePath, root);
 
         return new VideoProbeSnapshot(
             container: container,
             streams: streams,
-            duration: duration);
+            duration: duration,
+            formatBitrate: formatBitrate);
     }
 
     private static string? ResolveContainer(string filePath, JsonElement root)
@@ -150,6 +153,17 @@ public sealed class FfprobeVideoProbe : IVideoProbe
         return TimeSpan.FromSeconds(seconds);
     }
 
+    private static long? TryGetFormatBitrate(JsonElement root)
+    {
+        if (!root.TryGetProperty("format", out var formatElement) ||
+            formatElement.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        return TryGetLong(formatElement, "bit_rate");
+    }
+
     private static string ReadRequiredString(JsonElement element, string propertyName, string scope)
     {
         var value = TryGetString(element, propertyName);
@@ -186,6 +200,19 @@ public sealed class FfprobeVideoProbe : IVideoProbe
         }
 
         return int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : null;
+    }
+
+    private static long? TryGetLong(JsonElement element, string propertyName)
+    {
+        var token = TryGetString(element, propertyName);
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        return long.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
             ? parsed
             : null;
     }

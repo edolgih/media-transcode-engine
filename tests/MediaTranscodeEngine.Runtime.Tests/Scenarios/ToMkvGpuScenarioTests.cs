@@ -194,6 +194,7 @@ public sealed class ToMkvGpuScenarioTests
             defaultContentProfile: "film",
             defaultQualityProfile: "default",
             rateModel: new DownscaleRateModel(0.4m, 2.0m),
+            autoSampling: CreateAutoSampling(),
             sourceBuckets:
             [
                 new SourceHeightBucket(
@@ -223,6 +224,7 @@ public sealed class ToMkvGpuScenarioTests
             defaultContentProfile: "film",
             defaultQualityProfile: "default",
             rateModel: new DownscaleRateModel(0.4m, 2.0m),
+            autoSampling: CreateAutoSampling(),
             sourceBuckets:
             [
                 new SourceHeightBucket(
@@ -307,5 +309,22 @@ public sealed class ToMkvGpuScenarioTests
             new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m),
             new DownscaleRange("film", "low", MinInclusive: 50.0m, MaxInclusive: 70.0m)
         ];
+    }
+
+    private static DownscaleAutoSampling CreateAutoSampling()
+    {
+        return new DownscaleAutoSampling(
+            EnabledByDefault: true,
+            ModeDefault: "accurate",
+            MaxIterations: 8,
+            HybridAccurateIterations: 2,
+            LongMinDuration: TimeSpan.FromMinutes(8),
+            LongWindowCount: 3,
+            LongWindowDuration: TimeSpan.FromSeconds(120),
+            MediumMinDuration: TimeSpan.FromMinutes(3),
+            MediumWindowCount: 2,
+            MediumWindowDuration: TimeSpan.FromSeconds(120),
+            ShortWindowCount: 1,
+            ShortWindowDuration: TimeSpan.FromSeconds(90));
     }
 }

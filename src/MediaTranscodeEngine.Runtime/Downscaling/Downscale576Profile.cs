@@ -9,6 +9,19 @@ internal static class Downscale576Profile
             defaultContentProfile: "film",
             defaultQualityProfile: "default",
             rateModel: new DownscaleRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
+            autoSampling: new DownscaleAutoSampling(
+                EnabledByDefault: true,
+                ModeDefault: "accurate",
+                MaxIterations: 8,
+                HybridAccurateIterations: 2,
+                LongMinDuration: TimeSpan.FromMinutes(8),
+                LongWindowCount: 3,
+                LongWindowDuration: TimeSpan.FromSeconds(120),
+                MediumMinDuration: TimeSpan.FromMinutes(3),
+                MediumWindowCount: 2,
+                MediumWindowDuration: TimeSpan.FromSeconds(120),
+                ShortWindowCount: 1,
+                ShortWindowDuration: TimeSpan.FromSeconds(90)),
             sourceBuckets:
             [
                 new SourceHeightBucket(
