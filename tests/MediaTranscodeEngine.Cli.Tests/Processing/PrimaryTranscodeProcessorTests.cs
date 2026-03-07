@@ -1,11 +1,13 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Cli.Processing;
+using MediaTranscodeEngine.Cli.Tests.Logging;
 using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Inspection;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Tools;
 using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 using MediaTranscodeEngine.Runtime.Videos;
+using Microsoft.Extensions.Logging;
 
 namespace MediaTranscodeEngine.Cli.Tests.Processing;
 
@@ -16,8 +18,9 @@ public sealed class PrimaryTranscodeProcessorTests
     {
         var sut = new PrimaryTranscodeProcessor(
             CreateInspector(CreateVideo(filePath: @"C:\video\a.mkv", container: "mkv", videoCodec: "av1")),
-            new FfmpegTool("ffmpeg"),
-            new ToMkvGpuInfoFormatter());
+            new FfmpegTool("ffmpeg", CreateLogger<FfmpegTool>()),
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mkv",
@@ -36,7 +39,8 @@ public sealed class PrimaryTranscodeProcessorTests
         var sut = new PrimaryTranscodeProcessor(
             CreateThrowingInspector(new InvalidOperationException("Video probe did not return a video stream.")),
             new StubTool(),
-            new ToMkvGpuInfoFormatter());
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mp4",
@@ -53,7 +57,8 @@ public sealed class PrimaryTranscodeProcessorTests
         var sut = new PrimaryTranscodeProcessor(
             CreateThrowingInspector(new InvalidOperationException("ffprobe returned invalid JSON output.")),
             new StubTool(),
-            new ToMkvGpuInfoFormatter());
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mp4",
@@ -70,7 +75,8 @@ public sealed class PrimaryTranscodeProcessorTests
         var sut = new PrimaryTranscodeProcessor(
             CreateThrowingInspector(new InvalidOperationException("Video probe did not return a valid video width.")),
             new StubTool(),
-            new ToMkvGpuInfoFormatter());
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mp4",
@@ -93,8 +99,9 @@ public sealed class PrimaryTranscodeProcessorTests
                     new VideoProbeStream(streamType: "audio", codec: "aac")
                 ],
                 duration: TimeSpan.FromMinutes(10))),
-            new FfmpegTool("ffmpeg"),
-            new ToMkvGpuInfoFormatter());
+            new FfmpegTool("ffmpeg", CreateLogger<FfmpegTool>()),
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mp4",
@@ -113,7 +120,8 @@ public sealed class PrimaryTranscodeProcessorTests
         var sut = new PrimaryTranscodeProcessor(
             CreateInspector(CreateVideo(filePath: @"C:\video\a.mp4", container: "mp4", videoCodec: "h264")),
             new StubTool(),
-            new ToMkvGpuInfoFormatter());
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mp4",
@@ -130,7 +138,8 @@ public sealed class PrimaryTranscodeProcessorTests
         var sut = new PrimaryTranscodeProcessor(
             CreateThrowingInspector(new InvalidOperationException("576 source bucket missing: height 900; add SourceBuckets")),
             new StubTool(),
-            new ToMkvGpuInfoFormatter());
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mp4",
@@ -147,7 +156,8 @@ public sealed class PrimaryTranscodeProcessorTests
         var sut = new PrimaryTranscodeProcessor(
             CreateThrowingInspector(new InvalidOperationException("576 source bucket invalid: missing corridor 'mult/low'")),
             new StubTool(),
-            new ToMkvGpuInfoFormatter());
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mp4",
@@ -164,7 +174,8 @@ public sealed class PrimaryTranscodeProcessorTests
         var sut = new PrimaryTranscodeProcessor(
             CreateThrowingInspector(new InvalidOperationException("ffprobe returned invalid JSON output.")),
             new StubTool(),
-            new ToMkvGpuInfoFormatter());
+            new ToMkvGpuInfoFormatter(),
+            CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(new CliTranscodeRequest(
             InputPath: @"C:\video\a.mp4",
@@ -173,6 +184,67 @@ public sealed class PrimaryTranscodeProcessorTests
             ToMkvGpu: new ToMkvGpuRequest()));
 
         actual.Should().Be("a.mp4: [ffprobe failed]");
+    }
+
+    [Fact]
+    public void Process_WhenNonInfoEncodeIsNeeded_LogsInspectionPlanAndExecution()
+    {
+        using var provider = new ListLoggerProvider();
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddProvider(provider));
+        var sut = new PrimaryTranscodeProcessor(
+            CreateInspector(CreateVideo(filePath: @"C:\video\a.mkv", container: "mkv", videoCodec: "av1")),
+            new FfmpegTool("ffmpeg", loggerFactory.CreateLogger<FfmpegTool>()),
+            new ToMkvGpuInfoFormatter(),
+            loggerFactory.CreateLogger<PrimaryTranscodeProcessor>());
+
+        var actual = sut.Process(new CliTranscodeRequest(
+            InputPath: @"C:\video\a.mkv",
+            ScenarioName: "tomkvgpu",
+            Info: false,
+            ToMkvGpu: new ToMkvGpuRequest()));
+
+        actual.Should().StartWith("ffmpeg ");
+        provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                  entry.Message.Contains("Processing started.", StringComparison.Ordinal));
+        provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                  entry.Message.Contains("Video inspected.", StringComparison.Ordinal) &&
+                                                  Equals(entry.Properties["Container"], "mkv") &&
+                                                  Equals(entry.Properties["VideoCodec"], "av1"));
+        provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                  entry.Message.Contains("Transcode plan built.", StringComparison.Ordinal) &&
+                                                  Equals(entry.Properties["TargetContainer"], "mkv"));
+        provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                  entry.Message.Contains("Tool execution built.", StringComparison.Ordinal) &&
+                                                  Equals(entry.Properties["ToolName"], "ffmpeg") &&
+                                                  Equals(entry.Properties["IsEmpty"], false));
+    }
+
+    [Fact]
+    public void Process_WhenFailureIsHandled_LogsWarningWithFailureKind()
+    {
+        using var provider = new ListLoggerProvider();
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddProvider(provider));
+        var sut = new PrimaryTranscodeProcessor(
+            CreateThrowingInspector(new InvalidOperationException("Video probe did not return a video stream.")),
+            new StubTool(),
+            new ToMkvGpuInfoFormatter(),
+            loggerFactory.CreateLogger<PrimaryTranscodeProcessor>());
+
+        var actual = sut.Process(new CliTranscodeRequest(
+            InputPath: @"C:\video\a.mp4",
+            ScenarioName: "tomkvgpu",
+            Info: false,
+            ToMkvGpu: new ToMkvGpuRequest()));
+
+        actual.Should().Be("REM Нет видеопотока: a.mp4");
+        provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Warning &&
+                                                  entry.Message.Contains("Processing returned legacy failure marker.", StringComparison.Ordinal) &&
+                                                  Equals(entry.Properties["FailureKind"], "no_video_stream"));
+    }
+
+    private static ILogger<T> CreateLogger<T>()
+    {
+        return LoggerFactory.Create(static _ => { }).CreateLogger<T>();
     }
 
     private static SourceVideo CreateVideo(

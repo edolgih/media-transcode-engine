@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.Tests.Logging;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 using MediaTranscodeEngine.Runtime.Videos;
@@ -251,11 +252,12 @@ public sealed class FfmpegToolTests
     public void BuildExecution_WhenDownscaleManualCqIsProvided_SkipsAutoSample()
     {
         var providerCalls = 0;
+        var logger = new ListLogger<FfmpegTool>();
         var sut = CreateSut(sampleReductionProvider: (_, _, _) =>
         {
             providerCalls++;
             return 45m;
-        });
+        }, logger: logger);
         var video = CreateVideo(
             container: "mp4",
             videoCodec: "h264",
@@ -277,6 +279,11 @@ public sealed class FfmpegToolTests
         providerCalls.Should().Be(0);
         actual.Commands[0].Should().Contain("-cq 21");
         actual.Commands[0].Should().Contain("-maxrate 3M -bufsize 6M");
+        logger.Entries.Should().Contain(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Information &&
+                                                 entry.Message.Contains("Downscale autosample resolved.", StringComparison.Ordinal) &&
+                                                 Equals(entry.Properties["Mode"], "none") &&
+                                                 Equals(entry.Properties["Path"], "skip") &&
+                                                 Equals(entry.Properties["Reason"], "manual_override"));
     }
 
     [Fact]
@@ -308,7 +315,8 @@ public sealed class FfmpegToolTests
     [Fact]
     public void BuildExecution_WhenDownscaleFastAutoSampleIsRequestedAndProbeBitrateIsMissing_UsesFileSizeDurationEstimate()
     {
-        var sut = CreateSut();
+        var logger = new ListLogger<FfmpegTool>();
+        var sut = CreateSut(logger: logger);
         var filePath = CreateTempFileWithLength(10_000_000);
 
         try
@@ -333,6 +341,11 @@ public sealed class FfmpegToolTests
 
             actual.Commands[0].Should().Contain("-cq 24");
             actual.Commands[0].Should().Contain("-maxrate 4.2M -bufsize 8.4M");
+            logger.Entries.Should().Contain(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Information &&
+                                                     entry.Message.Contains("Downscale autosample resolved.", StringComparison.Ordinal) &&
+                                                     Equals(entry.Properties["Mode"], "fast") &&
+                                                     Equals(entry.Properties["SourceBitrateOrigin"], "file_size_estimate") &&
+                                                     Equals(entry.Properties["SourceBitrateMbps"], "8"));
         }
         finally
         {
@@ -396,13 +409,14 @@ public sealed class FfmpegToolTests
     public void BuildExecution_WhenDownscaleAccurateAutoSampleIsRequested_UsesMeasuredSettings()
     {
         IReadOnlyList<DownscaleSampleWindow>? actualWindows = null;
+        var logger = new ListLogger<FfmpegTool>();
         var sut = CreateSut(sampleReductionProvider: (_, settings, windows) =>
         {
             actualWindows = windows;
             settings.Cq.Should().Be(23);
             settings.Maxrate.Should().Be(2.4m);
             return 45m;
-        });
+        }, logger: logger);
         var video = CreateVideo(
             container: "mp4",
             videoCodec: "h264",
@@ -426,6 +440,13 @@ public sealed class FfmpegToolTests
             new DownscaleSampleWindow(StartSeconds: 112, DurationSeconds: 15),
             new DownscaleSampleWindow(StartSeconds: 292, DurationSeconds: 15),
             new DownscaleSampleWindow(StartSeconds: 472, DurationSeconds: 15));
+        logger.Entries.Should().Contain(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Information &&
+                                                 entry.Message.Contains("Downscale autosample resolved.", StringComparison.Ordinal) &&
+                                                 Equals(entry.Properties["Mode"], "accurate") &&
+                                                 Equals(entry.Properties["Path"], "accurate") &&
+                                                 Equals(entry.Properties["Reason"], "in_range") &&
+                                                 Equals(entry.Properties["Windows"], "112+15,292+15,472+15") &&
+                                                 Equals(entry.Properties["LastReductionPercent"], 45m));
     }
 
     [Fact]
@@ -769,9 +790,19 @@ public sealed class FfmpegToolTests
     private static FfmpegTool CreateSut(
         string ffmpegPath = "ffmpeg",
         DownscaleProfiles? downscaleProfiles = null,
-        Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider = null)
+        Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider = null,
+        Microsoft.Extensions.Logging.ILogger<FfmpegTool>? logger = null)
     {
-        return new FfmpegTool(ffmpegPath, downscaleProfiles ?? DownscaleProfiles.Default, sampleReductionProvider);
+        return new FfmpegTool(
+            ffmpegPath,
+            downscaleProfiles ?? DownscaleProfiles.Default,
+            sampleReductionProvider,
+            logger ?? CreateLogger<FfmpegTool>());
+    }
+
+    private static Microsoft.Extensions.Logging.ILogger<T> CreateLogger<T>()
+    {
+        return new ListLogger<T>();
     }
 
     private static DownscaleProfiles CreateDownscaleProfiles(int maxIterations, int hybridAccurateIterations)

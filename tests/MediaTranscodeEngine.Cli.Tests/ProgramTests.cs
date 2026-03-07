@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Cli.Processing;
+using MediaTranscodeEngine.Cli.Tests.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -109,6 +110,62 @@ public sealed class ProgramTests
 
             exitCode.Should().Be(0);
             output.ToString().Trim().Should().Be("chcp 65001");
+            error.ToString().Should().BeEmpty();
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
+    }
+
+    [Fact]
+    public void RunCli_WhenParseSucceeds_LogsRequestAndPerInputLifecycle()
+    {
+        var services = new ServiceCollection()
+            .AddSingleton<ITranscodeProcessor>(new StubProcessor("ffmpeg -i input output"))
+            .BuildServiceProvider();
+        using var provider = new ListLoggerProvider();
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddProvider(provider));
+        var logger = loggerFactory.CreateLogger("test");
+        var runtimeValues = new RuntimeValues
+        {
+            FfprobePath = "ffprobe",
+            FfmpegPath = "ffmpeg"
+        };
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+
+        Console.SetOut(output);
+        Console.SetError(error);
+        try
+        {
+            var exitCode = Program.RunCli(
+                ["--input", @"C:\video\a.mp4", "--downscale", "576", "--autosample-mode", "fast"],
+                logger,
+                services,
+                runtimeValues,
+                readRedirectedStdIn: false);
+
+            exitCode.Should().Be(0);
+            provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                      entry.Message.Contains("CLI request received.", StringComparison.Ordinal));
+            provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                      entry.Message.Contains("CLI request parsed.", StringComparison.Ordinal) &&
+                                                      Equals(entry.Properties["InputCount"], 1) &&
+                                                      Equals(entry.Properties["DownscaleTarget"], 576) &&
+                                                      Equals(entry.Properties["AutoSampleMode"], "fast"));
+            provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                      entry.Message.Contains("CLI input processing started.", StringComparison.Ordinal) &&
+                                                      Equals(entry.Properties["InputPath"], @"C:\video\a.mp4"));
+            provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                      entry.Message.Contains("CLI input processing completed.", StringComparison.Ordinal) &&
+                                                      Equals(entry.Properties["HasOutput"], true));
+            provider.Entries.Should().Contain(entry => entry.Level == LogLevel.Information &&
+                                                      entry.Message.Contains("CLI request completed.", StringComparison.Ordinal));
             error.ToString().Should().BeEmpty();
         }
         finally

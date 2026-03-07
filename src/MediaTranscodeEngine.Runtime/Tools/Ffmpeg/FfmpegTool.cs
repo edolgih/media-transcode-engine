@@ -3,6 +3,7 @@ using System.Globalization;
 using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Videos;
+using Microsoft.Extensions.Logging;
 
 namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 
@@ -15,26 +16,30 @@ public sealed class FfmpegTool : ITranscodeTool
     private readonly DownscaleProfiles _downscaleProfiles;
     private readonly DownscaleAutoSampler _autoSampler;
     private readonly Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?> _sampleReductionProvider;
+    private readonly ILogger<FfmpegTool> _logger;
 
     /// <summary>
     /// Initializes an ffmpeg-backed transcode tool.
     /// </summary>
     /// <param name="ffmpegPath">Executable path or command name for ffmpeg.</param>
-    public FfmpegTool(string ffmpegPath = "ffmpeg")
-        : this(ffmpegPath, DownscaleProfiles.Default, null)
+    public FfmpegTool(string ffmpegPath, ILogger<FfmpegTool> logger)
+        : this(ffmpegPath, DownscaleProfiles.Default, null, logger)
     {
     }
 
     internal FfmpegTool(
         string ffmpegPath,
         DownscaleProfiles downscaleProfiles,
-        Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider)
+        Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider,
+        ILogger<FfmpegTool> logger)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ffmpegPath);
+        ArgumentNullException.ThrowIfNull(logger);
         _ffmpegPath = ffmpegPath.Trim();
         _downscaleProfiles = downscaleProfiles ?? throw new ArgumentNullException(nameof(downscaleProfiles));
         _autoSampler = new DownscaleAutoSampler(_downscaleProfiles);
         _sampleReductionProvider = sampleReductionProvider ?? MeasureSampleAverageReduction;
+        _logger = logger;
     }
 
     /// <summary>
@@ -314,14 +319,17 @@ public sealed class FfmpegTool : ITranscodeTool
             return defaults;
         }
 
-        return _autoSampler.Resolve(
+        var sourceBitrate = ResolveSourceBitrate(video);
+        var resolution = _autoSampler.ResolveWithDiagnostics(
             request: plan.Downscale,
             baseSettings: defaults,
             sourceHeight: video.Height,
             duration: video.Duration,
-            sourceBitrate: ResolveSourceBitrate(video),
+            sourceBitrate: sourceBitrate.Bitrate,
             hasAudio: video.AudioCodecs.Count > 0,
             accurateReductionProvider: (settings, windows) => _sampleReductionProvider(video.FilePath, settings, windows));
+        LogAutoSampleResolution(video.FilePath, defaults, resolution, sourceBitrate);
+        return resolution.Settings;
     }
 
     private DownscaleDefaults ResolveBaseDefaults(TranscodePlan plan)
@@ -401,31 +409,55 @@ public sealed class FfmpegTool : ITranscodeTool
         return $"{value.ToString("0.###", CultureInfo.InvariantCulture)}M";
     }
 
-    private static long? ResolveSourceBitrate(SourceVideo video)
+    private void LogAutoSampleResolution(
+        string inputPath,
+        DownscaleDefaults baseSettings,
+        DownscaleAutoSampleResolution resolution,
+        ResolvedSourceBitrate sourceBitrate)
+    {
+        _logger.LogInformation(
+            "Downscale autosample resolved. InputPath={InputPath} Profile={Profile} Mode={Mode} Path={Path} Reason={Reason} SourceBitrateOrigin={SourceBitrateOrigin} SourceBitrateMbps={SourceBitrateMbps} Corridor={Corridor} Windows={Windows} Iterations={Iterations} LastReductionPercent={LastReductionPercent} InBounds={InBounds} Base={BaseSettings} Resolved={ResolvedSettings}",
+            inputPath,
+            $"{baseSettings.ContentProfile}/{baseSettings.QualityProfile}",
+            resolution.Mode,
+            resolution.Path,
+            resolution.Reason,
+            sourceBitrate.Origin,
+            FormatBitrateMbps(sourceBitrate.Bitrate),
+            FormatRange(resolution.Range),
+            FormatWindows(resolution.Windows),
+            resolution.Iterations,
+            resolution.LastReduction,
+            resolution.InBounds,
+            FormatSettings(baseSettings),
+            FormatSettings(resolution.Settings));
+    }
+
+    private static ResolvedSourceBitrate ResolveSourceBitrate(SourceVideo video)
     {
         if (video.Bitrate.HasValue)
         {
-            return video.Bitrate.Value;
+            return new ResolvedSourceBitrate(video.Bitrate.Value, "probe");
         }
 
         if (video.Duration <= TimeSpan.Zero || string.IsNullOrWhiteSpace(video.FilePath) || !File.Exists(video.FilePath))
         {
-            return null;
+            return new ResolvedSourceBitrate(null, "missing");
         }
 
         var fileSizeBytes = new FileInfo(video.FilePath).Length;
         if (fileSizeBytes <= 0)
         {
-            return null;
+            return new ResolvedSourceBitrate(null, "missing");
         }
 
         var estimatedBitsPerSecond = Math.Round((fileSizeBytes * 8m) / (decimal)video.Duration.TotalSeconds, MidpointRounding.AwayFromZero);
         if (estimatedBitsPerSecond <= 0m || estimatedBitsPerSecond > long.MaxValue)
         {
-            return null;
+            return new ResolvedSourceBitrate(null, "missing");
         }
 
-        return (long)estimatedBitsPerSecond;
+        return new ResolvedSourceBitrate((long)estimatedBitsPerSecond, "file_size_estimate");
     }
 
     private decimal? MeasureSampleAverageReduction(
@@ -665,4 +697,51 @@ public sealed class FfmpegTool : ITranscodeTool
     private static string Quote(string value) => $"\"{value}\"";
 
     private sealed record SourceSample(string Path, decimal SizeBytes);
+
+    private sealed record ResolvedSourceBitrate(long? Bitrate, string Origin);
+
+    private static string FormatRange(DownscaleRange? range)
+    {
+        if (range is null)
+        {
+            return "-";
+        }
+
+        var min = range.MinInclusive.HasValue
+            ? $">={range.MinInclusive.Value.ToString("0.##", CultureInfo.InvariantCulture)}"
+            : range.MinExclusive.HasValue
+                ? $">{range.MinExclusive.Value.ToString("0.##", CultureInfo.InvariantCulture)}"
+                : "-inf";
+        var max = range.MaxInclusive.HasValue
+            ? $"<={range.MaxInclusive.Value.ToString("0.##", CultureInfo.InvariantCulture)}"
+            : range.MaxExclusive.HasValue
+                ? $"<{range.MaxExclusive.Value.ToString("0.##", CultureInfo.InvariantCulture)}"
+                : "+inf";
+        return $"{min}..{max}";
+    }
+
+    private static string FormatWindows(IReadOnlyList<DownscaleSampleWindow> windows)
+    {
+        return windows.Count == 0
+            ? "-"
+            : string.Join(",", windows.Select(static window => $"{window.StartSeconds}+{window.DurationSeconds}"));
+    }
+
+    private static string FormatSettings(DownscaleDefaults settings)
+    {
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{settings.ContentProfile}/{settings.QualityProfile} cq{settings.Cq} max{settings.Maxrate:0.###} buf{settings.Bufsize:0.###}");
+    }
+
+    private static string? FormatBitrateMbps(long? bitrate)
+    {
+        if (!bitrate.HasValue || bitrate.Value <= 0)
+        {
+            return null;
+        }
+
+        var value = bitrate.Value / 1_000_000m;
+        return value.ToString("0.###", CultureInfo.InvariantCulture);
+    }
 }

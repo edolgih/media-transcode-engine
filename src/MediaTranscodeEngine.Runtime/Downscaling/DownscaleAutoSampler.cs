@@ -21,48 +21,86 @@ internal sealed class DownscaleAutoSampler
         bool hasAudio,
         Func<DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? accurateReductionProvider = null)
     {
+        return ResolveWithDiagnostics(
+            request,
+            baseSettings,
+            sourceHeight,
+            duration,
+            sourceBitrate,
+            hasAudio,
+            accurateReductionProvider).Settings;
+    }
+
+    internal DownscaleAutoSampleResolution ResolveWithDiagnostics(
+        DownscaleRequest request,
+        DownscaleDefaults baseSettings,
+        int? sourceHeight,
+        TimeSpan duration,
+        long? sourceBitrate,
+        bool hasAudio,
+        Func<DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? accurateReductionProvider = null)
+    {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(baseSettings);
 
-        if (request.NoAutoSample || request.Cq.HasValue || request.Maxrate.HasValue || request.Bufsize.HasValue)
+        if (request.NoAutoSample)
         {
-            return baseSettings;
+            return DownscaleAutoSampleResolution.Skip(baseSettings, "disabled_by_request");
+        }
+
+        if (request.Cq.HasValue || request.Maxrate.HasValue || request.Bufsize.HasValue)
+        {
+            return DownscaleAutoSampleResolution.Skip(baseSettings, "manual_override");
         }
 
         if (!request.TargetHeight.HasValue)
         {
-            return baseSettings;
+            return DownscaleAutoSampleResolution.Skip(baseSettings, "no_target_height");
         }
 
         var profile = _profiles.GetRequiredProfile(request.TargetHeight.Value);
         if (string.IsNullOrWhiteSpace(request.AutoSampleMode) && !profile.AutoSampling.EnabledByDefault)
         {
-            return baseSettings;
+            return DownscaleAutoSampleResolution.Skip(baseSettings, "disabled_by_profile");
         }
 
         if (duration <= TimeSpan.Zero)
         {
-            return baseSettings;
+            return DownscaleAutoSampleResolution.Skip(baseSettings, "missing_duration");
         }
 
         var range = profile.ResolveRange(sourceHeight, request.ContentProfile, request.QualityProfile);
         if (range is null)
         {
-            return baseSettings;
+            return DownscaleAutoSampleResolution.Skip(baseSettings, "missing_range");
         }
 
         var mode = NormalizeMode(request.AutoSampleMode) ?? profile.AutoSampling.ModeDefault;
         if (mode.Equals("fast", StringComparison.OrdinalIgnoreCase))
         {
-            return RunFast(profile, baseSettings, range, sourceBitrate, hasAudio).Settings;
+            return DownscaleAutoSampleResolution.FromResult(
+                mode,
+                range,
+                [],
+                RunFast(profile, baseSettings, range, sourceBitrate, hasAudio));
         }
 
+        var windows = profile.GetSampleWindows(duration);
         if (mode.Equals("hybrid", StringComparison.OrdinalIgnoreCase))
         {
-            return RunHybrid(profile, baseSettings, range, duration, sourceBitrate, hasAudio, accurateReductionProvider).Settings;
+            var result = RunHybrid(profile, baseSettings, range, windows, sourceBitrate, hasAudio, accurateReductionProvider);
+            return DownscaleAutoSampleResolution.FromResult(
+                mode,
+                range,
+                result.Path == "hybrid-accurate" ? windows : [],
+                result);
         }
 
-        return RunAccurate(profile, baseSettings, range, duration, accurateReductionProvider, profile.AutoSampling.MaxIterations).Settings;
+        return DownscaleAutoSampleResolution.FromResult(
+            mode,
+            range,
+            windows,
+            RunAccurate(profile, baseSettings, range, windows, accurateReductionProvider, profile.AutoSampling.MaxIterations));
     }
 
     private static string? NormalizeMode(string? value)
@@ -81,7 +119,7 @@ internal sealed class DownscaleAutoSampler
     {
         if (!sourceBitrate.HasValue || sourceBitrate.Value <= 0)
         {
-            return DownscaleAutoSampleResult.FromSettings(baseSettings);
+            return DownscaleAutoSampleResult.FromSettings(baseSettings, "fast", "missing_source_bitrate");
         }
 
         return RunLoop(
@@ -89,6 +127,7 @@ internal sealed class DownscaleAutoSampler
             baseSettings,
             range,
             profile.AutoSampling.MaxIterations,
+            "fast",
             settings => EstimateReductionFromBitrate(
                 sourceBitrateBps: sourceBitrate.Value,
                 maxrateMbps: settings.Maxrate,
@@ -100,14 +139,13 @@ internal sealed class DownscaleAutoSampler
         DownscaleProfile profile,
         DownscaleDefaults baseSettings,
         DownscaleRange range,
-        TimeSpan duration,
+        IReadOnlyList<DownscaleSampleWindow> windows,
         Func<DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? accurateReductionProvider,
         int maxIterations)
     {
-        var windows = profile.GetSampleWindows(duration);
         if (accurateReductionProvider is null || windows.Count == 0)
         {
-            return DownscaleAutoSampleResult.FromSettings(baseSettings);
+            return DownscaleAutoSampleResult.FromSettings(baseSettings, "accurate", "missing_accurate_measurement");
         }
 
         return RunLoop(
@@ -115,6 +153,7 @@ internal sealed class DownscaleAutoSampler
             baseSettings,
             range,
             maxIterations,
+            "accurate",
             settings => accurateReductionProvider(settings, windows));
     }
 
@@ -122,7 +161,7 @@ internal sealed class DownscaleAutoSampler
         DownscaleProfile profile,
         DownscaleDefaults baseSettings,
         DownscaleRange range,
-        TimeSpan duration,
+        IReadOnlyList<DownscaleSampleWindow> windows,
         long? sourceBitrate,
         bool hasAudio,
         Func<DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? accurateReductionProvider)
@@ -130,13 +169,12 @@ internal sealed class DownscaleAutoSampler
         var fastResult = RunFast(profile, baseSettings, range, sourceBitrate, hasAudio);
         if (fastResult.InBounds)
         {
-            return fastResult;
+            return fastResult with { Path = "hybrid-fast" };
         }
 
-        var windows = profile.GetSampleWindows(duration);
         if (accurateReductionProvider is null || windows.Count == 0)
         {
-            return fastResult;
+            return fastResult with { Path = "hybrid-fast", Reason = "missing_accurate_measurement" };
         }
 
         var iterations = Math.Min(profile.AutoSampling.MaxIterations, Math.Max(profile.AutoSampling.HybridAccurateIterations, 1));
@@ -145,6 +183,7 @@ internal sealed class DownscaleAutoSampler
             fastResult.Settings,
             range,
             iterations,
+            "hybrid-accurate",
             settings => accurateReductionProvider(settings, windows));
     }
 
@@ -153,36 +192,37 @@ internal sealed class DownscaleAutoSampler
         DownscaleDefaults startSettings,
         DownscaleRange range,
         int maxIterations,
+        string path,
         Func<DownscaleDefaults, decimal?> reductionProvider)
     {
         var current = startSettings;
         decimal? lastReduction = null;
-        var inBounds = false;
+        var iterations = 0;
 
         for (var i = 0; i < maxIterations; i++)
         {
             var reduction = reductionProvider(current);
             if (!reduction.HasValue)
             {
-                break;
+                return new DownscaleAutoSampleResult(current, lastReduction, InBounds: false, iterations, "missing_reduction", path);
             }
 
+            iterations++;
             lastReduction = reduction.Value;
             if (range.Contains(reduction.Value))
             {
-                inBounds = true;
-                break;
+                return new DownscaleAutoSampleResult(current, lastReduction, InBounds: true, iterations, "in_range", path);
             }
 
             var previous = current;
             current = Adjust(current, range, reduction.Value, profile.RateModel);
             if (previous.Cq == current.Cq && previous.Maxrate == current.Maxrate)
             {
-                break;
+                return new DownscaleAutoSampleResult(current, lastReduction, InBounds: false, iterations, "no_movement", path);
             }
         }
 
-        return new DownscaleAutoSampleResult(current, lastReduction, inBounds);
+        return new DownscaleAutoSampleResult(current, lastReduction, InBounds: false, iterations, "max_iterations", path);
     }
 
     private static DownscaleDefaults Adjust(
@@ -268,10 +308,57 @@ internal sealed class DownscaleAutoSampler
 internal sealed record DownscaleAutoSampleResult(
     DownscaleDefaults Settings,
     decimal? LastReduction,
-    bool InBounds)
+    bool InBounds,
+    int Iterations,
+    string Reason,
+    string Path)
 {
-    public static DownscaleAutoSampleResult FromSettings(DownscaleDefaults settings)
+    public static DownscaleAutoSampleResult FromSettings(DownscaleDefaults settings, string path, string reason)
     {
-        return new DownscaleAutoSampleResult(settings, LastReduction: null, InBounds: false);
+        return new DownscaleAutoSampleResult(settings, LastReduction: null, InBounds: false, Iterations: 0, Reason: reason, Path: path);
+    }
+}
+
+internal sealed record DownscaleAutoSampleResolution(
+    DownscaleDefaults Settings,
+    string Mode,
+    string Path,
+    string Reason,
+    DownscaleRange? Range,
+    IReadOnlyList<DownscaleSampleWindow> Windows,
+    decimal? LastReduction,
+    bool InBounds,
+    int Iterations)
+{
+    public static DownscaleAutoSampleResolution Skip(DownscaleDefaults settings, string reason)
+    {
+        return new DownscaleAutoSampleResolution(
+            settings,
+            Mode: "none",
+            Path: "skip",
+            Reason: reason,
+            Range: null,
+            Windows: [],
+            LastReduction: null,
+            InBounds: false,
+            Iterations: 0);
+    }
+
+    public static DownscaleAutoSampleResolution FromResult(
+        string mode,
+        DownscaleRange range,
+        IReadOnlyList<DownscaleSampleWindow> windows,
+        DownscaleAutoSampleResult result)
+    {
+        return new DownscaleAutoSampleResolution(
+            Settings: result.Settings,
+            Mode: mode,
+            Path: result.Path,
+            Reason: result.Reason,
+            Range: range,
+            Windows: windows,
+            LastReduction: result.LastReduction,
+            InBounds: result.InBounds,
+            Iterations: result.Iterations);
     }
 }

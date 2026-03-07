@@ -51,7 +51,8 @@ public static class Program
             builder.Services.AddSingleton<ITranscodeTool>(static services =>
             {
                 var options = services.GetRequiredService<IOptions<RuntimeValues>>().Value;
-                return new FfmpegTool(options.FfmpegPath!);
+                var logger = services.GetRequiredService<ILogger<FfmpegTool>>();
+                return new FfmpegTool(options.FfmpegPath!, logger);
             });
             builder.Services.AddSingleton<ToMkvGpuInfoFormatter>();
             builder.Services.AddSingleton<ITranscodeProcessor, PrimaryTranscodeProcessor>();
@@ -100,9 +101,15 @@ public static class Program
         bool readRedirectedStdIn)
     {
         var effectiveArgs = BuildEffectiveArgs(args, readRedirectedStdIn);
+        logger.LogInformation(
+            "CLI request received. OriginalArgCount={OriginalArgCount} EffectiveArgCount={EffectiveArgCount} ReadRedirectedStdIn={ReadRedirectedStdIn}",
+            args.Length,
+            effectiveArgs.Length,
+            readRedirectedStdIn);
 
         if (effectiveArgs.Length == 0 || effectiveArgs.Any(IsHelpToken))
         {
+            logger.LogInformation("CLI help requested.");
             Console.WriteLine(CliHelpBuilder.BuildHelpText(runtimeValues));
             return 0;
         }
@@ -113,6 +120,15 @@ public static class Program
             Console.Error.WriteLine(errorText);
             return 1;
         }
+
+        logger.LogInformation(
+            "CLI request parsed. Scenario={Scenario} Info={Info} InputCount={InputCount} DownscaleTarget={DownscaleTarget} AutoSampleMode={AutoSampleMode} NoAutoSample={NoAutoSample}",
+            parsed.RequestTemplate.Scenario,
+            parsed.RequestTemplate.Info,
+            parsed.Inputs.Count,
+            parsed.RequestTemplate.DownscaleTarget,
+            parsed.RequestTemplate.AutoSampleMode,
+            parsed.RequestTemplate.NoAutoSample);
 
         if (parsed.Inputs.Count == 0)
         {
@@ -130,6 +146,7 @@ public static class Program
 
         foreach (var input in parsed.Inputs)
         {
+            logger.LogInformation("CLI input processing started. InputPath={InputPath}", input);
             try
             {
                 var request = CliRequestMappers.BuildRequest(parsed.RequestTemplate, input);
@@ -138,6 +155,12 @@ public static class Program
                 {
                     Console.WriteLine(line);
                 }
+
+                logger.LogInformation(
+                    "CLI input processing completed. InputPath={InputPath} HasOutput={HasOutput} OutputLine={OutputLine}",
+                    input,
+                    !string.IsNullOrWhiteSpace(line),
+                    line);
             }
             catch (Exception exception)
             {
@@ -147,6 +170,7 @@ public static class Program
             }
         }
 
+        logger.LogInformation("CLI request completed. InputCount={InputCount}", parsed.Inputs.Count);
         return 0;
     }
 
