@@ -158,45 +158,45 @@ public sealed class DownscaleProfilesTests
         sut.AutoSampling.MaxIterations.Should().Be(8);
         sut.AutoSampling.HybridAccurateIterations.Should().Be(2);
         sut.AutoSampling.AudioBitrateEstimateMbps.Should().Be(0.192m);
-        sut.AutoSampling.SampleWindowDuration.Should().Be(TimeSpan.FromSeconds(15));
+        sut.AutoSampling.SampleWindowDuration.Should().Be(TimeSpan.FromSeconds(30));
         sut.AutoSampling.LongWindowAnchors.Should().Equal(0.20, 0.50, 0.80);
         sut.AutoSampling.MediumWindowAnchors.Should().Equal(0.35, 0.65);
         sut.AutoSampling.ShortWindowAnchors.Should().Equal(0.50);
     }
 
     [Fact]
-    public void GetSampleWindows_WhenDurationIsLong_ReturnsThree15SecondWindowsUsingConfiguredAnchors()
+    public void GetSampleWindows_WhenDurationIsLong_ReturnsThree30SecondWindowsUsingConfiguredAnchors()
     {
         var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(8));
 
         actual.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 88, DurationSeconds: 15),
-            new DownscaleSampleWindow(StartSeconds: 232, DurationSeconds: 15),
-            new DownscaleSampleWindow(StartSeconds: 376, DurationSeconds: 15));
+            new DownscaleSampleWindow(StartSeconds: 81, DurationSeconds: 30),
+            new DownscaleSampleWindow(StartSeconds: 225, DurationSeconds: 30),
+            new DownscaleSampleWindow(StartSeconds: 369, DurationSeconds: 30));
     }
 
     [Fact]
-    public void GetSampleWindows_WhenDurationIsMedium_ReturnsTwo15SecondWindowsUsingConfiguredAnchors()
+    public void GetSampleWindows_WhenDurationIsMedium_ReturnsTwo30SecondWindowsUsingConfiguredAnchors()
     {
         var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(3));
 
         actual.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 55, DurationSeconds: 15),
-            new DownscaleSampleWindow(StartSeconds: 109, DurationSeconds: 15));
+            new DownscaleSampleWindow(StartSeconds: 48, DurationSeconds: 30),
+            new DownscaleSampleWindow(StartSeconds: 102, DurationSeconds: 30));
     }
 
     [Fact]
-    public void GetSampleWindows_WhenDurationIsShort_ReturnsOne15SecondWindow()
+    public void GetSampleWindows_WhenDurationIsShort_ReturnsOne30SecondWindow()
     {
         var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(2));
 
-        actual.Should().Equal(new DownscaleSampleWindow(StartSeconds: 52, DurationSeconds: 15));
+        actual.Should().Equal(new DownscaleSampleWindow(StartSeconds: 45, DurationSeconds: 30));
     }
 
     [Fact]

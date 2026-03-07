@@ -22,7 +22,7 @@ internal static class Downscale576Profile
                 MediumWindowCount: 2,
                 MediumWindowAnchors: [0.35, 0.65],
                 ShortWindowCount: 1,
-                SampleWindowDuration: TimeSpan.FromSeconds(15),
+                SampleWindowDuration: TimeSpan.FromSeconds(30),
                 ShortWindowAnchors: [0.50]),
             sourceBuckets:
             [

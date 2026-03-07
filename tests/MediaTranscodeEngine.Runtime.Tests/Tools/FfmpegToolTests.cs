@@ -461,15 +461,15 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("-cq 23");
         actual.Commands[0].Should().Contain("-maxrate 2.4M -bufsize 4.8M");
         actualWindows.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 112, DurationSeconds: 15),
-            new DownscaleSampleWindow(StartSeconds: 292, DurationSeconds: 15),
-            new DownscaleSampleWindow(StartSeconds: 472, DurationSeconds: 15));
+            new DownscaleSampleWindow(StartSeconds: 105, DurationSeconds: 30),
+            new DownscaleSampleWindow(StartSeconds: 285, DurationSeconds: 30),
+            new DownscaleSampleWindow(StartSeconds: 465, DurationSeconds: 30));
         logger.Entries.Should().Contain(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Information &&
                                                  entry.Message.Contains("Downscale autosample resolved.", StringComparison.Ordinal) &&
                                                  Equals(entry.Properties["Mode"], "accurate") &&
                                                  Equals(entry.Properties["Path"], "accurate") &&
                                                  Equals(entry.Properties["Reason"], "in_range") &&
-                                                 Equals(entry.Properties["Windows"], "112+15,292+15,472+15") &&
+                                                 Equals(entry.Properties["Windows"], "105+30,285+30,465+30") &&
                                                  Equals(entry.Properties["LastReductionPercent"], 45m));
     }
 

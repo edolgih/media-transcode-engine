@@ -33,9 +33,9 @@ public sealed class DownscaleAutoSamplerTests
         actual.Maxrate.Should().Be(2.4m);
         actual.Bufsize.Should().Be(4.8m);
         actualWindows.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 112, DurationSeconds: 15),
-            new DownscaleSampleWindow(StartSeconds: 292, DurationSeconds: 15),
-            new DownscaleSampleWindow(StartSeconds: 472, DurationSeconds: 15));
+            new DownscaleSampleWindow(StartSeconds: 105, DurationSeconds: 30),
+            new DownscaleSampleWindow(StartSeconds: 285, DurationSeconds: 30),
+            new DownscaleSampleWindow(StartSeconds: 465, DurationSeconds: 30));
     }
 
     [Fact]
