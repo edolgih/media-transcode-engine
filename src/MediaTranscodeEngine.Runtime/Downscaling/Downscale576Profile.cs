@@ -41,6 +41,12 @@ internal static class Downscale576Profile
                         new DownscaleRange("film", "high", MinInclusive: 10.0m, MaxInclusive: 25.0m),
                         new DownscaleRange("film", "default", MinInclusive: 25.0m, MaxInclusive: 40.0m),
                         new DownscaleRange("film", "low", MinInclusive: 40.0m, MaxInclusive: 55.0m)
+                    ],
+                    BoundsOverrides:
+                    [
+                        new DownscaleBoundsOverride("mult", "high", CqMin: 15, MaxrateMax: 4.4m),
+                        new DownscaleBoundsOverride("mult", "default", CqMin: 19, MaxrateMax: 3.6m),
+                        new DownscaleBoundsOverride("mult", "low", CqMin: 24, MaxrateMax: 2.4m)
                     ]),
                 new SourceHeightBucket(
                     "fhd_1080",
@@ -57,6 +63,10 @@ internal static class Downscale576Profile
                         new DownscaleRange("film", "high", MinInclusive: 20.0m, MaxInclusive: 35.0m),
                         new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m),
                         new DownscaleRange("film", "low", MinInclusive: 50.0m, MaxInclusive: 70.0m)
+                    ],
+                    BoundsOverrides:
+                    [
+                        new DownscaleBoundsOverride("mult", "low", CqMax: 33, MaxrateMin: 1.4m)
                     ])
             ],
             defaults:

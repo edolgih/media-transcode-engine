@@ -64,6 +64,54 @@ public sealed class DownscaleProfilesTests
         actual.Bufsize.Should().Be(7.4m);
     }
 
+    [Fact]
+    public void ResolveDefaults_WhenHd720BucketHasBoundsOverride_AppliesOnlyThoseBounds()
+    {
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+
+        var defaultActual = sut.ResolveDefaults(sourceHeight: 720, contentProfile: "mult", qualityProfile: "default");
+        var highActual = sut.ResolveDefaults(sourceHeight: 720, contentProfile: "mult", qualityProfile: "high");
+
+        defaultActual.ContentProfile.Should().Be("mult");
+        defaultActual.QualityProfile.Should().Be("default");
+        defaultActual.Cq.Should().Be(26);
+        defaultActual.Maxrate.Should().Be(2.4m);
+        defaultActual.Bufsize.Should().Be(4.8m);
+        defaultActual.CqMin.Should().Be(19);
+        defaultActual.CqMax.Should().Be(29);
+        defaultActual.MaxrateMin.Should().Be(2.0m);
+        defaultActual.MaxrateMax.Should().Be(3.6m);
+
+        highActual.ContentProfile.Should().Be("mult");
+        highActual.QualityProfile.Should().Be("high");
+        highActual.Cq.Should().Be(24);
+        highActual.Maxrate.Should().Be(2.7m);
+        highActual.Bufsize.Should().Be(5.3m);
+        highActual.CqMin.Should().Be(15);
+        highActual.CqMax.Should().Be(26);
+        highActual.MaxrateMin.Should().Be(2.4m);
+        highActual.MaxrateMax.Should().Be(4.4m);
+    }
+
+    [Fact]
+    public void ResolveDefaults_WhenFhd1080BucketUsesBaseBounds_KeepsBaseOrSpecificOverride()
+    {
+        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+
+        var defaultActual = sut.ResolveDefaults(sourceHeight: 1080, contentProfile: "mult", qualityProfile: "default");
+        var lowActual = sut.ResolveDefaults(sourceHeight: 1080, contentProfile: "mult", qualityProfile: "low");
+
+        defaultActual.CqMin.Should().Be(23);
+        defaultActual.CqMax.Should().Be(29);
+        defaultActual.MaxrateMin.Should().Be(2.0m);
+        defaultActual.MaxrateMax.Should().Be(2.8m);
+
+        lowActual.CqMin.Should().Be(26);
+        lowActual.CqMax.Should().Be(33);
+        lowActual.MaxrateMin.Should().Be(1.4m);
+        lowActual.MaxrateMax.Should().Be(2.0m);
+    }
+
     [Theory]
     [InlineData(650, "hd_720")]
     [InlineData(899, "hd_720")]

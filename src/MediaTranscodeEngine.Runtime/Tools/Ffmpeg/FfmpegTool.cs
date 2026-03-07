@@ -22,6 +22,7 @@ public sealed class FfmpegTool : ITranscodeTool
     /// Initializes an ffmpeg-backed transcode tool.
     /// </summary>
     /// <param name="ffmpegPath">Executable path or command name for ffmpeg.</param>
+    /// <param name="logger">Application logger used for execution diagnostics.</param>
     public FfmpegTool(string ffmpegPath, ILogger<FfmpegTool> logger)
         : this(ffmpegPath, DownscaleProfiles.Default, null, logger)
     {
@@ -294,7 +295,7 @@ public sealed class FfmpegTool : ITranscodeTool
     {
         if (plan.Downscale is not null)
         {
-            var defaults = ResolveBaseDefaults(plan);
+            var defaults = ResolveBaseDefaults(video, plan);
             defaults = ResolveAutoSampledDefaults(video, plan, defaults);
             return ApplyOverrides(defaults, plan.Downscale);
         }
@@ -332,12 +333,13 @@ public sealed class FfmpegTool : ITranscodeTool
         return resolution.Settings;
     }
 
-    private DownscaleDefaults ResolveBaseDefaults(TranscodePlan plan)
+    private DownscaleDefaults ResolveBaseDefaults(SourceVideo video, TranscodePlan plan)
     {
         if (plan.TargetHeight == 576)
         {
             var profile = _downscaleProfiles.GetRequiredProfile(576);
             return profile.ResolveDefaults(
+                sourceHeight: video.Height,
                 contentProfile: plan.Downscale?.ContentProfile,
                 qualityProfile: plan.Downscale?.QualityProfile);
         }

@@ -144,12 +144,26 @@ internal sealed class DownscaleProfile
 
     public DownscaleDefaults ResolveDefaults(string? contentProfile, string? qualityProfile)
     {
+        return ResolveDefaults(sourceHeight: null, contentProfile, qualityProfile);
+    }
+
+    public DownscaleDefaults ResolveDefaults(int? sourceHeight, string? contentProfile, string? qualityProfile)
+    {
         var effectiveContentProfile = NormalizeProfileName(contentProfile) ?? DefaultContentProfile;
         var effectiveQualityProfile = NormalizeProfileName(qualityProfile) ?? DefaultQualityProfile;
         var key = BuildDefaultsKey(effectiveContentProfile, effectiveQualityProfile);
         if (_defaultsByProfile.TryGetValue(key, out var defaults))
         {
-            return defaults;
+            var boundsOverride = ResolveSourceBucketDefinition(sourceHeight)?.ResolveBoundsOverride(effectiveContentProfile, effectiveQualityProfile);
+            return boundsOverride is null
+                ? defaults
+                : defaults with
+                {
+                    CqMin = boundsOverride.CqMin ?? defaults.CqMin,
+                    CqMax = boundsOverride.CqMax ?? defaults.CqMax,
+                    MaxrateMin = boundsOverride.MaxrateMin ?? defaults.MaxrateMin,
+                    MaxrateMax = boundsOverride.MaxrateMax ?? defaults.MaxrateMax
+                };
         }
 
         throw new InvalidOperationException(
@@ -595,6 +609,66 @@ internal sealed record DownscaleSampleWindow(
 }
 
 /// <summary>
+/// Represents one optional bounds override attached to a source-height bucket.
+/// </summary>
+internal sealed record DownscaleBoundsOverride(
+    string ContentProfile,
+    string QualityProfile,
+    int? CqMin = null,
+    int? CqMax = null,
+    decimal? MaxrateMin = null,
+    decimal? MaxrateMax = null)
+{
+    public string ContentProfile { get; init; } = NormalizeRequiredToken(ContentProfile, nameof(ContentProfile));
+
+    public string QualityProfile { get; init; } = NormalizeRequiredToken(QualityProfile, nameof(QualityProfile));
+
+    public int? CqMin { get; init; } = NormalizeOptionalPositiveInt(CqMin, nameof(CqMin));
+
+    public int? CqMax { get; init; } = NormalizeOptionalPositiveInt(CqMax, nameof(CqMax));
+
+    public decimal? MaxrateMin { get; init; } = NormalizeOptionalPositiveDecimal(MaxrateMin, nameof(MaxrateMin));
+
+    public decimal? MaxrateMax { get; init; } = NormalizeOptionalPositiveDecimal(MaxrateMax, nameof(MaxrateMax));
+
+    public bool Matches(string contentProfile, string qualityProfile)
+    {
+        return ContentProfile.Equals(contentProfile, StringComparison.OrdinalIgnoreCase) &&
+               QualityProfile.Equals(qualityProfile, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeRequiredToken(string? value, string paramName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, paramName);
+        return value.Trim().ToLowerInvariant();
+    }
+
+    private static int? NormalizeOptionalPositiveInt(int? value, string paramName)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value > 0
+            ? value.Value
+            : throw new ArgumentOutOfRangeException(paramName, value.Value, "Value must be greater than zero.");
+    }
+
+    private static decimal? NormalizeOptionalPositiveDecimal(decimal? value, string paramName)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value > 0m
+            ? value.Value
+            : throw new ArgumentOutOfRangeException(paramName, value.Value, "Value must be greater than zero.");
+    }
+}
+
+/// <summary>
 /// Represents one source-height bucket used by downscale profiles.
 /// </summary>
 internal sealed record SourceHeightBucket(
@@ -603,6 +677,7 @@ internal sealed record SourceHeightBucket(
     int MaxHeight,
     IReadOnlyList<DownscaleRange>? Ranges = null,
     IReadOnlyList<DownscaleQualityRange>? QualityRanges = null,
+    IReadOnlyList<DownscaleBoundsOverride>? BoundsOverrides = null,
     bool IsDefault = false)
 {
     public string Name { get; init; } = NormalizeRequiredToken(Name, nameof(Name));
@@ -618,6 +693,8 @@ internal sealed record SourceHeightBucket(
     public IReadOnlyList<DownscaleRange> Ranges { get; init; } = Ranges ?? Array.Empty<DownscaleRange>();
 
     public IReadOnlyList<DownscaleQualityRange> QualityRanges { get; init; } = QualityRanges ?? Array.Empty<DownscaleQualityRange>();
+
+    public IReadOnlyList<DownscaleBoundsOverride> BoundsOverrides { get; init; } = BoundsOverrides ?? Array.Empty<DownscaleBoundsOverride>();
 
     public bool IsDefault { get; init; } = IsDefault;
 
@@ -636,6 +713,11 @@ internal sealed record SourceHeightBucket(
 
         var qualityRange = QualityRanges.FirstOrDefault(range => range.Matches(qualityProfile));
         return qualityRange?.ToContentRange(contentProfile);
+    }
+
+    public DownscaleBoundsOverride? ResolveBoundsOverride(string contentProfile, string qualityProfile)
+    {
+        return BoundsOverrides.FirstOrDefault(overrideEntry => overrideEntry.Matches(contentProfile, qualityProfile));
     }
 
     public string? ResolveMissingRange(IEnumerable<string> supportedContentProfiles, IEnumerable<string> supportedQualityProfiles)

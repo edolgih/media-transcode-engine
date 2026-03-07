@@ -249,6 +249,30 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void BuildExecution_WhenDownscaleUsesBucketSpecificBounds_UsesSourceBucketSpecificClamp()
+    {
+        var sut = CreateSut();
+        var hdVideo = CreateVideo(container: "mp4", videoCodec: "h264", filePath: @"C:\video\hd.mkv", height: 720);
+        var fhdVideo = CreateVideo(container: "mp4", videoCodec: "h264", filePath: @"C:\video\fhd.mkv", height: 1080);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 576,
+            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "mult", qualityProfile: "default", cq: 21),
+            outputPath: @"C:\video\output.mkv");
+
+        var hdActual = sut.BuildExecution(hdVideo, plan);
+        var fhdActual = sut.BuildExecution(fhdVideo, plan);
+
+        hdActual.Commands[0].Should().Contain("-cq 21");
+        hdActual.Commands[0].Should().Contain("-maxrate 3.6M -bufsize 7.2M");
+        fhdActual.Commands[0].Should().Contain("-cq 21");
+        fhdActual.Commands[0].Should().Contain("-maxrate 2.8M -bufsize 5.6M");
+    }
+
+    [Fact]
     public void BuildExecution_WhenDownscaleManualCqIsProvided_SkipsAutoSample()
     {
         var providerCalls = 0;
