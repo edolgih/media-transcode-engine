@@ -110,6 +110,42 @@ public sealed class VideoInspectorTests
     }
 
     [Fact]
+    public void Load_WhenHeightIsMissing_Throws()
+    {
+        var sut = CreateSut(_ => new VideoProbeSnapshot(
+            container: "mp4",
+            streams:
+            [
+                new VideoProbeStream(streamType: "video", codec: "h264", width: 1920, framesPerSecond: 25),
+                new VideoProbeStream(streamType: "audio", codec: "aac")
+            ],
+            duration: TimeSpan.FromMinutes(10)));
+
+        Action action = () => sut.Load(@"C:\video\input.mp4");
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*valid video height*");
+    }
+
+    [Fact]
+    public void Load_WhenFrameRateIsMissingOrNonPositive_Throws()
+    {
+        var sut = CreateSut(_ => new VideoProbeSnapshot(
+            container: "mp4",
+            streams:
+            [
+                new VideoProbeStream(streamType: "video", codec: "h264", width: 1920, height: 1080, framesPerSecond: 0),
+                new VideoProbeStream(streamType: "audio", codec: "aac")
+            ],
+            duration: TimeSpan.FromMinutes(10)));
+
+        Action action = () => sut.Load(@"C:\video\input.mp4");
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*valid frame rate*");
+    }
+
+    [Fact]
     public void Load_WhenProbeReturnsVideoAndAudio_ReturnsSourceVideo()
     {
         var sut = CreateSut(_ => new VideoProbeSnapshot(
@@ -134,6 +170,26 @@ public sealed class VideoInspectorTests
         actual.Duration.Should().Be(TimeSpan.FromMinutes(10));
         actual.Bitrate.Should().Be(5_500_000);
         actual.FilePath.Should().Be(Path.GetFullPath(@"C:\video\input.mp4"));
+    }
+
+    [Fact]
+    public void Load_WhenContainerAndFormatBitrateAreMissing_FallsBackToFileExtensionAndStreamBitrates()
+    {
+        var sut = CreateSut(_ => new VideoProbeSnapshot(
+            container: "  ",
+            streams:
+            [
+                new VideoProbeStream(streamType: "video", codec: "h264", width: 1920, height: 1080, framesPerSecond: 23.976, bitrate: 4_000_000),
+                new VideoProbeStream(streamType: "audio", codec: "aac", bitrate: 192_000),
+                new VideoProbeStream(streamType: "audio", codec: "ac3", bitrate: 384_000)
+            ],
+            duration: TimeSpan.FromMinutes(10),
+            formatBitrate: 0));
+
+        var actual = sut.Load(@"C:\video\input.mov");
+
+        actual.Container.Should().Be("mov");
+        actual.Bitrate.Should().Be(4_576_000);
     }
 
     private static VideoInspector CreateSut(Func<string, VideoProbeSnapshot> probe)

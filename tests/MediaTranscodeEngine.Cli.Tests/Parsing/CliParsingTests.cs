@@ -78,4 +78,77 @@ public sealed class CliParsingTests
         actual.ToMkvGpu.Downscale.Bufsize.Should().Be(7.4m);
         actual.ToMkvGpu.NvencPreset.Should().Be("p6");
     }
+
+    [Theory]
+    [InlineData("tomkvgpu", "Do not use legacy scenario command tokens. Use --scenario tomkvgpu.")]
+    [InlineData("toh264gpu", "Do not use legacy scenario command tokens. Use --scenario tomkvgpu.")]
+    [InlineData("--wat", "Unknown option: --wat")]
+    [InlineData("unexpected", "Unexpected argument: unexpected")]
+    public void TryParse_WhenArgsContainUnsupportedToken_ReturnsFalse(string token, string expectedError)
+    {
+        var actual = CliArgumentParser.TryParse(
+            [token],
+            out _,
+            out var errorText);
+
+        actual.Should().BeFalse();
+        errorText.Should().Be(expectedError);
+    }
+
+    [Theory]
+    [InlineData("--input")]
+    [InlineData("--downscale")]
+    public void TryParse_WhenRequiredOptionValueIsMissing_ReturnsFalse(string optionName)
+    {
+        var actual = CliArgumentParser.TryParse(
+            [optionName],
+            out _,
+            out var errorText);
+
+        actual.Should().BeFalse();
+        errorText.Should().Be($"{optionName} requires a value.");
+    }
+
+    [Fact]
+    public void TryParse_WhenRequiredOptionValueIsAnotherOption_ReturnsFalse()
+    {
+        var actual = CliArgumentParser.TryParse(
+            ["--input", "--info"],
+            out _,
+            out var errorText);
+
+        actual.Should().BeFalse();
+        errorText.Should().Be("--input requires a value.");
+    }
+
+    [Theory]
+    [InlineData("--downscale", "abc", "--downscale must be an integer.")]
+    [InlineData("--cq", "abc", "--cq must be an integer.")]
+    [InlineData("--maxrate", "abc", "--maxrate must be a number.")]
+    [InlineData("--bufsize", "abc", "--bufsize must be a number.")]
+    public void TryParse_WhenOptionValueHasInvalidType_ReturnsFalse(
+        string optionName,
+        string value,
+        string expectedError)
+    {
+        var actual = CliArgumentParser.TryParse(
+            [optionName, value],
+            out _,
+            out var errorText);
+
+        actual.Should().BeFalse();
+        errorText.Should().Be(expectedError);
+    }
+
+    [Fact]
+    public void TryParse_WhenScenarioIsUnsupported_ReturnsFalse()
+    {
+        var actual = CliArgumentParser.TryParse(
+            ["--scenario", "other", "--input", @"C:\video\a.mp4"],
+            out _,
+            out var errorText);
+
+        actual.Should().BeFalse();
+        errorText.Should().Be("Unsupported scenario: other. Only 'tomkvgpu' is available.");
+    }
 }

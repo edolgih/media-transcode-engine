@@ -92,6 +92,76 @@ public sealed class FfprobeVideoProbeTests
             .WithMessage("*required field*codec_name*stream*");
     }
 
+    [Fact]
+    public void Probe_WhenStreamsFieldIsMissing_ThrowsInvalidOperationException()
+    {
+        var sut = new FfprobeVideoProbe(_ => new FfprobeProcessResult(
+            ExitCode: 0,
+            StandardOutput: """
+                            {
+                              "format": {
+                                "format_name": "mp4"
+                              }
+                            }
+                            """,
+            StandardError: string.Empty));
+
+        Action action = () => sut.Probe(@"C:\video\input.mp4");
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*missing required field 'streams'*");
+    }
+
+    [Fact]
+    public void Probe_WhenStreamEntryIsInvalid_ThrowsInvalidOperationException()
+    {
+        var sut = new FfprobeVideoProbe(_ => new FfprobeProcessResult(
+            ExitCode: 0,
+            StandardOutput: """
+                            {
+                              "streams": [5]
+                            }
+                            """,
+            StandardError: string.Empty));
+
+        Action action = () => sut.Probe(@"C:\video\input.mp4");
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*invalid stream entry*");
+    }
+
+    [Fact]
+    public void Probe_WhenPathHasNoExtension_UsesFormatNameForContainer()
+    {
+        var sut = new FfprobeVideoProbe(_ => new FfprobeProcessResult(
+            ExitCode: 0,
+            StandardOutput: """
+                            {
+                              "format": {
+                                "format_name": "matroska,webm",
+                                "duration": "90.5",
+                                "bit_rate": "900000"
+                              },
+                              "streams": [
+                                {
+                                  "codec_type": "video",
+                                  "codec_name": "h264",
+                                  "width": 1280,
+                                  "height": 720,
+                                  "r_frame_rate": "25/1"
+                                }
+                              ]
+                            }
+                            """,
+            StandardError: string.Empty));
+
+        var actual = sut.Probe(@"C:\video\input");
+
+        actual.container.Should().Be("matroska");
+        actual.duration.Should().Be(TimeSpan.FromSeconds(90.5));
+        actual.formatBitrate.Should().Be(900000);
+    }
+
     private static string CreateValidJson()
     {
         return """

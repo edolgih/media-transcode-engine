@@ -175,6 +175,77 @@ public sealed class ProgramTests
         }
     }
 
+    [Fact]
+    public void RunCli_WhenHelpRequested_WritesHelpTextAndReturnsZero()
+    {
+        var services = new ServiceCollection().BuildServiceProvider();
+        using var loggerFactory = LoggerFactory.Create(static _ => { });
+        var logger = loggerFactory.CreateLogger("test");
+        var runtimeValues = new RuntimeValues
+        {
+            FfprobePath = "ffprobe-custom",
+            FfmpegPath = "ffmpeg-custom"
+        };
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+
+        Console.SetOut(output);
+        Console.SetError(error);
+        try
+        {
+            var exitCode = Program.RunCli(["--help"], logger, services, runtimeValues, readRedirectedStdIn: false);
+
+            exitCode.Should().Be(0);
+            output.ToString().Should().Contain("MediaTranscodeEngine CLI");
+            output.ToString().Should().Contain("Usage:");
+            output.ToString().Should().Contain("RuntimeValues:FfprobePath current: ffprobe-custom");
+            output.ToString().Should().Contain("RuntimeValues:FfmpegPath  current: ffmpeg-custom");
+            error.ToString().Should().BeEmpty();
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
+    }
+
+    [Fact]
+    public void RunCli_WhenNoInputsAreProvided_WritesErrorAndReturnsOne()
+    {
+        var services = new ServiceCollection().BuildServiceProvider();
+        using var loggerFactory = LoggerFactory.Create(static _ => { });
+        var logger = loggerFactory.CreateLogger("test");
+        var runtimeValues = new RuntimeValues
+        {
+            FfprobePath = "ffprobe",
+            FfmpegPath = "ffmpeg"
+        };
+
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+
+        Console.SetOut(output);
+        Console.SetError(error);
+        try
+        {
+            var exitCode = Program.RunCli(["--scenario", "tomkvgpu"], logger, services, runtimeValues, readRedirectedStdIn: false);
+
+            exitCode.Should().Be(1);
+            output.ToString().Should().BeEmpty();
+            error.ToString().Trim().Should().Be("No input files provided. Use --input or pipe file paths to stdin.");
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
+    }
+
     private sealed class StubProcessor : ITranscodeProcessor
     {
         private readonly string _line;
