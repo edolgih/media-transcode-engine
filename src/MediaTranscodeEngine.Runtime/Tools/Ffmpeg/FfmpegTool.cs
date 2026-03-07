@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Plans;
@@ -15,6 +14,7 @@ public sealed class FfmpegTool : ITranscodeTool
     private readonly string _ffmpegPath;
     private readonly DownscaleProfiles _downscaleProfiles;
     private readonly DownscaleAutoSampler _autoSampler;
+    private readonly FfmpegSampleMeasurer _sampleMeasurer;
     private readonly Func<string, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?> _sampleReductionProvider;
     private readonly ILogger<FfmpegTool> _logger;
 
@@ -39,7 +39,8 @@ public sealed class FfmpegTool : ITranscodeTool
         _ffmpegPath = ffmpegPath.Trim();
         _downscaleProfiles = downscaleProfiles ?? throw new ArgumentNullException(nameof(downscaleProfiles));
         _autoSampler = new DownscaleAutoSampler(_downscaleProfiles);
-        _sampleReductionProvider = sampleReductionProvider ?? MeasureSampleAverageReduction;
+        _sampleMeasurer = new FfmpegSampleMeasurer(_ffmpegPath);
+        _sampleReductionProvider = sampleReductionProvider ?? _sampleMeasurer.MeasureAverageReduction;
         _logger = logger;
     }
 
@@ -462,196 +463,6 @@ public sealed class FfmpegTool : ITranscodeTool
         return new ResolvedSourceBitrate((long)estimatedBitsPerSecond, "file_size_estimate");
     }
 
-    private decimal? MeasureSampleAverageReduction(
-        string inputPath,
-        DownscaleDefaults settings,
-        IReadOnlyList<DownscaleSampleWindow> windows)
-    {
-        if (string.IsNullOrWhiteSpace(inputPath) || windows.Count == 0)
-        {
-            return null;
-        }
-
-        var reductions = new List<decimal>();
-        foreach (var window in windows)
-        {
-            var sourceSample = CreateSourceSample(inputPath, window);
-            if (sourceSample is null)
-            {
-                continue;
-            }
-
-            try
-            {
-                var encodedSize = EncodeSample(sourceSample.Path, settings);
-                if (!encodedSize.HasValue || encodedSize.Value <= 0 || sourceSample.SizeBytes <= 0)
-                {
-                    continue;
-                }
-
-                var reduction = (1m - (encodedSize.Value / sourceSample.SizeBytes)) * 100m;
-                reduction = Clamp(reduction, -100m, 100m);
-                reductions.Add(Math.Round(reduction, 2, MidpointRounding.AwayFromZero));
-            }
-            finally
-            {
-                TryDelete(sourceSample.Path);
-            }
-        }
-
-        if (reductions.Count == 0)
-        {
-            return null;
-        }
-
-        return Math.Round(reductions.Average(), 2, MidpointRounding.AwayFromZero);
-    }
-
-    private SourceSample? CreateSourceSample(string inputPath, DownscaleSampleWindow window)
-    {
-        if (!File.Exists(inputPath) || window.DurationSeconds < 1)
-        {
-            return null;
-        }
-
-        var samplePath = Path.Combine(Path.GetTempPath(), $"tomkvgpu-srcsample-{Guid.NewGuid():N}.mkv");
-        var arguments = new[]
-        {
-            "-hide_banner",
-            "-loglevel", "error",
-            "-y",
-            "-ss", window.StartSeconds.ToString(CultureInfo.InvariantCulture),
-            "-t", window.DurationSeconds.ToString(CultureInfo.InvariantCulture),
-            "-i", inputPath,
-            "-map", "0:v:0",
-            "-map", "0:a?",
-            "-c", "copy",
-            "-sn",
-            samplePath
-        };
-
-        if (!TryExecuteProcess(arguments) || !File.Exists(samplePath))
-        {
-            TryDelete(samplePath);
-            return null;
-        }
-
-        var size = new FileInfo(samplePath).Length;
-        if (size <= 0)
-        {
-            TryDelete(samplePath);
-            return null;
-        }
-
-        return new SourceSample(samplePath, size);
-    }
-
-    private long? EncodeSample(string samplePath, DownscaleDefaults settings)
-    {
-        if (!File.Exists(samplePath))
-        {
-            return null;
-        }
-
-        var outputPath = Path.Combine(Path.GetTempPath(), $"tomkvgpu-outsample-{Guid.NewGuid():N}.mkv");
-        var arguments = new[]
-        {
-            "-hide_banner",
-            "-loglevel", "error",
-            "-y",
-            "-hwaccel", "cuda",
-            "-hwaccel_output_format", "cuda",
-            "-i", samplePath,
-            "-map", "0:v:0",
-            "-fps_mode:v", "cfr",
-            "-vf", $"scale_cuda=-2:576:interp_algo={settings.Algorithm}:format=nv12",
-            "-c:v", "h264_nvenc",
-            "-preset", "p6",
-            "-rc", "vbr_hq",
-            "-cq", settings.Cq.ToString(CultureInfo.InvariantCulture),
-            "-b:v", "0",
-            "-maxrate", FormatRate(settings.Maxrate),
-            "-bufsize", FormatRate(settings.Bufsize),
-            "-spatial_aq", "1",
-            "-temporal_aq", "1",
-            "-rc-lookahead", "32",
-            "-profile:v", "high",
-            "-level:v", "4.1",
-            "-g", "48",
-            "-map", "0:a?",
-            "-c:a", "aac",
-            "-ar", "48000",
-            "-ac", "2",
-            "-b:a", "192k",
-            "-af", "aresample=async=1:first_pts=0",
-            "-sn",
-            "-max_muxing_queue_size", "4096",
-            outputPath
-        };
-
-        try
-        {
-            if (!TryExecuteProcess(arguments) || !File.Exists(outputPath))
-            {
-                return null;
-            }
-
-            var size = new FileInfo(outputPath).Length;
-            return size > 0 ? size : null;
-        }
-        finally
-        {
-            TryDelete(outputPath);
-        }
-    }
-
-    private bool TryExecuteProcess(IReadOnlyList<string> arguments)
-    {
-        using var process = new Process();
-        process.StartInfo = CreateStartInfo(arguments);
-        process.Start();
-        process.WaitForExit();
-        return process.ExitCode == 0;
-    }
-
-    private ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = _ffmpegPath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        return startInfo;
-    }
-
-    private static void TryDelete(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return;
-        }
-
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
-
     private static string BuildOverlayFilter(SourceVideo video, int? targetHeight, string downscaleAlgorithm)
     {
         var outputWidth = video.Width;
@@ -697,8 +508,6 @@ public sealed class FfmpegTool : ITranscodeTool
     }
 
     private static string Quote(string value) => $"\"{value}\"";
-
-    private sealed record SourceSample(string Path, decimal SizeBytes);
 
     private sealed record ResolvedSourceBitrate(long? Bitrate, string Origin);
 

@@ -420,7 +420,8 @@ internal sealed record DownscaleAutoSampling(
         {
             var maxStart = Math.Max((int)Math.Floor(totalDuration.TotalSeconds) - durationSeconds, 0);
             var centerSeconds = totalDuration.TotalSeconds * anchor;
-            var startSeconds = (int)Math.Floor(centerSeconds - (durationSeconds / 2.0));
+            // Keep anchor-based windows stable across runtimes despite binary floating-point drift.
+            var startSeconds = (int)Math.Floor(centerSeconds - (durationSeconds / 2.0) + 1e-9);
             startSeconds = Math.Min(Math.Max(startSeconds, 0), maxStart);
             var key = $"{startSeconds}|{durationSeconds}";
             if (seen.Add(key))

@@ -61,15 +61,21 @@ internal sealed class PrimaryTranscodeProcessor : ITranscodeProcessor
                 ? string.Empty
                 : string.Join(" && ", execution.Commands);
         }
-        catch (Exception exception) when (TryFormatFailure(request, exception, out _))
+        catch (Exception exception)
         {
+            var failure = ClassifyHandledFailure(request, exception);
+            if (failure is null)
+            {
+                throw;
+            }
+
             _logger.LogWarning(
                 exception,
                 "Processing returned legacy failure marker. InputPath={InputPath} Info={Info} FailureKind={FailureKind}",
                 request.InputPath,
                 request.Info,
-                ClassifyFailure(exception));
-            return FormatFailure(request, exception);
+                failure.Value.LogToken);
+            return FormatFailure(request, exception, failure.Value);
         }
     }
 
@@ -138,116 +144,72 @@ internal sealed class PrimaryTranscodeProcessor : ITranscodeProcessor
         return new ToMkvGpuScenario(request.ToMkvGpu);
     }
 
-    private string FormatFailure(CliTranscodeRequest request, Exception exception)
+    private string FormatFailure(CliTranscodeRequest request, Exception exception, HandledFailure failure)
     {
-        if (request.Info)
-        {
-            return _infoFormatter.FormatFailure(request.InputPath, exception);
-        }
-
         var fileName = Path.GetFileName(request.InputPath);
-        if (request.ToMkvGpu.OverlayBackground && IsUnknownDimensionsFailure(exception))
+        return failure.Kind switch
         {
-            return $"REM Unknown dimensions: {fileName}";
-        }
-
-        if (IsNoVideoStreamFailure(exception))
-        {
-            return $"REM Нет видеопотока: {fileName}";
-        }
-
-        if (IsDownscaleNotImplementedFailure(exception))
-        {
-            return $"REM Downscale 720 not implemented: {fileName}";
-        }
-
-        if (IsDownscaleSourceBucketFailure(exception))
-        {
-            return $"REM {exception.Message}";
-        }
-
-        return $"REM ffprobe failed: {fileName}";
+            HandledFailureKind.InfoFailure => _infoFormatter.FormatFailure(request.InputPath, exception),
+            HandledFailureKind.UnknownDimensionsOverlay => $"REM Unknown dimensions: {fileName}",
+            HandledFailureKind.NoVideoStream => $"REM Нет видеопотока: {fileName}",
+            HandledFailureKind.DownscaleNotImplemented => $"REM Downscale 720 not implemented: {fileName}",
+            HandledFailureKind.DownscaleSourceBucket => $"REM {exception.Message}",
+            HandledFailureKind.ProbeFailure => $"REM ffprobe failed: {fileName}",
+            _ => throw new InvalidOperationException($"Unhandled failure kind '{failure.Kind}'.")
+        };
     }
 
-    private static bool TryFormatFailure(CliTranscodeRequest request, Exception exception, out string line)
+    private static HandledFailure? ClassifyHandledFailure(CliTranscodeRequest request, Exception exception)
     {
         if (request.Info)
         {
-            line = string.Empty;
-            return true;
+            return new HandledFailure(HandledFailureKind.InfoFailure, "info_failure");
         }
 
-        if (IsUnknownDimensionsFailure(exception) ||
-            IsNoVideoStreamFailure(exception) ||
-            IsDownscaleNotImplementedFailure(exception) ||
-            IsDownscaleSourceBucketFailure(exception) ||
-            IsProbeFailure(exception))
+        var message = exception.Message;
+        if (request.ToMkvGpu.OverlayBackground &&
+            (message.Contains("valid video width", StringComparison.OrdinalIgnoreCase) ||
+             message.Contains("valid video height", StringComparison.OrdinalIgnoreCase)))
         {
-            line = string.Empty;
-            return true;
+            return new HandledFailure(HandledFailureKind.UnknownDimensionsOverlay, "unknown_dimensions");
         }
 
-        line = string.Empty;
-        return false;
-    }
-
-    private static bool IsUnknownDimensionsFailure(Exception exception)
-    {
-        return exception.Message.Contains("valid video width", StringComparison.OrdinalIgnoreCase) ||
-               exception.Message.Contains("valid video height", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsNoVideoStreamFailure(Exception exception)
-    {
-        return exception.Message.Contains("video stream", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsDownscaleNotImplementedFailure(Exception exception)
-    {
-        return exception.Message.Contains("downscale", StringComparison.OrdinalIgnoreCase) &&
-               exception.Message.Contains("720", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsDownscaleSourceBucketFailure(Exception exception)
-    {
-        return exception.Message.Contains("source bucket missing", StringComparison.OrdinalIgnoreCase) ||
-               exception.Message.Contains("source bucket invalid", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsProbeFailure(Exception exception)
-    {
-        return exception.Message.Contains("ffprobe", StringComparison.OrdinalIgnoreCase) ||
-               exception.Message.Contains("video probe", StringComparison.OrdinalIgnoreCase) ||
-               exception.Message.Contains("streams", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ClassifyFailure(Exception exception)
-    {
-        if (IsUnknownDimensionsFailure(exception))
+        if (message.Contains("video stream", StringComparison.OrdinalIgnoreCase))
         {
-            return "unknown_dimensions";
+            return new HandledFailure(HandledFailureKind.NoVideoStream, "no_video_stream");
         }
 
-        if (IsNoVideoStreamFailure(exception))
+        if (message.Contains("downscale", StringComparison.OrdinalIgnoreCase) &&
+            message.Contains("720", StringComparison.OrdinalIgnoreCase))
         {
-            return "no_video_stream";
+            return new HandledFailure(HandledFailureKind.DownscaleNotImplemented, "downscale_not_implemented");
         }
 
-        if (IsDownscaleNotImplementedFailure(exception))
+        if (message.Contains("source bucket missing", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("source bucket invalid", StringComparison.OrdinalIgnoreCase))
         {
-            return "downscale_not_implemented";
+            return new HandledFailure(HandledFailureKind.DownscaleSourceBucket, "downscale_source_bucket");
         }
 
-        if (IsDownscaleSourceBucketFailure(exception))
+        if (message.Contains("ffprobe", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("video probe", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("streams", StringComparison.OrdinalIgnoreCase))
         {
-            return "downscale_source_bucket";
+            return new HandledFailure(HandledFailureKind.ProbeFailure, "probe_failure");
         }
 
-        if (IsProbeFailure(exception))
-        {
-            return "probe_failure";
-        }
-
-        return "unclassified";
+        return null;
     }
+
+    private enum HandledFailureKind
+    {
+        InfoFailure,
+        UnknownDimensionsOverlay,
+        NoVideoStream,
+        DownscaleNotImplemented,
+        DownscaleSourceBucket,
+        ProbeFailure
+    }
+
+    private readonly record struct HandledFailure(HandledFailureKind Kind, string LogToken);
 }
