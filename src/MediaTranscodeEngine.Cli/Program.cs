@@ -28,6 +28,9 @@ public static class Program
                 Args = args,
                 ContentRootPath = AppContext.BaseDirectory
             });
+            builder.Configuration["Serilog:WriteTo:0:Args:path"] = ResolveLogFilePath(
+                builder.Configuration["Serilog:WriteTo:0:Args:path"],
+                AppContext.BaseDirectory);
 
             builder.Services.AddSerilog((services, loggerConfiguration) =>
                 loggerConfiguration
@@ -92,6 +95,21 @@ public static class Program
         var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), utf8) { AutoFlush = true });
         Console.SetError(new StreamWriter(Console.OpenStandardError(), utf8) { AutoFlush = true });
+    }
+
+    internal static string ResolveLogFilePath(string? configuredPath, string cliBaseDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(configuredPath))
+        {
+            return Path.GetFullPath(Path.Combine(cliBaseDirectory, "logs", "transcode-.log"));
+        }
+
+        if (Path.IsPathRooted(configuredPath))
+        {
+            return Path.GetFullPath(configuredPath);
+        }
+
+        return Path.GetFullPath(Path.Combine(cliBaseDirectory, configuredPath));
     }
 
     internal static int RunCli(

@@ -34,6 +34,30 @@ public sealed class ProgramTests
     }
 
     [Fact]
+    public void ResolveLogFilePath_WhenConfiguredPathIsRelative_ResolvesAgainstCliDirectory()
+    {
+        var actual = Program.ResolveLogFilePath(@"logs\transcode-.log", @"C:\tools\mte\bin\Debug\net9.0");
+
+        actual.Should().Be(Path.GetFullPath(@"C:\tools\mte\bin\Debug\net9.0\logs\transcode-.log"));
+    }
+
+    [Fact]
+    public void ResolveLogFilePath_WhenConfiguredPathIsAbsolute_ReturnsAbsolutePath()
+    {
+        var actual = Program.ResolveLogFilePath(@"D:\logs\transcode-.log", @"C:\tools\mte\bin\Debug\net9.0");
+
+        actual.Should().Be(Path.GetFullPath(@"D:\logs\transcode-.log"));
+    }
+
+    [Fact]
+    public void ResolveLogFilePath_WhenConfiguredPathIsMissing_UsesCliRelativeDefault()
+    {
+        var actual = Program.ResolveLogFilePath(null, @"C:\tools\mte\bin\Debug\net9.0");
+
+        actual.Should().Be(Path.GetFullPath(@"C:\tools\mte\bin\Debug\net9.0\logs\transcode-.log"));
+    }
+
+    [Fact]
     public void RunCli_WhenNonInfoMode_WritesChcpOnceBeforeProcessorOutput()
     {
         var services = new ServiceCollection()
