@@ -34,12 +34,22 @@ public sealed class TranscodePlanTests
     }
 
     [Fact]
+    public void Ctor_WhenCopyVideoPlanRequestsCompatibilityProfile_ThrowsArgumentException()
+    {
+        Action action = () => CreateCopyVideoPlan(videoCompatibilityProfile: VideoCompatibilityProfile.H264High);
+
+        action.Should().Throw<ArgumentException>()
+            .WithMessage("*Video copy plan cannot request compatibility profile*");
+    }
+
+    [Fact]
     public void Ctor_WhenInterpolationHasNoTargetFrameRate_ThrowsArgumentException()
     {
         Action action = () => new TranscodePlan(
             targetContainer: "mkv",
             targetVideoCodec: "h264",
             preferredBackend: "nvenc",
+            videoCompatibilityProfile: VideoCompatibilityProfile.H264High,
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: true,
@@ -54,12 +64,34 @@ public sealed class TranscodePlanTests
     }
 
     [Fact]
+    public void Ctor_WhenH264EncodePlanHasNoCompatibilityProfile_ThrowsArgumentException()
+    {
+        Action action = () => new TranscodePlan(
+            targetContainer: "mkv",
+            targetVideoCodec: "h264",
+            preferredBackend: "nvenc",
+            videoCompatibilityProfile: null,
+            targetHeight: null,
+            targetFramesPerSecond: null,
+            useFrameInterpolation: false,
+            downscale: null,
+            copyVideo: false,
+            copyAudio: true,
+            fixTimestamps: false,
+            keepSource: true);
+
+        action.Should().Throw<ArgumentException>()
+            .WithMessage("*H.264 encode plan requires compatibility profile*");
+    }
+
+    [Fact]
     public void Ctor_WhenDownscaleTargetDoesNotMatchTargetHeight_ThrowsArgumentException()
     {
         Action action = () => new TranscodePlan(
             targetContainer: "mkv",
             targetVideoCodec: "h264",
             preferredBackend: "nvenc",
+            videoCompatibilityProfile: VideoCompatibilityProfile.H264High,
             targetHeight: 720,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
@@ -80,6 +112,7 @@ public sealed class TranscodePlanTests
             targetContainer: "mkv",
             targetVideoCodec: "h264",
             preferredBackend: "nvenc",
+            videoCompatibilityProfile: VideoCompatibilityProfile.H264High,
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
@@ -100,6 +133,7 @@ public sealed class TranscodePlanTests
             targetContainer: " MKV ",
             targetVideoCodec: " H264 ",
             preferredBackend: " Nvenc ",
+            videoCompatibilityProfile: VideoCompatibilityProfile.H264High,
             targetHeight: 576,
             targetFramesPerSecond: 23.976,
             useFrameInterpolation: false,
@@ -114,6 +148,7 @@ public sealed class TranscodePlanTests
         actual.TargetContainer.Should().Be("mkv");
         actual.TargetVideoCodec.Should().Be("h264");
         actual.PreferredBackend.Should().Be("nvenc");
+        actual.VideoCompatibilityProfile.Should().Be(VideoCompatibilityProfile.H264High);
         actual.EncoderPreset.Should().Be("p5");
         actual.OutputPath.Should().Be(Path.GetFullPath(@".\output.mkv"));
     }
@@ -125,6 +160,7 @@ public sealed class TranscodePlanTests
             targetContainer: "mkv",
             targetVideoCodec: "h264",
             preferredBackend: "nvenc",
+            videoCompatibilityProfile: VideoCompatibilityProfile.H264High,
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
@@ -140,12 +176,14 @@ public sealed class TranscodePlanTests
     private static TranscodePlan CreateCopyVideoPlan(
         int? targetHeight = null,
         double? targetFramesPerSecond = null,
-        bool useFrameInterpolation = false)
+        bool useFrameInterpolation = false,
+        VideoCompatibilityProfile? videoCompatibilityProfile = null)
     {
         return new TranscodePlan(
             targetContainer: "mkv",
             targetVideoCodec: null,
             preferredBackend: null,
+            videoCompatibilityProfile: videoCompatibilityProfile,
             targetHeight: targetHeight,
             targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: useFrameInterpolation,

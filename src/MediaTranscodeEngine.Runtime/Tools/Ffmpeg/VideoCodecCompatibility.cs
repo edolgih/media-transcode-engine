@@ -1,3 +1,5 @@
+using MediaTranscodeEngine.Runtime.Plans;
+
 namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 
 internal static class VideoCodecCompatibility
@@ -14,13 +16,24 @@ internal static class VideoCodecCompatibility
         new("5.2", MaxFrameSizeInMacroblocks: 36864, MaxMacroblocksPerSecond: 2073600)
     ];
 
-    internal static string ResolveArguments(string codec, int width, int height, double framesPerSecond)
+    internal static string ResolveArguments(string codec, VideoCompatibilityProfile? profile, int width, int height, double framesPerSecond)
     {
         return codec switch
         {
-            "h264" => $"-profile:v high -level:v {ResolveH264Level(width, height, framesPerSecond)}",
+            "h264" => $"-profile:v {ResolveRequiredProfile(profile, codec)} -level:v {ResolveH264Level(width, height, framesPerSecond)}",
             "h265" => string.Empty,
             _ => string.Empty
+        };
+    }
+
+    private static string ResolveRequiredProfile(VideoCompatibilityProfile? profile, string codec)
+    {
+        return profile switch
+        {
+            VideoCompatibilityProfile.H264Main => "main",
+            VideoCompatibilityProfile.H264High => "high",
+            null => throw new InvalidOperationException($"Codec '{codec}' requires a compatibility profile."),
+            _ => throw new NotSupportedException($"Compatibility profile '{profile.Value}' is not supported for codec '{codec}'.")
         };
     }
 

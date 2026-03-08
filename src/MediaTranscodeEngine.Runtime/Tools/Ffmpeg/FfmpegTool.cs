@@ -297,7 +297,12 @@ public sealed class FfmpegTool : ITranscodeTool
     {
         var (width, height) = ResolveOutputDimensions(video, plan);
         var fps = plan.TargetFramesPerSecond ?? video.FramesPerSecond;
-        var compatibilityPart = VideoCodecCompatibility.ResolveArguments(plan.TargetVideoCodec!, width, height, fps);
+        var compatibilityPart = VideoCodecCompatibility.ResolveArguments(
+            plan.TargetVideoCodec!,
+            plan.VideoCompatibilityProfile,
+            width,
+            height,
+            fps);
         return string.IsNullOrWhiteSpace(compatibilityPart)
             ? string.Empty
             : $"{compatibilityPart} ";

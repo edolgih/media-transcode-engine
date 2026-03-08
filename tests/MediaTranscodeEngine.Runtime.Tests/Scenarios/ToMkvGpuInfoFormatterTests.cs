@@ -172,6 +172,7 @@ public sealed class ToMkvGpuInfoFormatterTests
             targetContainer: "mkv",
             targetVideoCodec: targetVideoCodec,
             preferredBackend: preferredBackend,
+            videoCompatibilityProfile: copyVideo || !string.Equals(targetVideoCodec, "h264", StringComparison.OrdinalIgnoreCase) ? null : VideoCompatibilityProfile.H264High,
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,

@@ -116,6 +116,31 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void BuildExecution_WhenH264CompatibilityProfileIsProvided_UsesRequestedProfile()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "av1", filePath: @"C:\video\input.mp4");
+        var plan = new TranscodePlan(
+            targetContainer: "mkv",
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            videoCompatibilityProfile: VideoCompatibilityProfile.H264Main,
+            targetHeight: null,
+            targetFramesPerSecond: null,
+            useFrameInterpolation: false,
+            downscale: null,
+            copyVideo: false,
+            copyAudio: false,
+            fixTimestamps: false,
+            keepSource: false,
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-profile:v main -level:v 4.0");
+    }
+
+    [Fact]
     public void BuildExecution_WhenAudioTracksAreMissing_UsesOptionalAudioCopyPath()
     {
         var sut = CreateSut();
@@ -968,6 +993,7 @@ public sealed class FfmpegToolTests
         bool copyAudio,
         string? targetVideoCodec = null,
         string? preferredBackend = null,
+        VideoCompatibilityProfile? videoCompatibilityProfile = null,
         int? targetHeight = null,
         double? targetFramesPerSecond = null,
         bool useFrameInterpolation = false,
@@ -983,6 +1009,7 @@ public sealed class FfmpegToolTests
             targetContainer: "mkv",
             targetVideoCodec: targetVideoCodec,
             preferredBackend: preferredBackend,
+            videoCompatibilityProfile: videoCompatibilityProfile ?? ResolveDefaultCompatibilityProfile(copyVideo, targetVideoCodec),
             targetHeight: targetHeight,
             targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: useFrameInterpolation,
@@ -995,5 +1022,17 @@ public sealed class FfmpegToolTests
             outputPath: outputPath,
             applyOverlayBackground: applyOverlayBackground,
             synchronizeAudio: synchronizeAudio);
+    }
+
+    private static VideoCompatibilityProfile? ResolveDefaultCompatibilityProfile(bool copyVideo, string? targetVideoCodec)
+    {
+        if (copyVideo)
+        {
+            return null;
+        }
+
+        return string.Equals(targetVideoCodec, "h264", StringComparison.OrdinalIgnoreCase)
+            ? VideoCompatibilityProfile.H264High
+            : null;
     }
 }

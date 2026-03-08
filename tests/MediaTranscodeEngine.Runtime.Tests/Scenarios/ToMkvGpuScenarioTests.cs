@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Videos;
 
@@ -75,6 +76,7 @@ public sealed class ToMkvGpuScenarioTests
 
         actual.CopyVideo.Should().BeFalse();
         actual.TargetVideoCodec.Should().Be("h264");
+        actual.VideoCompatibilityProfile.Should().Be(VideoCompatibilityProfile.H264High);
         actual.PreferredBackend.Should().Be("gpu");
         actual.CopyAudio.Should().BeFalse();
         actual.FixTimestamps.Should().BeTrue();

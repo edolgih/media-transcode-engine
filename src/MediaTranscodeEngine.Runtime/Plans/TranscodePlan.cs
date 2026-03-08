@@ -13,6 +13,7 @@ public sealed record TranscodePlan
     /// <param name="targetContainer">Target container identifier.</param>
     /// <param name="targetVideoCodec">Target video codec when video encoding is required.</param>
     /// <param name="preferredBackend">Preferred encoding backend, when applicable.</param>
+    /// <param name="videoCompatibilityProfile">Scenario-selected compatibility profile when the target codec uses one.</param>
     /// <param name="targetHeight">Target video height in pixels.</param>
     /// <param name="targetFramesPerSecond">Target frame rate.</param>
     /// <param name="useFrameInterpolation">Whether frame interpolation is requested.</param>
@@ -29,6 +30,7 @@ public sealed record TranscodePlan
         string targetContainer,
         string? targetVideoCodec,
         string? preferredBackend,
+        VideoCompatibilityProfile? videoCompatibilityProfile,
         int? targetHeight,
         double? targetFramesPerSecond,
         bool useFrameInterpolation,
@@ -52,6 +54,7 @@ public sealed record TranscodePlan
         KeepSource = keepSource;
         UseFrameInterpolation = useFrameInterpolation;
         PreferredBackend = NormalizeOptionalToken(preferredBackend);
+        VideoCompatibilityProfile = videoCompatibilityProfile;
         EncoderPreset = NormalizeOptionalToken(encoderPreset);
         OutputPath = NormalizeOptionalPath(outputPath);
         ApplyOverlayBackground = applyOverlayBackground;
@@ -59,6 +62,11 @@ public sealed record TranscodePlan
 
         if (CopyVideo)
         {
+            if (VideoCompatibilityProfile is not null)
+            {
+                throw new ArgumentException("Video copy plan cannot request compatibility profile.", nameof(videoCompatibilityProfile));
+            }
+
             if (TargetHeight.HasValue)
             {
                 throw new ArgumentException("Video copy plan cannot request target height.", nameof(targetHeight));
@@ -79,6 +87,11 @@ public sealed record TranscodePlan
         else
         {
             TargetVideoCodec = NormalizeRequiredToken(targetVideoCodec, nameof(targetVideoCodec));
+            if (TargetVideoCodec.Equals("h264", StringComparison.OrdinalIgnoreCase) &&
+                VideoCompatibilityProfile is null)
+            {
+                throw new ArgumentException("H.264 encode plan requires compatibility profile.", nameof(videoCompatibilityProfile));
+            }
         }
 
         if (UseFrameInterpolation && !TargetFramesPerSecond.HasValue)
@@ -101,6 +114,11 @@ public sealed record TranscodePlan
     /// Gets the normalized preferred backend identifier when a backend is relevant.
     /// </summary>
     public string? PreferredBackend { get; }
+
+    /// <summary>
+    /// Gets the normalized compatibility profile selected by the scenario when the target codec uses one.
+    /// </summary>
+    public VideoCompatibilityProfile? VideoCompatibilityProfile { get; }
 
     /// <summary>
     /// Gets the target output height in pixels when resizing is required.

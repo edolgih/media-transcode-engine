@@ -74,6 +74,7 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
             targetContainer: "mkv",
             targetVideoCodec: copyVideo ? null : "h264",
             preferredBackend: copyVideo ? null : "gpu",
+            videoCompatibilityProfile: copyVideo ? null : VideoCompatibilityProfile.H264High,
             targetHeight: applyDownscale ? Request.Downscale!.TargetHeight : null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
