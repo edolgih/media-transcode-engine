@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
+using System.Text;
 
 namespace MediaTranscodeEngine.Cli;
 
@@ -17,6 +18,8 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
+        ConfigureUtf8ConsoleWriters();
+
         Microsoft.Extensions.Logging.ILogger? startupLogger = null;
         try
         {
@@ -82,6 +85,13 @@ public static class Program
         {
             await Log.CloseAndFlushAsync();
         }
+    }
+
+    internal static void ConfigureUtf8ConsoleWriters()
+    {
+        var utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), utf8) { AutoFlush = true });
+        Console.SetError(new StreamWriter(Console.OpenStandardError(), utf8) { AutoFlush = true });
     }
 
     internal static int RunCli(

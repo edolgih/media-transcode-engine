@@ -14,6 +14,26 @@ namespace MediaTranscodeEngine.Cli.Tests;
 public sealed class ProgramTests
 {
     [Fact]
+    public void ConfigureUtf8ConsoleWriters_WhenCalled_SetsUtf8ForStdOutAndStdErr()
+    {
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+
+        try
+        {
+            Program.ConfigureUtf8ConsoleWriters();
+
+            Console.Out.Encoding.WebName.Should().Be("utf-8");
+            Console.Error.Encoding.WebName.Should().Be("utf-8");
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
+    }
+
+    [Fact]
     public void RunCli_WhenNonInfoMode_WritesChcpOnceBeforeProcessorOutput()
     {
         var services = new ServiceCollection()
