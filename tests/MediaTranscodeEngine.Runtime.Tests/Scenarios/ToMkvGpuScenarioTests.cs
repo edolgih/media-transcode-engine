@@ -123,6 +123,42 @@ public sealed class ToMkvGpuScenarioTests
     }
 
     [Fact]
+    public void BuildPlan_WhenMaxFpsIsLowerThanSourceFrameRate_ForcesVideoEncodeWithTargetFrameRate()
+    {
+        var sut = CreateSut(maxFramesPerSecond: 50);
+        var video = CreateVideo(videoCodec: "h264", audioCodecs: ["aac"], framesPerSecond: 59.94);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.CopyVideo.Should().BeFalse();
+        actual.CopyAudio.Should().BeFalse();
+        actual.TargetFramesPerSecond.Should().Be(50);
+        actual.FixTimestamps.Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenMaxFpsIsNotLowerThanSourceFrameRate_DoesNotForceVideoEncode()
+    {
+        var sut = CreateSut(maxFramesPerSecond: 30);
+        var video = CreateVideo(videoCodec: "h264", audioCodecs: ["aac"], framesPerSecond: 23.976);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.CopyVideo.Should().BeTrue();
+        actual.CopyAudio.Should().BeTrue();
+        actual.TargetFramesPerSecond.Should().BeNull();
+    }
+
+    [Fact]
+    public void Ctor_WhenMaxFpsIsNotSupported_ThrowsArgumentOutOfRangeException()
+    {
+        Action action = static () => _ = new ToMkvGpuRequest(maxFramesPerSecond: 55);
+
+        action.Should().Throw<ArgumentOutOfRangeException>()
+            .WithMessage("*50, 40, 30, 24*");
+    }
+
+    [Fact]
     public void BuildPlan_WhenVideoIsEncoded_AlwaysEncodesAudio()
     {
         var sut = CreateSut();
@@ -266,13 +302,15 @@ public sealed class ToMkvGpuScenarioTests
         bool overlayBackground = false,
         int? downscaleTarget = null,
         bool synchronizeAudio = false,
-        bool keepSource = false)
+        bool keepSource = false,
+        int? maxFramesPerSecond = null)
     {
         return new ToMkvGpuScenario(new ToMkvGpuRequest(
             overlayBackground: overlayBackground,
             synchronizeAudio: synchronizeAudio,
             keepSource: keepSource,
-            downscale: downscaleTarget.HasValue ? new DownscaleRequest(targetHeight: downscaleTarget) : null));
+            downscale: downscaleTarget.HasValue ? new DownscaleRequest(targetHeight: downscaleTarget) : null,
+            maxFramesPerSecond: maxFramesPerSecond));
     }
 
     private static SourceVideo CreateVideo(

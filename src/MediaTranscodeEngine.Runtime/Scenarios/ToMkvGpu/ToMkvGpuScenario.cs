@@ -61,11 +61,14 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
         ValidateDownscale(video, applyDownscale);
 
         var effectiveDownscale = ResolveEffectiveDownscale(applyDownscale);
+        var applyFrameRateCap = Request.MaxFramesPerSecond.HasValue &&
+                                video.FramesPerSecond > Request.MaxFramesPerSecond.Value;
         var requiresTimestampFix = TimestampSensitiveExtensions.Contains(video.FileExtension);
         var copyVideo = VideoCopyCodecs.Contains(video.VideoCodec) &&
                         !requiresTimestampFix &&
                         !Request.OverlayBackground &&
-                        !applyDownscale;
+                        !applyDownscale &&
+                        !applyFrameRateCap;
         var copyAudio = !Request.SynchronizeAudio &&
                         copyVideo &&
                         AreAudioStreamsCopyCompatible(video.AudioCodecs);
@@ -76,7 +79,7 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
             preferredBackend: copyVideo ? null : "gpu",
             videoCompatibilityProfile: copyVideo ? null : VideoCompatibilityProfile.H264High,
             targetHeight: applyDownscale ? Request.Downscale!.TargetHeight : null,
-            targetFramesPerSecond: null,
+            targetFramesPerSecond: applyFrameRateCap ? Request.MaxFramesPerSecond : null,
             useFrameInterpolation: false,
             downscale: effectiveDownscale,
             copyVideo: copyVideo,

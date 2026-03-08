@@ -8,6 +8,11 @@ namespace MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 public sealed class ToMkvGpuRequest
 {
     /// <summary>
+    /// Supported frame-rate cap values exposed by the ToMkvGpu workflow.
+    /// </summary>
+    public const string SupportedMaxFramesPerSecondDisplay = "50, 40, 30, 24";
+
+    /// <summary>
     /// Initializes scenario-specific directives for the ToMkvGpu workflow.
     /// </summary>
     /// <param name="overlayBackground">Whether background overlay should be applied during encoding.</param>
@@ -15,18 +20,29 @@ public sealed class ToMkvGpuRequest
     /// <param name="keepSource">Whether the source file should be preserved after execution.</param>
     /// <param name="downscale">Reusable downscale directives.</param>
     /// <param name="nvencPreset">Explicit NVENC preset override.</param>
+    /// <param name="maxFramesPerSecond">Optional frame-rate cap applied only when the source frame rate is higher.</param>
     public ToMkvGpuRequest(
         bool overlayBackground = false,
         bool synchronizeAudio = false,
         bool keepSource = false,
         DownscaleRequest? downscale = null,
-        string? nvencPreset = null)
+        string? nvencPreset = null,
+        int? maxFramesPerSecond = null)
     {
+        if (maxFramesPerSecond.HasValue && !IsSupportedMaxFramesPerSecond(maxFramesPerSecond.Value))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(maxFramesPerSecond),
+                maxFramesPerSecond.Value,
+                $"Supported values: {SupportedMaxFramesPerSecondDisplay}.");
+        }
+
         OverlayBackground = overlayBackground;
         SynchronizeAudio = synchronizeAudio;
         KeepSource = keepSource;
         Downscale = downscale?.HasValue == true ? downscale : null;
         NvencPreset = NormalizeName(nvencPreset);
+        MaxFramesPerSecond = maxFramesPerSecond;
     }
 
     /// <summary>
@@ -53,6 +69,19 @@ public sealed class ToMkvGpuRequest
     /// Gets the explicit NVENC preset override.
     /// </summary>
     public string? NvencPreset { get; }
+
+    /// <summary>
+    /// Gets the optional frame-rate cap applied only when the source exceeds it.
+    /// </summary>
+    public int? MaxFramesPerSecond { get; }
+
+    /// <summary>
+    /// Determines whether the supplied frame-rate cap is supported by the ToMkvGpu workflow.
+    /// </summary>
+    public static bool IsSupportedMaxFramesPerSecond(int value)
+    {
+        return value is 50 or 40 or 30 or 24;
+    }
 
     private static string? NormalizeName(string? value)
     {

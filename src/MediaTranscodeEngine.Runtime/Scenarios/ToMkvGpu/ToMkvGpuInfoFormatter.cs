@@ -58,6 +58,11 @@ public sealed class ToMkvGpuInfoFormatter
             parts.Add($"vcodec {video.VideoCodec}");
         }
 
+        if (plan.TargetFramesPerSecond.HasValue)
+        {
+            parts.Add($"fps {plan.TargetFramesPerSecond.Value:0.###}");
+        }
+
         if (HasNonAacAudio(video))
         {
             parts.Add("audio non-AAC");

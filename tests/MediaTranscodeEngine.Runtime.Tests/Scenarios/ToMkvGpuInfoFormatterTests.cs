@@ -44,6 +44,24 @@ public sealed class ToMkvGpuInfoFormatterTests
     }
 
     [Fact]
+    public void Format_WhenFrameRateCapIsApplied_ReturnsFpsMarker()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(filePath: @"C:\video\input.mkv", container: "mkv", videoCodec: "h264", audioCodecs: ["aac"]);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            outputPath: @"C:\video\input_out.mkv",
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetFramesPerSecond: 50);
+
+        var actual = sut.Format(video, plan);
+
+        actual.Should().Be("input.mkv: [vcodec h264] [fps 50]");
+    }
+
+    [Fact]
     public void Format_WhenPathContainsDirectories_UsesOnlyFileName()
     {
         var sut = CreateSut();
@@ -166,7 +184,8 @@ public sealed class ToMkvGpuInfoFormatterTests
         string outputPath,
         string? targetVideoCodec = null,
         string? preferredBackend = null,
-        bool synchronizeAudio = false)
+        bool synchronizeAudio = false,
+        double? targetFramesPerSecond = null)
     {
         return new TranscodePlan(
             targetContainer: "mkv",
@@ -174,7 +193,7 @@ public sealed class ToMkvGpuInfoFormatterTests
             preferredBackend: preferredBackend,
             videoCompatibilityProfile: copyVideo || !string.Equals(targetVideoCodec, "h264", StringComparison.OrdinalIgnoreCase) ? null : VideoCompatibilityProfile.H264High,
             targetHeight: null,
-            targetFramesPerSecond: null,
+            targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: false,
             downscale: null,
             copyVideo: copyVideo,

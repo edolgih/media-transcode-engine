@@ -32,6 +32,7 @@ internal static class CliHelpBuilder
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --info");
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --keep-source --downscale 576");
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --overlay-bg --sync-audio");
+        lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --max-fps 50");
         lines.Add($"  {exeName} --input \"C:\\video\\movie.mkv\" --downscale 576 --content-profile film --quality-profile default");
         lines.Add($"  Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | {exeName} --info");
 

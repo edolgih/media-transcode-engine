@@ -1,3 +1,5 @@
+using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
+
 namespace MediaTranscodeEngine.Cli.Parsing;
 
 internal sealed record CliParseResult(
@@ -55,6 +57,13 @@ internal static class CliArgumentParser
         if (!CliContracts.IsSupportedScenario(state.RequestTemplate.Scenario))
         {
             errorText = $"Unsupported scenario: {state.RequestTemplate.Scenario}. Only '{CliContracts.SupportedScenario}' is available.";
+            return false;
+        }
+
+        if (state.RequestTemplate.MaxFramesPerSecond.HasValue &&
+            !ToMkvGpuRequest.IsSupportedMaxFramesPerSecond(state.RequestTemplate.MaxFramesPerSecond.Value))
+        {
+            errorText = $"--max-fps must be one of: {ToMkvGpuRequest.SupportedMaxFramesPerSecondDisplay}.";
             return false;
         }
 

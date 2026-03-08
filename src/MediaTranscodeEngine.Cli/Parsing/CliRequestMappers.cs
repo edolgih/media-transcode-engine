@@ -18,7 +18,8 @@ internal static class CliRequestMappers
                 synchronizeAudio: template.SynchronizeAudio,
                 keepSource: template.KeepSource,
                 downscale: BuildDownscaleRequest(template),
-                nvencPreset: template.NvencPreset));
+                nvencPreset: template.NvencPreset,
+                maxFramesPerSecond: template.MaxFramesPerSecond));
     }
 
     private static DownscaleRequest? BuildDownscaleRequest(CliRequestTemplate template)

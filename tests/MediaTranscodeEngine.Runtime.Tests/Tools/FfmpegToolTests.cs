@@ -899,6 +899,26 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void BuildExecution_WhenTargetFrameRateIsRequested_RendersRequestedCfrRate()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "h264", audioCodecs: ["aac"], framesPerSecond: 59.94, filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetFramesPerSecond: 50,
+            outputPath: @"C:\video\input_out.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-fps_mode:v cfr");
+        actual.Commands[0].Should().Contain("-r 50");
+        actual.Commands[0].Should().Contain("-g 100");
+    }
+
+    [Fact]
     public void CanHandle_WhenFrameInterpolationIsRequested_ReturnsFalse()
     {
         var sut = CreateSut();

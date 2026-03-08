@@ -17,6 +17,7 @@ public sealed class CliParsingTests
                 "--no-autosample",
                 "--autosample-mode", "Hybrid",
                 "--downscale-algo", "Lanczos",
+                "--max-fps", "50",
                 "--cq", "23",
                 "--maxrate", "3.4",
                 "--bufsize", "6.8",
@@ -34,6 +35,7 @@ public sealed class CliParsingTests
         parsed.RequestTemplate.NoAutoSample.Should().BeTrue();
         parsed.RequestTemplate.AutoSampleMode.Should().Be("Hybrid");
         parsed.RequestTemplate.DownscaleAlgorithm.Should().Be("Lanczos");
+        parsed.RequestTemplate.MaxFramesPerSecond.Should().Be(50);
         parsed.RequestTemplate.Cq.Should().Be(23);
         parsed.RequestTemplate.Maxrate.Should().Be(3.4m);
         parsed.RequestTemplate.Bufsize.Should().Be(6.8m);
@@ -55,6 +57,7 @@ public sealed class CliParsingTests
             NoAutoSample: true,
             AutoSampleMode: "Fast",
             DownscaleAlgorithm: "Bicubic",
+            MaxFramesPerSecond: 40,
             Cq: 24,
             Maxrate: 3.7m,
             Bufsize: 7.4m,
@@ -76,6 +79,7 @@ public sealed class CliParsingTests
         actual.ToMkvGpu.Downscale.Cq.Should().Be(24);
         actual.ToMkvGpu.Downscale.Maxrate.Should().Be(3.7m);
         actual.ToMkvGpu.Downscale.Bufsize.Should().Be(7.4m);
+        actual.ToMkvGpu.MaxFramesPerSecond.Should().Be(40);
         actual.ToMkvGpu.NvencPreset.Should().Be("p6");
     }
 
@@ -98,6 +102,7 @@ public sealed class CliParsingTests
     [Theory]
     [InlineData("--input")]
     [InlineData("--downscale")]
+    [InlineData("--max-fps")]
     public void TryParse_WhenRequiredOptionValueIsMissing_ReturnsFalse(string optionName)
     {
         var actual = CliArgumentParser.TryParse(
@@ -123,6 +128,7 @@ public sealed class CliParsingTests
 
     [Theory]
     [InlineData("--downscale", "abc", "--downscale must be an integer.")]
+    [InlineData("--max-fps", "abc", "--max-fps must be an integer.")]
     [InlineData("--cq", "abc", "--cq must be an integer.")]
     [InlineData("--maxrate", "abc", "--maxrate must be a number.")]
     [InlineData("--bufsize", "abc", "--bufsize must be a number.")]
@@ -138,6 +144,18 @@ public sealed class CliParsingTests
 
         actual.Should().BeFalse();
         errorText.Should().Be(expectedError);
+    }
+
+    [Fact]
+    public void TryParse_WhenMaxFpsIsUnsupported_ReturnsFalse()
+    {
+        var actual = CliArgumentParser.TryParse(
+            ["--input", @"C:\video\a.mp4", "--max-fps", "55"],
+            out _,
+            out var errorText);
+
+        actual.Should().BeFalse();
+        errorText.Should().Be("--max-fps must be one of: 50, 40, 30, 24.");
     }
 
     [Fact]
