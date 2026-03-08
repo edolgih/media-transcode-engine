@@ -214,6 +214,11 @@ public sealed class FfmpegTool : ITranscodeTool
             return "-fflags +genpts+igndts -avoid_negative_ts make_zero";
         }
 
+        if (UsesStrongSyncRemux(plan))
+        {
+            return "-fflags +genpts+igndts -avoid_negative_ts make_zero";
+        }
+
         var needsContainerChange = !video.Container.Equals(plan.TargetContainer, StringComparison.OrdinalIgnoreCase);
         if (plan.RequiresAudioEncode || needsContainerChange)
         {
@@ -229,7 +234,9 @@ public sealed class FfmpegTool : ITranscodeTool
     {
         if (plan.CopyVideo)
         {
-            return "-map 0:v:0 -c:v copy";
+            return UsesStrongSyncRemux(plan)
+                ? "-map 0:v:0 -c:v copy -copytb 1"
+                : "-map 0:v:0 -c:v copy";
         }
 
         var encoder = ResolveVideoEncoder(plan);
@@ -265,6 +272,11 @@ public sealed class FfmpegTool : ITranscodeTool
         return plan.CopyAudio
             ? "-map 0:a? -c:a copy"
             : "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k -af \"aresample=async=1:first_pts=0\"";
+    }
+
+    private static bool UsesStrongSyncRemux(TranscodePlan plan)
+    {
+        return plan.CopyVideo && plan.SynchronizeAudio;
     }
 
     private static string ResolveVideoEncoder(TranscodePlan plan)

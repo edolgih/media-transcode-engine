@@ -118,6 +118,7 @@ public sealed class ToMkvGpuScenarioTests
 
         actual.CopyVideo.Should().BeTrue();
         actual.CopyAudio.Should().BeFalse();
+        actual.FixTimestamps.Should().BeTrue();
         actual.SynchronizeAudio.Should().BeTrue();
     }
 

@@ -868,13 +868,21 @@ public sealed class FfmpegToolTests
     {
         var sut = CreateSut();
         var video = CreateVideo(container: "mkv", videoCodec: "h264", audioCodecs: ["aac"], filePath: @"C:\video\input.mkv");
-        var plan = CreatePlan(copyVideo: true, copyAudio: false, outputPath: @"C:\video\input_out.mkv");
+        var plan = CreatePlan(
+            copyVideo: true,
+            copyAudio: false,
+            fixTimestamps: true,
+            outputPath: @"C:\video\input_out.mkv",
+            synchronizeAudio: true);
 
         var actual = sut.BuildExecution(video, plan);
 
         actual.Commands[0].Should().Contain("-c:v copy");
+        actual.Commands[0].Should().Contain("-copytb 1");
         actual.Commands[0].Should().Contain("-c:a aac");
         actual.Commands[0].Should().Contain("-af \"aresample=async=1:first_pts=0\"");
+        actual.Commands[0].Should().Contain("-fflags +genpts+igndts -avoid_negative_ts make_zero");
+        actual.Commands[0].Should().NotContain("-fps_mode:v cfr");
         actual.Commands[0].Should().NotContain("-c:a copy");
     }
 

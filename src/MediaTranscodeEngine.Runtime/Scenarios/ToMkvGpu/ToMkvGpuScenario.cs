@@ -81,7 +81,7 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
             downscale: effectiveDownscale,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
-            fixTimestamps: requiresTimestampFix || !copyVideo,
+            fixTimestamps: requiresTimestampFix || !copyVideo || Request.SynchronizeAudio,
             keepSource: Request.KeepSource,
             encoderPreset: Request.NvencPreset,
             outputPath: ResolveOutputPath(video, copyVideo, copyAudio),
