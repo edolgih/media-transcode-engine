@@ -78,8 +78,9 @@ public sealed class FfprobeVideoProbe : IVideoProbe
 
             var streamType = ReadRequiredString(streamElement, "codec_type", "stream");
             var codec = ReadRequiredString(streamElement, "codec_name", "stream");
-            var framesPerSecond = ParseFrameRate(TryGetString(streamElement, "r_frame_rate")) ??
-                                  ParseFrameRate(TryGetString(streamElement, "avg_frame_rate"));
+            var rawFramesPerSecond = ParseFrameRate(TryGetString(streamElement, "r_frame_rate"));
+            var averageFramesPerSecond = ParseFrameRate(TryGetString(streamElement, "avg_frame_rate"));
+            var framesPerSecond = rawFramesPerSecond ?? averageFramesPerSecond;
 
             streams.Add(new VideoProbeStream(
                 streamType: streamType,
@@ -87,18 +88,24 @@ public sealed class FfprobeVideoProbe : IVideoProbe
                 width: TryGetInt(streamElement, "width"),
                 height: TryGetInt(streamElement, "height"),
                 framesPerSecond: framesPerSecond,
-                bitrate: TryGetLong(streamElement, "bit_rate")));
+                bitrate: TryGetLong(streamElement, "bit_rate"),
+                rawFramesPerSecond: rawFramesPerSecond,
+                averageFramesPerSecond: averageFramesPerSecond,
+                sampleRate: TryGetInt(streamElement, "sample_rate"),
+                channels: TryGetInt(streamElement, "channels")));
         }
 
         var duration = TryGetDuration(root);
         var formatBitrate = TryGetFormatBitrate(root);
         var container = ResolveContainer(filePath, root);
+        var formatName = TryGetFormatName(root);
 
         return new VideoProbeSnapshot(
             container: container,
             streams: streams,
             duration: duration,
-            formatBitrate: formatBitrate);
+            formatBitrate: formatBitrate,
+            formatName: formatName);
     }
 
     private static string? ResolveContainer(string filePath, JsonElement root)
@@ -128,6 +135,20 @@ public sealed class FfprobeVideoProbe : IVideoProbe
         return string.IsNullOrWhiteSpace(firstToken)
             ? null
             : firstToken.ToLowerInvariant();
+    }
+
+    private static string? TryGetFormatName(JsonElement root)
+    {
+        if (!root.TryGetProperty("format", out var formatElement) ||
+            formatElement.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var formatName = TryGetString(formatElement, "format_name");
+        return string.IsNullOrWhiteSpace(formatName)
+            ? null
+            : formatName.Trim().ToLowerInvariant();
     }
 
     private static TimeSpan? TryGetDuration(JsonElement root)

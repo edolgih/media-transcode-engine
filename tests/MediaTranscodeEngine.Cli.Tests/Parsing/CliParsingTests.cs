@@ -1,6 +1,7 @@
 using FluentAssertions;
 using MediaTranscodeEngine.Cli.Parsing;
 using MediaTranscodeEngine.Cli.Scenarios;
+using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 
 namespace MediaTranscodeEngine.Cli.Tests.Parsing;
@@ -104,10 +105,111 @@ public sealed class CliParsingTests
         scenarioRequest.NvencPreset.Should().Be("p6");
     }
 
+    [Fact]
+    public void TryParse_WhenToH264GpuOptionsAreProvided_PreservesScenarioArgs()
+    {
+        var actual = CliArgumentParser.TryParse(
+            [
+                "--scenario", "toh264gpu",
+                "--input", @"C:\video\a.mkv",
+                "--downscale", "576",
+                "--keep-fps",
+                "--downscale-algo", "lanczos",
+                "--cq", "21",
+                "--nvenc-preset", "p6",
+                "--use-aq",
+                "--aq-strength", "5",
+                "--denoise",
+                "--fix-timestamps",
+                "--mkv"
+            ],
+            out var parsed,
+            out var errorText);
+
+        actual.Should().BeTrue();
+        errorText.Should().BeNull();
+        parsed.Inputs.Should().ContainSingle().Which.Should().Be(@"C:\video\a.mkv");
+        parsed.Scenario.Should().Be("toh264gpu");
+        parsed.Info.Should().BeFalse();
+        parsed.ScenarioArgs.Should().Equal(
+            "--downscale", "576",
+            "--keep-fps",
+            "--downscale-algo", "lanczos",
+            "--cq", "21",
+            "--nvenc-preset", "p6",
+            "--use-aq",
+            "--aq-strength", "5",
+            "--denoise",
+            "--fix-timestamps",
+            "--mkv");
+    }
+
+    [Fact]
+    public void CreateScenario_WhenParsedArgsContainToH264GpuOptions_MapsRuntimeRequest()
+    {
+        var parsedOk = CliArgumentParser.TryParse(
+            [
+                "--scenario", "toh264gpu",
+                "--input", @"C:\video\a.mkv",
+                "--downscale", "576",
+                "--keep-fps",
+                "--downscale-algo", "lanczos",
+                "--cq", "21",
+                "--nvenc-preset", "p6",
+                "--use-aq",
+                "--aq-strength", "5",
+                "--denoise",
+                "--fix-timestamps",
+                "--mkv"
+            ],
+            out var parsed,
+            out var errorText);
+
+        parsedOk.Should().BeTrue();
+        errorText.Should().BeNull();
+
+        var handler = new ToH264GpuCliScenarioHandler(new ToH264GpuInfoFormatter());
+        var request = new CliTranscodeRequest(
+            inputPath: @"C:\video\a.mkv",
+            scenarioName: parsed.Scenario,
+            info: parsed.Info,
+            scenarioArgs: parsed.ScenarioArgs);
+
+        var actual = handler.CreateScenario(request).Should().BeOfType<ToH264GpuScenario>().Subject;
+        var scenarioRequest = actual.Request;
+
+        scenarioRequest.DownscaleTargetHeight.Should().Be(576);
+        scenarioRequest.KeepFramesPerSecond.Should().BeTrue();
+        scenarioRequest.DownscaleAlgorithm.Should().Be("lanczos");
+        scenarioRequest.Cq.Should().Be(21);
+        scenarioRequest.NvencPreset.Should().Be("p6");
+        scenarioRequest.UseAdaptiveQuantization.Should().BeTrue();
+        scenarioRequest.AqStrength.Should().Be(5);
+        scenarioRequest.Denoise.Should().BeTrue();
+        scenarioRequest.FixTimestamps.Should().BeTrue();
+        scenarioRequest.OutputMkv.Should().BeTrue();
+    }
+
+    [Fact]
+    public void TryParse_WhenToH264GpuArgumentsAreInvalid_ReturnsFalse()
+    {
+        var actual = CliArgumentParser.TryParse(
+            [
+                "--scenario", "toh264gpu",
+                "--input", @"C:\video\a.mkv",
+                "--downscale", "480"
+            ],
+            out _,
+            out var errorText);
+
+        actual.Should().BeFalse();
+        errorText.Should().Be("--downscale must be 720 or 576.");
+    }
+
     [Theory]
     [InlineData("tomkvgpu", "Do not use legacy scenario command tokens. Use --scenario tomkvgpu.")]
-    [InlineData("toh264gpu", "Unexpected argument: toh264gpu")]
-    [InlineData("--wat", "Scenario is required. Use --scenario <name>. Available scenarios: tomkvgpu.")]
+    [InlineData("toh264gpu", "Do not use legacy scenario command tokens. Use --scenario toh264gpu.")]
+    [InlineData("--wat", "Scenario is required. Use --scenario <name>. Available scenarios: toh264gpu, tomkvgpu.")]
     [InlineData("unexpected", "Unexpected argument: unexpected")]
     public void TryParse_WhenArgsContainUnsupportedToken_ReturnsFalse(string token, string expectedError)
     {
@@ -220,7 +322,7 @@ public sealed class CliParsingTests
             out var errorText);
 
         actual.Should().BeFalse();
-        errorText.Should().Be("Scenario is required. Use --scenario <name>. Available scenarios: tomkvgpu.");
+        errorText.Should().Be("Scenario is required. Use --scenario <name>. Available scenarios: toh264gpu, tomkvgpu.");
     }
 
     [Fact]
@@ -232,6 +334,6 @@ public sealed class CliParsingTests
             out var errorText);
 
         actual.Should().BeFalse();
-        errorText.Should().Be("Unsupported scenario: other. Available scenarios: tomkvgpu.");
+        errorText.Should().Be("Unsupported scenario: other. Available scenarios: toh264gpu, tomkvgpu.");
     }
 }

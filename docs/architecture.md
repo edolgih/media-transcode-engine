@@ -29,7 +29,7 @@ CLI flow at a high level:
 - the common CLI layer parses shared arguments such as the required scenario name, input paths, and `--info`;
 - the selected scenario validates its own scenario-specific arguments;
 - processing then loads source facts, asks the scenario to build a `TranscodePlan`, and picks the first tool that can execute that plan;
-- in practice, adding a new application scenario should mainly mean adding one new CLI scenario handler plus the runtime request/scenario types it uses.
+- in practice, adding a new application scenario should mainly mean adding one new CLI scenario handler plus the runtime request/scenario types it uses; if the ffmpeg rendering policy differs materially, it may also justify a dedicated tool adapter instead of growing a shared one.
 
 ## Timing, FPS And Sync Notes
 

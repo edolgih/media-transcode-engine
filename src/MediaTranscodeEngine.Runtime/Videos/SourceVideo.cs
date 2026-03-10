@@ -17,6 +17,12 @@ public sealed record SourceVideo
     /// <param name="framesPerSecond">Source frame rate.</param>
     /// <param name="duration">Source duration.</param>
     /// <param name="bitrate">Optional normalized source bitrate in bits per second.</param>
+    /// <param name="formatName">Optional raw format_name token from probe metadata.</param>
+    /// <param name="rawFramesPerSecond">Optional frame rate parsed from r_frame_rate.</param>
+    /// <param name="averageFramesPerSecond">Optional frame rate parsed from avg_frame_rate.</param>
+    /// <param name="primaryAudioBitrate">Optional primary audio bitrate in bits per second.</param>
+    /// <param name="primaryAudioSampleRate">Optional primary audio sample rate in hertz.</param>
+    /// <param name="primaryAudioChannels">Optional primary audio channel count.</param>
     public SourceVideo(
         string filePath,
         string container,
@@ -26,7 +32,13 @@ public sealed record SourceVideo
         int height,
         double framesPerSecond,
         TimeSpan duration,
-        long? bitrate = null)
+        long? bitrate = null,
+        string? formatName = null,
+        double? rawFramesPerSecond = null,
+        double? averageFramesPerSecond = null,
+        long? primaryAudioBitrate = null,
+        int? primaryAudioSampleRate = null,
+        int? primaryAudioChannels = null)
     {
         FilePath = NormalizeFilePath(filePath);
         Container = NormalizeToken(container, nameof(container));
@@ -47,6 +59,14 @@ public sealed record SourceVideo
         Bitrate = bitrate is null || bitrate >= 0
             ? bitrate
             : throw new ArgumentOutOfRangeException(nameof(bitrate), bitrate, "Bitrate must not be negative.");
+        FormatName = NormalizeOptionalText(formatName);
+        RawFramesPerSecond = NormalizeOptionalPositiveDouble(rawFramesPerSecond, nameof(rawFramesPerSecond));
+        AverageFramesPerSecond = NormalizeOptionalPositiveDouble(averageFramesPerSecond, nameof(averageFramesPerSecond));
+        PrimaryAudioBitrate = primaryAudioBitrate is null || primaryAudioBitrate >= 0
+            ? primaryAudioBitrate
+            : throw new ArgumentOutOfRangeException(nameof(primaryAudioBitrate), primaryAudioBitrate, "Primary audio bitrate must not be negative.");
+        PrimaryAudioSampleRate = NormalizeOptionalPositiveInt(primaryAudioSampleRate, nameof(primaryAudioSampleRate));
+        PrimaryAudioChannels = NormalizeOptionalPositiveInt(primaryAudioChannels, nameof(primaryAudioChannels));
     }
 
     /// <summary>
@@ -95,6 +115,36 @@ public sealed record SourceVideo
     public long? Bitrate { get; }
 
     /// <summary>
+    /// Gets the raw format_name token from the probe metadata when available.
+    /// </summary>
+    public string? FormatName { get; }
+
+    /// <summary>
+    /// Gets the frame rate parsed from r_frame_rate when available.
+    /// </summary>
+    public double? RawFramesPerSecond { get; }
+
+    /// <summary>
+    /// Gets the frame rate parsed from avg_frame_rate when available.
+    /// </summary>
+    public double? AverageFramesPerSecond { get; }
+
+    /// <summary>
+    /// Gets the bitrate of the primary audio stream in bits per second when available.
+    /// </summary>
+    public long? PrimaryAudioBitrate { get; }
+
+    /// <summary>
+    /// Gets the sample rate of the primary audio stream in hertz when available.
+    /// </summary>
+    public int? PrimaryAudioSampleRate { get; }
+
+    /// <summary>
+    /// Gets the channel count of the primary audio stream when available.
+    /// </summary>
+    public int? PrimaryAudioChannels { get; }
+
+    /// <summary>
     /// Gets the source file name without directory segments.
     /// </summary>
     public string FileName => Path.GetFileName(FilePath);
@@ -121,6 +171,14 @@ public sealed record SourceVideo
         ? AudioCodecs[0]
         : null;
 
+    /// <summary>
+    /// Gets a value indicating whether the source has a reliable raw-vs-average frame-rate mismatch signal.
+    /// </summary>
+    public bool HasFrameRateMismatch =>
+        RawFramesPerSecond.HasValue &&
+        AverageFramesPerSecond.HasValue &&
+        Math.Abs(RawFramesPerSecond.Value - AverageFramesPerSecond.Value) > 0.0001;
+
     private static string NormalizeFilePath(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -131,6 +189,40 @@ public sealed record SourceVideo
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value, paramName);
         return value.Trim().ToLowerInvariant();
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim().ToLowerInvariant();
+    }
+
+    private static double? NormalizeOptionalPositiveDouble(double? value, string paramName)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value > 0
+            ? value.Value
+            : throw new ArgumentOutOfRangeException(paramName, value.Value, "Value must be greater than zero.");
+    }
+
+    private static int? NormalizeOptionalPositiveInt(int? value, string paramName)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        return value.Value > 0
+            ? value.Value
+            : throw new ArgumentOutOfRangeException(paramName, value.Value, "Value must be greater than zero.");
     }
 
     private static IReadOnlyList<string> NormalizeAudioCodecs(IReadOnlyList<string>? audioCodecs)

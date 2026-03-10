@@ -9,4 +9,8 @@ public sealed record VideoProbeStream(
     int? width = null,
     int? height = null,
     double? framesPerSecond = null,
-    long? bitrate = null);
+    long? bitrate = null,
+    double? rawFramesPerSecond = null,
+    double? averageFramesPerSecond = null,
+    int? sampleRate = null,
+    int? channels = null);

@@ -162,6 +162,81 @@ public sealed class FfprobeVideoProbeTests
         actual.formatBitrate.Should().Be(900000);
     }
 
+    [Fact]
+    public void Probe_WhenFormatNameAndExtendedStreamFactsArePresent_PreservesThem()
+    {
+        var sut = new FfprobeVideoProbe(_ => new FfprobeProcessResult(
+            ExitCode: 0,
+            StandardOutput: """
+                            {
+                              "format": {
+                                "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+                                "duration": "90.5",
+                                "bit_rate": "900000"
+                              },
+                              "streams": [
+                                {
+                                  "codec_type": "video",
+                                  "codec_name": "h264",
+                                  "width": 1280,
+                                  "height": 720,
+                                  "r_frame_rate": "60000/1001",
+                                  "avg_frame_rate": "30000/1001",
+                                  "bit_rate": "700000"
+                                },
+                                {
+                                  "codec_type": "audio",
+                                  "codec_name": "aac",
+                                  "bit_rate": "128000",
+                                  "sample_rate": "44100",
+                                  "channels": 2
+                                }
+                              ]
+                            }
+                            """,
+            StandardError: string.Empty));
+
+        var actual = sut.Probe(@"C:\video\input.mp4");
+
+        actual.formatName.Should().Be("mov,mp4,m4a,3gp,3g2,mj2");
+        actual.streams[0].rawFramesPerSecond.Should().BeApproximately(60000d / 1001d, 0.0001);
+        actual.streams[0].averageFramesPerSecond.Should().BeApproximately(30000d / 1001d, 0.0001);
+        actual.streams[0].framesPerSecond.Should().BeApproximately(60000d / 1001d, 0.0001);
+        actual.streams[1].sampleRate.Should().Be(44100);
+        actual.streams[1].channels.Should().Be(2);
+    }
+
+    [Fact]
+    public void Probe_WhenRawFrameRateIsMissing_UsesAverageFrameRate()
+    {
+        var sut = new FfprobeVideoProbe(_ => new FfprobeProcessResult(
+            ExitCode: 0,
+            StandardOutput: """
+                            {
+                              "format": {
+                                "format_name": "mp4"
+                              },
+                              "streams": [
+                                {
+                                  "codec_type": "video",
+                                  "codec_name": "h264",
+                                  "width": 1280,
+                                  "height": 720,
+                                  "r_frame_rate": "0/0",
+                                  "avg_frame_rate": "30000/1001"
+                                }
+                              ]
+                            }
+                            """,
+            StandardError: string.Empty));
+
+        var actual = sut.Probe(@"C:\video\input.mp4");
+
+        actual.streams[0].rawFramesPerSecond.Should().BeNull();
+        actual.streams[0].averageFramesPerSecond.Should().BeApproximately(30000d / 1001d, 0.0001);
+        actual.streams[0].framesPerSecond.Should().BeApproximately(30000d / 1001d, 0.0001);
+    }
+
     private static string CreateValidJson()
     {
         return """

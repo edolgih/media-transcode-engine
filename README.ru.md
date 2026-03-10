@@ -6,12 +6,14 @@
 
 `path -> VideoInspector -> SourceVideo -> TranscodeScenario -> TranscodePlan -> ITranscodeTool -> ToolExecution`
 
-Сейчас репозиторий сфокусирован на сценарии `tomkvgpu` и печатает per-file результат:
+Сейчас в репозитории реализованы два прикладных сценария, и CLI печатает per-file результат:
 
+- `tomkvgpu` - mkv-ориентированные решения по GPU transcode/remux;
+- `toh264gpu` - mp4-ориентированные решения по H.264 GPU transcode/remux;
 - в обычном режиме: legacy-compatible строки команд и `REM ...` диагностику;
 - в `--info` режиме: короткие маркеры решений без `ffmpeg`-команды.
 
-При этом CLI и runtime уже устроены так, чтобы добавлять новые сценарии, хотя реализован пока только `tomkvgpu`. В CLI сценарий нужно указывать явно через `--scenario <name>`.
+В CLI сценарий нужно указывать явно через `--scenario <name>`. Сейчас публично поддерживаются `tomkvgpu` и `toh264gpu`.
 
 ## Структура Репозитория
 

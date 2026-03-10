@@ -23,6 +23,22 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void CanHandle_WhenMp4TargetAndFfmpegOptionsAreProvided_ReturnsTrue()
+    {
+        var sut = CreateToH264GpuSut();
+        var plan = CreatePlan(
+            copyVideo: true,
+            copyAudio: true,
+            targetContainer: "mp4",
+            outputPath: @"C:\video\input.mp4",
+            ffmpegOptions: new FfmpegOptions(optimizeForFastStart: true));
+
+        var actual = sut.CanHandle(plan);
+
+        actual.Should().BeTrue();
+    }
+
+    [Fact]
     public void BuildExecution_WhenContainerChangesWithCopyStreams_BuildsCopyCommandAndDeleteStep()
     {
         var sut = CreateSut();
@@ -40,6 +56,49 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("-max_muxing_queue_size 4096");
         actual.Commands[0].Should().Contain("\"C:\\video\\input.mkv\"");
         actual.Commands[1].Should().Be("del \"C:\\video\\input.mp4\"");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenMp4OutputIsRequested_AddsFaststart()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mp4", filePath: @"C:\video\input.m4v");
+        var plan = CreatePlan(
+            copyVideo: true,
+            copyAudio: true,
+            targetContainer: "mp4",
+            outputPath: @"C:\video\input.mp4",
+            ffmpegOptions: new FfmpegOptions(
+                optimizeForFastStart: true,
+                mapPrimaryAudioOnly: true));
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-c:v copy");
+        actual.Commands[0].Should().Contain("-map 0:a:0? -c:a copy");
+        actual.Commands[0].Should().Contain("-movflags +faststart");
+        actual.Commands[0].Should().Contain("\"C:\\video\\input.mp4\"");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenMp4RemuxNeedsFaststart_DoesNotReturnEmptyRecipe()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mp4", filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: true,
+            copyAudio: true,
+            targetContainer: "mp4",
+            outputPath: @"C:\video\input.mp4",
+            ffmpegOptions: new FfmpegOptions(optimizeForFastStart: true));
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.IsEmpty.Should().BeFalse();
+        actual.Commands.Should().HaveCount(3);
+        actual.Commands[0].Should().Contain("\"C:\\video\\input_temp.mp4\"");
+        actual.Commands[0].Should().Contain("-movflags +faststart");
+        actual.Commands[2].Should().Be("ren \"C:\\video\\input_temp.mp4\" \"input.mp4\"");
     }
 
     [Fact]
@@ -80,6 +139,115 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().NotContain("-af \"aresample=async=1:first_pts=0\"");
         actual.Commands[0].Should().Contain("-cq 21");
         actual.Commands[0].Should().Contain("-maxrate 4M -bufsize 8M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenPrimaryAudioMappingIsRequested_MapsFirstAudioOnly()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "av1", audioCodecs: ["aac", "ac3"], filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            ffmpegOptions: new FfmpegOptions(mapPrimaryAudioOnly: true),
+            outputPath: @"C:\video\input.mp4",
+            targetContainer: "mp4");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-map 0:a:0? -c:a aac");
+        actual.Commands[0].Should().NotContain("-map 0:a? -c:a aac");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenExplicitVbrSettingsAreProvided_UsesRequestedVideoBitrateTokens()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "av1", filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            ffmpegOptions: new FfmpegOptions(
+                videoBitrateKbps: 1400,
+                videoMaxrateKbps: 2200,
+                videoBufferSizeKbps: 4400),
+            outputPath: @"C:\video\input.mp4",
+            targetContainer: "mp4");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-rc vbr -b:v 1400k -maxrate 2200k -bufsize 4400k");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenExplicitCqSettingsAreProvided_UsesRequestedCqTokens()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "av1", filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            ffmpegOptions: new FfmpegOptions(videoCq: 21),
+            outputPath: @"C:\video\input.mp4",
+            targetContainer: "mp4");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-rc vbr_hq -cq 21 -b:v 0");
+        actual.Commands[0].Should().NotContain("-maxrate ");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenAudioEncodingOptionsAreProvided_UsesRequestedAudioSettings()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "av1", audioCodecs: ["ac3"], filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            ffmpegOptions: new FfmpegOptions(
+                audioBitrateKbps: 96,
+                audioSampleRate: 48000,
+                audioChannels: 1,
+                audioFilter: "aresample=48000:async=1:first_pts=0"),
+            outputPath: @"C:\video\input.mp4",
+            targetContainer: "mp4");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-c:a aac -ar 48000 -ac 1 -b:a 96k -af \"aresample=48000:async=1:first_pts=0\"");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenVideoFilterIsProvided_UsesRequestedFilter()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "av1", filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            ffmpegOptions: new FfmpegOptions(
+                useHardwareDecode: false,
+                videoFilter: "hqdn3d=1.2:1.2:6:6",
+                pixelFormat: "yuv420p"),
+            outputPath: @"C:\video\input.mp4",
+            targetContainer: "mp4");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-vf \"hqdn3d=1.2:1.2:6:6\"");
+        actual.Commands[0].Should().Contain("-pix_fmt yuv420p");
+        actual.Commands[0].Should().NotContain("-hwaccel cuda -hwaccel_output_format cuda");
     }
 
     [Fact]
@@ -1008,6 +1176,15 @@ public sealed class FfmpegToolTests
             logger ?? CreateLogger<FfmpegTool>());
     }
 
+    private static ToH264GpuFfmpegTool CreateToH264GpuSut(
+        string ffmpegPath = "ffmpeg",
+        Microsoft.Extensions.Logging.ILogger<ToH264GpuFfmpegTool>? logger = null)
+    {
+        return new ToH264GpuFfmpegTool(
+            ffmpegPath,
+            logger ?? CreateLogger<ToH264GpuFfmpegTool>());
+    }
+
     private static Microsoft.Extensions.Logging.ILogger<T> CreateLogger<T>()
     {
         return new ListLogger<T>();
@@ -1040,7 +1217,13 @@ public sealed class FfmpegToolTests
         double framesPerSecond = 29.97,
         string filePath = @"C:\video\input.mkv",
         TimeSpan? duration = null,
-        long? bitrate = null)
+        long? bitrate = null,
+        string? formatName = null,
+        double? rawFramesPerSecond = null,
+        double? averageFramesPerSecond = null,
+        long? primaryAudioBitrate = null,
+        int? primaryAudioSampleRate = null,
+        int? primaryAudioChannels = null)
     {
         return new SourceVideo(
             filePath: filePath,
@@ -1051,7 +1234,13 @@ public sealed class FfmpegToolTests
             height: height,
             framesPerSecond: framesPerSecond,
             duration: duration ?? TimeSpan.FromMinutes(10),
-            bitrate: bitrate);
+            bitrate: bitrate,
+            formatName: formatName,
+            rawFramesPerSecond: rawFramesPerSecond,
+            averageFramesPerSecond: averageFramesPerSecond,
+            primaryAudioBitrate: primaryAudioBitrate,
+            primaryAudioSampleRate: primaryAudioSampleRate,
+            primaryAudioChannels: primaryAudioChannels);
     }
 
     private static string CreateTempFileWithLength(long lengthBytes)
@@ -1091,10 +1280,12 @@ public sealed class FfmpegToolTests
         string? encoderPreset = null,
         string outputPath = @"C:\video\input.mkv",
         bool applyOverlayBackground = false,
-        bool synchronizeAudio = false)
+        bool synchronizeAudio = false,
+        string targetContainer = "mkv",
+        FfmpegOptions? ffmpegOptions = null)
     {
         return new TranscodePlan(
-            targetContainer: "mkv",
+            targetContainer: targetContainer,
             targetVideoCodec: targetVideoCodec,
             preferredBackend: preferredBackend,
             videoCompatibilityProfile: videoCompatibilityProfile ?? ResolveDefaultCompatibilityProfile(copyVideo, targetVideoCodec),
@@ -1109,7 +1300,8 @@ public sealed class FfmpegToolTests
             encoderPreset: encoderPreset,
             outputPath: outputPath,
             applyOverlayBackground: applyOverlayBackground,
-            synchronizeAudio: synchronizeAudio);
+            synchronizeAudio: synchronizeAudio,
+            ffmpegOptions: ffmpegOptions);
     }
 
     private static VideoCompatibilityProfile? ResolveDefaultCompatibilityProfile(bool copyVideo, string? targetVideoCodec)

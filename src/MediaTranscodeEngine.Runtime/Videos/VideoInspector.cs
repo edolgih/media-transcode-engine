@@ -70,6 +70,8 @@ public sealed class VideoInspector
             .Where(stream => stream.streamType.Equals("audio", StringComparison.OrdinalIgnoreCase))
             .Select(stream => stream.codec)
             .ToArray();
+        var primaryAudioStream = snapshot.streams
+            .FirstOrDefault(stream => stream.streamType.Equals("audio", StringComparison.OrdinalIgnoreCase));
         var bitrate = ResolveBitrate(snapshot);
 
         return new SourceVideo(
@@ -81,7 +83,13 @@ public sealed class VideoInspector
             height: videoStream.height.Value,
             framesPerSecond: videoStream.framesPerSecond.Value,
             duration: snapshot.duration ?? TimeSpan.Zero,
-            bitrate: bitrate);
+            bitrate: bitrate,
+            formatName: snapshot.formatName,
+            rawFramesPerSecond: videoStream.rawFramesPerSecond,
+            averageFramesPerSecond: videoStream.averageFramesPerSecond,
+            primaryAudioBitrate: primaryAudioStream?.bitrate,
+            primaryAudioSampleRate: primaryAudioStream?.sampleRate,
+            primaryAudioChannels: primaryAudioStream?.channels);
     }
 
     private static long? ResolveBitrate(VideoProbeSnapshot snapshot)

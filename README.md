@@ -6,12 +6,14 @@ Current runtime pipeline:
 
 `path -> VideoInspector -> SourceVideo -> TranscodeScenario -> TranscodePlan -> ITranscodeTool -> ToolExecution`
 
-The repository is currently focused on the `tomkvgpu` scenario and produces per-file results:
+The repository currently implements two application scenarios and produces per-file results:
 
+- `tomkvgpu` - mkv-oriented GPU transcode/remux decisions
+- `toh264gpu` - mp4-oriented H.264 GPU transcode/remux decisions
 - normal mode: legacy-compatible command lines and `REM ...` diagnostics
 - `--info` mode: short decision markers without an `ffmpeg` command
 
-The CLI and runtime are already structured for additional scenarios, even though `tomkvgpu` is still the only implemented one. The CLI requires an explicit `--scenario <name>` argument.
+The CLI requires an explicit `--scenario <name>` argument. The current public scenarios are `tomkvgpu` and `toh264gpu`.
 
 ## Repository Layout
 

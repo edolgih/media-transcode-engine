@@ -50,6 +50,24 @@ Frame-rate cap:
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --max-fps 30
 ```
 
+Command generation for `toh264gpu`:
+
+```bash
+dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.m4v"
+```
+
+`toh264gpu` downscale to `576`:
+
+```bash
+dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --downscale 576
+```
+
+`toh264gpu` encode with AQ:
+
+```bash
+dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --use-aq --aq-strength 4
+```
+
 Read paths from stdin:
 
 ```powershell
@@ -60,8 +78,11 @@ Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | dotnet run --project sr
 
 - `--help`, `-h`
 - `--input <path>`; repeatable
-- `--scenario <name>`; required, currently `tomkvgpu`
+- `--scenario <name>`; required, currently `tomkvgpu` or `toh264gpu`
 - `--info`
+
+`tomkvgpu` options:
+
 - `--keep-source`
 - `--overlay-bg`
 - `--downscale <576|480|424>`
@@ -76,6 +97,19 @@ Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | dotnet run --project sr
 - `--maxrate <number>`
 - `--bufsize <number>`
 - `--nvenc-preset <preset>`
+
+`toh264gpu` options:
+
+- `--downscale <720|576>`
+- `--keep-fps`
+- `--downscale-algo <bilinear|bicubic|lanczos>`
+- `--cq <1..51>`
+- `--nvenc-preset <p1..p7>`
+- `--use-aq`
+- `--aq-strength <0..15>`
+- `--denoise`
+- `--fix-timestamps`
+- `--mkv`
 
 ## Requirements
 

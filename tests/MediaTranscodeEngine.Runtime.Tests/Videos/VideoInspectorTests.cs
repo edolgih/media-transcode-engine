@@ -192,6 +192,44 @@ public sealed class VideoInspectorTests
         actual.Bitrate.Should().Be(4_576_000);
     }
 
+    [Fact]
+    public void Load_WhenExtendedProbeFactsArePresent_PreservesThem()
+    {
+        var sut = CreateSut(_ => new VideoProbeSnapshot(
+            container: "mp4",
+            streams:
+            [
+                new VideoProbeStream(
+                    streamType: "video",
+                    codec: "h264",
+                    width: 1920,
+                    height: 1080,
+                    framesPerSecond: 59.94,
+                    bitrate: 4_000_000,
+                    rawFramesPerSecond: 59.94,
+                    averageFramesPerSecond: 29.97),
+                new VideoProbeStream(
+                    streamType: "audio",
+                    codec: "aac",
+                    bitrate: 128_000,
+                    sampleRate: 44_100,
+                    channels: 2)
+            ],
+            duration: TimeSpan.FromMinutes(10),
+            formatBitrate: 4_500_000,
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2"));
+
+        var actual = sut.Load(@"C:\video\input.mp4");
+
+        actual.FormatName.Should().Be("mov,mp4,m4a,3gp,3g2,mj2");
+        actual.RawFramesPerSecond.Should().Be(59.94);
+        actual.AverageFramesPerSecond.Should().Be(29.97);
+        actual.HasFrameRateMismatch.Should().BeTrue();
+        actual.PrimaryAudioBitrate.Should().Be(128_000);
+        actual.PrimaryAudioSampleRate.Should().Be(44_100);
+        actual.PrimaryAudioChannels.Should().Be(2);
+    }
+
     private static VideoInspector CreateSut(Func<string, VideoProbeSnapshot> probe)
     {
         return new VideoInspector(new FakeVideoProbe(probe));

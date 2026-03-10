@@ -7,4 +7,5 @@ public sealed record VideoProbeSnapshot(
     string? container,
     IReadOnlyList<VideoProbeStream> streams,
     TimeSpan? duration,
-    long? formatBitrate = null);
+    long? formatBitrate = null,
+    string? formatName = null);

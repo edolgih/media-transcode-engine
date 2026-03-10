@@ -252,7 +252,9 @@ public sealed class ProgramTests
             output.ToString().Should().Contain("MediaTranscodeEngine CLI");
             output.ToString().Should().Contain("Usage:");
             output.ToString().Should().Contain("Scenario name. Required.");
+            output.ToString().Should().Contain("--scenario toh264gpu");
             output.ToString().Should().Contain("--max-fps <50|40|30|24>");
+            output.ToString().Should().Contain("--downscale <720|576>");
             output.ToString().Should().Contain("RuntimeValues:FfprobePath current: ffprobe-custom");
             output.ToString().Should().Contain("RuntimeValues:FfmpegPath  current: ffmpeg-custom");
             error.ToString().Should().BeEmpty();

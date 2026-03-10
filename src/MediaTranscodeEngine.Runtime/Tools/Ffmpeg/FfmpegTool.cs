@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 
 /// <summary>
-/// Renders a tool-agnostic transcode plan into an ffmpeg execution recipe for the current runtime model.
+/// Renders mkv-oriented transcode plans into ffmpeg execution recipes.
 /// </summary>
 public sealed class FfmpegTool : ITranscodeTool
 {
@@ -19,10 +19,8 @@ public sealed class FfmpegTool : ITranscodeTool
     private readonly ILogger<FfmpegTool> _logger;
 
     /// <summary>
-    /// Initializes an ffmpeg-backed transcode tool.
+    /// Initializes the mkv-oriented ffmpeg tool.
     /// </summary>
-    /// <param name="ffmpegPath">Executable path or command name for ffmpeg.</param>
-    /// <param name="logger">Application logger used for execution diagnostics.</param>
     public FfmpegTool(string ffmpegPath, ILogger<FfmpegTool> logger)
         : this(ffmpegPath, DownscaleProfiles.Default, null, logger)
     {
@@ -36,6 +34,7 @@ public sealed class FfmpegTool : ITranscodeTool
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ffmpegPath);
         ArgumentNullException.ThrowIfNull(logger);
+
         _ffmpegPath = ffmpegPath.Trim();
         _downscaleProfiles = downscaleProfiles ?? throw new ArgumentNullException(nameof(downscaleProfiles));
         _autoSampler = new DownscaleAutoSampler(_downscaleProfiles);
@@ -50,15 +49,13 @@ public sealed class FfmpegTool : ITranscodeTool
     public string Name => "ffmpeg";
 
     /// <summary>
-    /// Determines whether the current ffmpeg renderer can execute the supplied plan.
+    /// Determines whether the mkv-oriented ffmpeg tool can execute the supplied plan.
     /// </summary>
-    /// <param name="plan">Tool-agnostic transcode plan.</param>
-    /// <returns><see langword="true"/> when the plan can be rendered by this tool; otherwise <see langword="false"/>.</returns>
     public bool CanHandle(TranscodePlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
 
-        if (plan.UseFrameInterpolation)
+        if (plan.FfmpegOptions is not null || plan.UseFrameInterpolation)
         {
             return false;
         }
@@ -81,9 +78,6 @@ public sealed class FfmpegTool : ITranscodeTool
     /// <summary>
     /// Builds an ffmpeg execution recipe for the supplied source video and plan.
     /// </summary>
-    /// <param name="video">Normalized source video facts.</param>
-    /// <param name="plan">Tool-agnostic transcode plan.</param>
-    /// <returns>An ffmpeg execution recipe.</returns>
     public ToolExecution BuildExecution(SourceVideo video, TranscodePlan plan)
     {
         ArgumentNullException.ThrowIfNull(video);
@@ -99,82 +93,23 @@ public sealed class FfmpegTool : ITranscodeTool
             return new ToolExecution(Name, Array.Empty<string>());
         }
 
-        var finalOutputPath = ResolveFinalOutputPath(video, plan);
-        var workingOutputPath = ResolveWorkingOutputPath(video, plan, finalOutputPath);
+        var finalOutputPath = FfmpegExecutionLayout.ResolveFinalOutputPath(video, plan);
+        var workingOutputPath = FfmpegExecutionLayout.ResolveWorkingOutputPath(video, plan, finalOutputPath);
         var ffmpegCommand = BuildFfmpegCommand(video, plan, workingOutputPath);
         var commands = new List<string> { ffmpegCommand };
 
-        AppendPostOperations(commands, video, plan, workingOutputPath, finalOutputPath);
+        FfmpegExecutionLayout.AppendPostOperations(commands, video, plan, workingOutputPath, finalOutputPath);
 
         return new ToolExecution(Name, commands);
     }
 
     private static bool IsNoOp(SourceVideo video, TranscodePlan plan)
     {
-        var finalOutputPath = ResolveFinalOutputPath(video, plan);
+        var finalOutputPath = FfmpegExecutionLayout.ResolveFinalOutputPath(video, plan);
         return plan.CopyVideo &&
                plan.CopyAudio &&
                video.Container.Equals(plan.TargetContainer, StringComparison.OrdinalIgnoreCase) &&
                finalOutputPath.Equals(video.FilePath, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ResolveFinalOutputPath(SourceVideo video, TranscodePlan plan)
-    {
-        if (!string.IsNullOrWhiteSpace(plan.OutputPath))
-        {
-            return plan.OutputPath;
-        }
-
-        var directory = Path.GetDirectoryName(video.FilePath);
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            directory = ".";
-        }
-
-        return Path.Combine(directory, $"{video.FileNameWithoutExtension}.{plan.TargetContainer}");
-    }
-
-    private static string ResolveWorkingOutputPath(SourceVideo video, TranscodePlan plan, string finalOutputPath)
-    {
-        if (plan.KeepSource)
-        {
-            return finalOutputPath;
-        }
-
-        if (finalOutputPath.Equals(video.FilePath, StringComparison.OrdinalIgnoreCase))
-        {
-            var directory = Path.GetDirectoryName(finalOutputPath);
-            if (string.IsNullOrWhiteSpace(directory))
-            {
-                directory = ".";
-            }
-
-            return Path.Combine(directory, $"{video.FileNameWithoutExtension}_temp{Path.GetExtension(finalOutputPath)}");
-        }
-
-        return finalOutputPath;
-    }
-
-    private static void AppendPostOperations(
-        List<string> commands,
-        SourceVideo video,
-        TranscodePlan plan,
-        string workingOutputPath,
-        string finalOutputPath)
-    {
-        if (plan.KeepSource)
-        {
-            return;
-        }
-
-        if (finalOutputPath.Equals(video.FilePath, StringComparison.OrdinalIgnoreCase))
-        {
-            commands.Add($"del {Quote(video.FilePath)}");
-            commands.Add($"ren {Quote(workingOutputPath)} {Quote(Path.GetFileName(finalOutputPath))}");
-            return;
-        }
-
-        commands.Add($"del {Quote(video.FilePath)}");
     }
 
     private string BuildFfmpegCommand(SourceVideo video, TranscodePlan plan, string outputPath)
@@ -191,18 +126,19 @@ public sealed class FfmpegTool : ITranscodeTool
             parts.Add(sanitizePart);
         }
 
-        if (plan.RequiresVideoEncode && string.Equals(plan.PreferredBackend, "gpu", StringComparison.OrdinalIgnoreCase))
+        if (plan.RequiresVideoEncode &&
+            string.Equals(plan.PreferredBackend, "gpu", StringComparison.OrdinalIgnoreCase))
         {
             parts.Add("-hwaccel cuda -hwaccel_output_format cuda");
         }
 
         parts.Add("-i");
-        parts.Add(Quote(video.FilePath));
+        parts.Add(FfmpegExecutionLayout.Quote(video.FilePath));
         parts.Add(BuildVideoPart(video, plan));
         parts.Add(BuildAudioPart(plan));
         parts.Add("-sn");
         parts.Add("-max_muxing_queue_size 4096");
-        parts.Add(Quote(outputPath));
+        parts.Add(FfmpegExecutionLayout.Quote(outputPath));
 
         return string.Join(" ", parts.Where(static part => !string.IsNullOrWhiteSpace(part)));
     }
@@ -237,32 +173,33 @@ public sealed class FfmpegTool : ITranscodeTool
         var fpsToken = ResolveFrameRateToken(video, plan);
         var gop = ResolveGop(video, plan);
         var compatibilityPart = ResolveVideoCompatibilityPart(video, plan);
-        var aqPart = "-spatial_aq 1 -temporal_aq 1 -rc-lookahead 32";
         var preset = plan.EncoderPreset ?? "p6";
-        var pixelFormatPart = string.Equals(plan.PreferredBackend, "gpu", StringComparison.OrdinalIgnoreCase)
-            ? string.Empty
-            : "-pix_fmt yuv420p ";
         var frameRatePart = plan.TargetFramesPerSecond.HasValue
             ? $"-fps_mode:v cfr -r {fpsToken} "
             : string.Empty;
+        var aqPart = "-spatial_aq 1 -temporal_aq 1 -rc-lookahead 32 ";
+        var pixelFormatPart = string.Equals(plan.PreferredBackend, "gpu", StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : "-pix_fmt yuv420p ";
+        var rateControlPart = $"-rc vbr_hq -cq {settings.Cq} -b:v 0 -maxrate {FormatRate(settings.Maxrate)} -bufsize {FormatRate(settings.Bufsize)} ";
 
         if (plan.ApplyOverlayBackground)
         {
             var filter = BuildOverlayFilter(video, plan.TargetHeight, settings.Algorithm);
-            return $"-filter_complex {Quote(filter)} -map \"[v]\" {frameRatePart}" +
-                   $"-c:v {encoder} -preset {preset} -rc vbr_hq -cq {settings.Cq} -b:v 0 -maxrate {FormatRate(settings.Maxrate)} -bufsize {FormatRate(settings.Bufsize)} {aqPart} " +
+            return $"-filter_complex {FfmpegExecutionLayout.Quote(filter)} -map \"[v]\" {frameRatePart}" +
+                   $"-c:v {encoder} -preset {preset} {rateControlPart}{aqPart}" +
                    $"{pixelFormatPart}{compatibilityPart}-g {gop}";
         }
 
         if (plan.TargetHeight.HasValue)
         {
             return $"-map 0:v:0 {frameRatePart}-vf \"scale_cuda=-2:{plan.TargetHeight.Value}:interp_algo={settings.Algorithm}:format=nv12\" " +
-                   $"-c:v {encoder} -preset {preset} -rc vbr_hq -cq {settings.Cq} -b:v 0 -maxrate {FormatRate(settings.Maxrate)} -bufsize {FormatRate(settings.Bufsize)} {aqPart} " +
+                   $"-c:v {encoder} -preset {preset} {rateControlPart}{aqPart}" +
                    $"{compatibilityPart}-g {gop}";
         }
 
         return $"-map 0:v:0 {frameRatePart}" +
-               $"-c:v {encoder} -preset {preset} -rc vbr_hq -cq {settings.Cq} -b:v 0 -maxrate {FormatRate(settings.Maxrate)} -bufsize {FormatRate(settings.Bufsize)} {aqPart} " +
+               $"-c:v {encoder} -preset {preset} {rateControlPart}{aqPart}" +
                $"{pixelFormatPart}{compatibilityPart}-g {gop}";
     }
 
@@ -572,8 +509,6 @@ public sealed class FfmpegTool : ITranscodeTool
 
         return $"[0:v]scale={outputWidth}:-1,crop={outputWidth}:{outputHeight}[bg];[0:v]scale=-1:{outputHeight}[fg];[bg][fg]overlay=(W-w)/2:0[v]";
     }
-
-    private static string Quote(string value) => $"\"{value}\"";
 
     private sealed record ResolvedSourceBitrate(long? Bitrate, string Origin);
 

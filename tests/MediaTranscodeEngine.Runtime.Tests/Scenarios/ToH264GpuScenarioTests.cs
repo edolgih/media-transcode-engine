@@ -1,0 +1,348 @@
+using FluentAssertions;
+using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
+using MediaTranscodeEngine.Runtime.Videos;
+
+namespace MediaTranscodeEngine.Runtime.Tests.Scenarios;
+
+public sealed class ToH264GpuScenarioTests
+{
+    [Fact]
+    public void BuildPlan_WhenInputIsCopyCompatibleM4v_CreatesRemuxOnlyMp4Plan()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.m4v",
+            container: "mov",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: ["aac"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.TargetContainer.Should().Be("mp4");
+        actual.CopyVideo.Should().BeTrue();
+        actual.CopyAudio.Should().BeTrue();
+        actual.TargetVideoCodec.Should().BeNull();
+        actual.OutputPath.Should().Be(@"C:\video\input.mp4");
+        actual.FfmpegOptions.Should().NotBeNull();
+        actual.FfmpegOptions!.OptimizeForFastStart.Should().BeTrue();
+        actual.FfmpegOptions.MapPrimaryAudioOnly.Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenFrameRateLooksVariable_CreatesEncodePlan()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mp4",
+            container: "mp4",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: ["aac"],
+            rawFramesPerSecond: 60,
+            averageFramesPerSecond: 30);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.CopyVideo.Should().BeFalse();
+        actual.TargetVideoCodec.Should().Be("h264");
+        actual.CopyAudio.Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenFixTimestampsIsRequested_DisablesAudioCopy()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(fixTimestamps: true));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mp4",
+            container: "mp4",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: ["aac"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FixTimestamps.Should().BeTrue();
+        actual.CopyVideo.Should().BeFalse();
+        actual.CopyAudio.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(@"C:\video\input.wmv")]
+    [InlineData(@"C:\video\input.asf")]
+    public void BuildPlan_WhenInputExtensionRequiresTimestampRepair_EnablesTimestampRepair(string filePath)
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: filePath,
+            container: Path.GetExtension(filePath).TrimStart('.'),
+            formatName: "asf",
+            videoCodec: "wmv3",
+            audioCodecs: ["wma"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FixTimestamps.Should().BeTrue();
+        actual.CopyAudio.Should().BeFalse();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenFormatNameContainsAsf_EnablesTimestampRepair()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.bin",
+            container: "unknown",
+            formatName: "asf,webm",
+            videoCodec: "wmv3",
+            audioCodecs: ["wma"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FixTimestamps.Should().BeTrue();
+        actual.CopyAudio.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("aac")]
+    [InlineData("mp3")]
+    public void BuildPlan_WhenPrimaryAudioCodecIsCopyCompatible_EnablesAudioCopy(string codec)
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mp4",
+            container: "mp4",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: [codec]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.CopyVideo.Should().BeTrue();
+        actual.CopyAudio.Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenPrimaryAudioCodecIsAc3_DisablesAudioCopy()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mp4",
+            container: "mp4",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: ["ac3"],
+            primaryAudioBitrate: 192_000);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.CopyVideo.Should().BeFalse();
+        actual.CopyAudio.Should().BeFalse();
+        actual.FfmpegOptions!.AudioBitrateKbps.Should().Be(192);
+    }
+
+    [Fact]
+    public void BuildPlan_WhenDurationIsMissing_UsesCqFallback()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            duration: TimeSpan.Zero);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.CopyVideo.Should().BeFalse();
+        actual.FfmpegOptions!.VideoCq.Should().Be(19);
+        actual.FfmpegOptions.VideoBitrateKbps.Should().BeNull();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenCqIsSpecified_UsesCqOverride()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(cq: 21));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FfmpegOptions!.VideoCq.Should().Be(21);
+        actual.FfmpegOptions.VideoBitrateKbps.Should().BeNull();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenDownscaleIsRequestedAndSourceIsAlreadySmall_KeepsSourceDimensions()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(downscaleTargetHeight: 576));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mp4",
+            container: "mp4",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: ["aac"],
+            height: 480);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.TargetHeight.Should().BeNull();
+        actual.Downscale.Should().BeNull();
+        actual.CopyVideo.Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenDownscaleIsRequestedAndCopyIsStillSafe_CreatesRemuxOnlyPlan()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(downscaleTargetHeight: 576));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mp4",
+            container: "mp4",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: ["aac"],
+            height: 480);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.CopyVideo.Should().BeTrue();
+        actual.CopyAudio.Should().BeTrue();
+        actual.TargetContainer.Should().Be("mp4");
+    }
+
+    [Fact]
+    public void BuildPlan_WhenDownscaleIsRequestedForLargeSource_CapsFrameRateTo30000Over1001()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(downscaleTargetHeight: 576));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            height: 1080,
+            framesPerSecond: 59.94);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.TargetHeight.Should().Be(576);
+        actual.TargetFramesPerSecond.Should().BeApproximately(30000d / 1001d, 0.0001);
+        actual.Downscale.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenSourceAudioBitrateIsInsideCorridor_UsesSourceAudioBitrate()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            primaryAudioBitrate: 192_000);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FfmpegOptions!.AudioBitrateKbps.Should().Be(192);
+    }
+
+    [Fact]
+    public void BuildPlan_WhenSourceAudioBitrateIsAboveCorridor_ClampsAudioBitrate()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            primaryAudioBitrate: 384_000);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FfmpegOptions!.AudioBitrateKbps.Should().Be(320);
+    }
+
+    [Fact]
+    public void BuildPlan_WhenSourceAudioBitrateIsBelowCorridor_RaisesAudioBitrateToMinimum()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            primaryAudioBitrate: 32_000);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FfmpegOptions!.AudioBitrateKbps.Should().Be(48);
+    }
+
+    [Fact]
+    public void BuildPlan_WhenPrimaryAudioCodecIsAmrNb_UsesMonoResampleAudioOptions()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["amr_nb"],
+            primaryAudioBitrate: 12_000);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.CopyAudio.Should().BeFalse();
+        actual.FfmpegOptions!.AudioSampleRate.Should().Be(48000);
+        actual.FfmpegOptions.AudioChannels.Should().Be(1);
+        actual.FfmpegOptions.AudioFilter.Should().Be("aresample=48000:async=1:first_pts=0");
+    }
+
+    private static ToH264GpuScenario CreateSut(ToH264GpuRequest? request = null)
+    {
+        return new ToH264GpuScenario(request);
+    }
+
+    private static SourceVideo CreateVideo(
+        string filePath = @"C:\video\input.mp4",
+        string container = "mp4",
+        string videoCodec = "h264",
+        IReadOnlyList<string>? audioCodecs = null,
+        int width = 1920,
+        int height = 1080,
+        double framesPerSecond = 29.97,
+        TimeSpan? duration = null,
+        long? bitrate = 5_000_000,
+        string? formatName = null,
+        double? rawFramesPerSecond = null,
+        double? averageFramesPerSecond = null,
+        long? primaryAudioBitrate = 128_000,
+        int? primaryAudioSampleRate = null,
+        int? primaryAudioChannels = null)
+    {
+        return new SourceVideo(
+            filePath: filePath,
+            container: container,
+            videoCodec: videoCodec,
+            audioCodecs: audioCodecs ?? ["aac"],
+            width: width,
+            height: height,
+            framesPerSecond: framesPerSecond,
+            duration: duration ?? TimeSpan.FromMinutes(10),
+            bitrate: bitrate,
+            formatName: formatName,
+            rawFramesPerSecond: rawFramesPerSecond,
+            averageFramesPerSecond: averageFramesPerSecond,
+            primaryAudioBitrate: primaryAudioBitrate,
+            primaryAudioSampleRate: primaryAudioSampleRate,
+            primaryAudioChannels: primaryAudioChannels);
+    }
+}

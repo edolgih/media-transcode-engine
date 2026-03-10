@@ -3,6 +3,7 @@ using MediaTranscodeEngine.Cli.Processing;
 using MediaTranscodeEngine.Cli.Scenarios;
 using MediaTranscodeEngine.Cli.Tests.Logging;
 using MediaTranscodeEngine.Runtime.Inspection;
+using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Tools;
 using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
@@ -27,6 +28,46 @@ public sealed class PrimaryTranscodeProcessorTests
         actual.Should().StartWith("ffmpeg ");
         actual.Should().Contain(" && del \"C:\\video\\a.mkv\" && ren \"C:\\video\\a_temp.mkv\" \"a.mkv\"");
         actual.Should().NotContain(Environment.NewLine);
+    }
+
+    [Fact]
+    public void Process_WhenScenarioIsToH264Gpu_ReturnsMp4RemuxCommand()
+    {
+        var sut = new PrimaryTranscodeProcessor(
+            CreateInspector(new VideoProbeSnapshot(
+                container: "mp4",
+                streams:
+                [
+                    new VideoProbeStream(
+                        streamType: "video",
+                        codec: "h264",
+                        width: 1920,
+                        height: 1080,
+                        framesPerSecond: 29.97,
+                        bitrate: 4_000_000,
+                        rawFramesPerSecond: 29.97,
+                        averageFramesPerSecond: 29.97),
+                    new VideoProbeStream(
+                        streamType: "audio",
+                        codec: "aac",
+                        bitrate: 192_000)
+                ],
+                duration: TimeSpan.FromMinutes(10),
+                formatBitrate: 4_500_000,
+                formatName: "mov,mp4,m4a,3gp,3g2,mj2")),
+            [
+                new ToH264GpuFfmpegTool("ffmpeg", CreateLogger<ToH264GpuFfmpegTool>()),
+                new FfmpegTool("ffmpeg", CreateLogger<FfmpegTool>())
+            ],
+            CreateScenarioRegistry(),
+            CreateLogger<PrimaryTranscodeProcessor>());
+
+        var actual = sut.Process(CreateRequest(@"C:\video\a.m4v", "toh264gpu"));
+
+        actual.Should().Contain("-c:v copy");
+        actual.Should().Contain("-map 0:a:0? -c:a copy");
+        actual.Should().Contain("-movflags +faststart");
+        actual.Should().Contain("\"C:\\video\\a.mp4\"");
     }
 
     [Fact]
@@ -302,13 +343,21 @@ public sealed class PrimaryTranscodeProcessorTests
 
     private static CliTranscodeRequest CreateRequest(string inputPath, bool info = false, params string[] scenarioArgs)
     {
-        return new CliTranscodeRequest(inputPath, "tomkvgpu", info, scenarioArgs);
+        return CreateRequest(inputPath, "tomkvgpu", info, scenarioArgs);
+    }
+
+    private static CliTranscodeRequest CreateRequest(string inputPath, string scenarioName, bool info = false, params string[] scenarioArgs)
+    {
+        return new CliTranscodeRequest(inputPath, scenarioName, info, scenarioArgs);
     }
 
     private static CliScenarioRegistry CreateScenarioRegistry()
     {
         return new CliScenarioRegistry(
-            [new ToMkvGpuCliScenarioHandler(new ToMkvGpuInfoFormatter())]);
+            [
+                new ToH264GpuCliScenarioHandler(new ToH264GpuInfoFormatter()),
+                new ToMkvGpuCliScenarioHandler(new ToMkvGpuInfoFormatter())
+            ]);
     }
 
     private static SourceVideo CreateVideo(
