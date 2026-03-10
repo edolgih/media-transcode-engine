@@ -22,7 +22,7 @@ CLI wiring:
 - `src/MediaTranscodeEngine.Cli/Scenarios/ICliScenarioHandler.cs`
 - `src/MediaTranscodeEngine.Runtime/Inspection/FfprobeVideoProbe.cs`
 - `src/MediaTranscodeEngine.Runtime/Scenarios/ToMkvGpu/ToMkvGpuScenario.cs`
-- `src/MediaTranscodeEngine.Runtime/Tools/Ffmpeg/FfmpegTool.cs`
+- `src/MediaTranscodeEngine.Runtime/Scenarios/ToMkvGpu/ToMkvGpuFfmpegTool.cs`
 
 CLI flow at a high level:
 

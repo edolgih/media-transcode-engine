@@ -3,6 +3,10 @@ using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Tools;
 
+/*
+Это общий контракт tool-адаптера.
+Он принимает общий план транскодирования и решает, может ли конкретный инструмент его выполнить.
+*/
 /// <summary>
 /// Converts a tool-agnostic transcode plan into an executable recipe for a concrete transcode tool.
 /// </summary>

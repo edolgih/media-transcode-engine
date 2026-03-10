@@ -4,6 +4,13 @@ using MediaTranscodeEngine.Runtime.Downscaling;
 
 namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 
+/*
+Этот helper измеряет bitrate reduction на sample-участках через ffmpeg.
+Он нужен для autosample-режимов downscale-профилей.
+*/
+/// <summary>
+/// Measures downscale sample reduction by running temporary ffmpeg commands on source fragments.
+/// </summary>
 internal sealed class FfmpegSampleMeasurer
 {
     private readonly string _ffmpegPath;

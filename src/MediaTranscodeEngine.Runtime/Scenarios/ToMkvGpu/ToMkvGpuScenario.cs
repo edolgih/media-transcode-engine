@@ -4,6 +4,10 @@ using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 
+/*
+Это прикладной сценарий tomkvgpu.
+Он решает, достаточно ли remux в mkv, или нужно строить план GPU-кодирования в H.264/H.265.
+*/
 /// <summary>
 /// Represents the legacy ToMkvGpu use case as a scenario that decides when MKV remuxing is enough and when H.264 GPU encoding is required.
 /// </summary>

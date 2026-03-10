@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Tools;
 
+/*
+Это результат рендеринга команды конкретным инструментом.
+Он хранит имя инструмента и итоговую последовательность команд для выполнения.
+*/
 /// <summary>
 /// Represents the executable command sequence prepared by a concrete transcode tool.
 /// </summary>

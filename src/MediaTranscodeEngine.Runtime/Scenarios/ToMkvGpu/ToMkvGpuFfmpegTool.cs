@@ -1,36 +1,42 @@
 using System.Globalization;
 using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Plans;
+using MediaTranscodeEngine.Runtime.Tools;
+using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 using MediaTranscodeEngine.Runtime.Videos;
 using Microsoft.Extensions.Logging;
 
-namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
+namespace MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 
+/*
+Это ffmpeg-адаптер сценария tomkvgpu.
+Он рендерит mkv-ориентированный план в конкретные команды ffmpeg и post-steps для файлов.
+*/
 /// <summary>
 /// Renders mkv-oriented transcode plans into ffmpeg execution recipes.
 /// </summary>
-public sealed class FfmpegTool : ITranscodeTool
+public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
 {
     private readonly string _ffmpegPath;
     private readonly DownscaleProfiles _downscaleProfiles;
     private readonly DownscaleAutoSampler _autoSampler;
     private readonly FfmpegSampleMeasurer _sampleMeasurer;
     private readonly Func<string, int, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?> _sampleReductionProvider;
-    private readonly ILogger<FfmpegTool> _logger;
+    private readonly ILogger<ToMkvGpuFfmpegTool> _logger;
 
     /// <summary>
     /// Initializes the mkv-oriented ffmpeg tool.
     /// </summary>
-    public FfmpegTool(string ffmpegPath, ILogger<FfmpegTool> logger)
+    public ToMkvGpuFfmpegTool(string ffmpegPath, ILogger<ToMkvGpuFfmpegTool> logger)
         : this(ffmpegPath, DownscaleProfiles.Default, null, logger)
     {
     }
 
-    internal FfmpegTool(
+    internal ToMkvGpuFfmpegTool(
         string ffmpegPath,
         DownscaleProfiles downscaleProfiles,
         Func<string, int, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider,
-        ILogger<FfmpegTool> logger)
+        ILogger<ToMkvGpuFfmpegTool> logger)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ffmpegPath);
         ArgumentNullException.ThrowIfNull(logger);
@@ -85,7 +91,7 @@ public sealed class FfmpegTool : ITranscodeTool
 
         if (!CanHandle(plan))
         {
-            throw new NotSupportedException("The supplied transcode plan is not supported by ffmpeg tool.");
+            throw new NotSupportedException("The supplied transcode plan is not supported by ToMkvGpu ffmpeg tool.");
         }
 
         if (IsNoOp(video, plan))
@@ -223,7 +229,7 @@ public sealed class FfmpegTool : ITranscodeTool
         {
             "h264" => "h264_nvenc",
             "h265" => "hevc_nvenc",
-            _ => throw new NotSupportedException($"Video codec '{plan.TargetVideoCodec}' is not supported by ffmpeg tool.")
+            _ => throw new NotSupportedException($"Video codec '{plan.TargetVideoCodec}' is not supported by ToMkvGpu ffmpeg tool.")
         };
     }
 

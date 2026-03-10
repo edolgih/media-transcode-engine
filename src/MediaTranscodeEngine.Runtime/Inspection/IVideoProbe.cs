@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Inspection;
 
+/*
+Это минимальный контракт источника сырых probe-данных.
+Он скрывает, каким именно внешним инструментом читаются метаданные видео.
+*/
 /// <summary>
 /// Reads raw stream metadata for a source video from an external probe tool.
 /// </summary>

@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Downscaling;
 
+/*
+Это реестр типизированных downscale-профилей runtime.
+Он хранит профили по целевой высоте и позволяет сценариям и tool-адаптерам брать их как данные.
+*/
 /// <summary>
 /// Provides typed downscale profiles used by Runtime.
 /// </summary>
@@ -43,6 +47,10 @@ internal sealed class DownscaleProfiles
     }
 }
 
+/*
+Это один профиль downscale для конкретной целевой высоты.
+Он хранит defaults, autosample-правила и source-height buckets.
+*/
 /// <summary>
 /// Represents one typed downscale profile keyed by target height.
 /// </summary>
@@ -238,6 +246,10 @@ internal sealed class DownscaleProfile
     }
 }
 
+/*
+Это одна запись default-настроек внутри downscale-профиля.
+Она описывает базовые CQ/maxrate/bufsize и алгоритм масштабирования.
+*/
 /// <summary>
 /// Represents one default settings entry inside a typed downscale profile.
 /// </summary>
@@ -294,6 +306,10 @@ internal sealed record DownscaleDefaults(
     }
 }
 
+/*
+Это коэффициенты rate model для профиля downscale.
+Они используются, когда пользователь переопределяет CQ и нужно пересчитать maxrate/bufsize.
+*/
 /// <summary>
 /// Stores the shared rate-model constants used when CQ is overridden.
 /// </summary>
@@ -308,6 +324,10 @@ internal sealed record DownscaleRateModel(decimal CqStepToMaxrateStep, decimal B
         : throw new ArgumentOutOfRangeException(nameof(BufsizeMultiplier), BufsizeMultiplier, "Bufsize multiplier must be greater than zero.");
 }
 
+/*
+Это autosample-настройки одного downscale-профиля.
+Они определяют corridor, windowing и число итераций для fast/accurate/hybrid путей.
+*/
 /// <summary>
 /// Stores autosample defaults and sample-window rules for one downscale profile.
 /// </summary>
@@ -473,6 +493,10 @@ internal sealed record DownscaleAutoSampling(
     }
 }
 
+/*
+Это corridor для content+quality комбинации в autosample.
+По нему определяется, попадает ли reduction в допустимый диапазон.
+*/
 /// <summary>
 /// Represents one content+quality reduction corridor entry.
 /// </summary>
@@ -546,6 +570,10 @@ internal sealed record DownscaleRange(
     }
 }
 
+/*
+Это fallback-corridor только по quality-профилю.
+Он используется, когда нет более точного content+quality совпадения.
+*/
 /// <summary>
 /// Represents one quality-only fallback corridor.
 /// </summary>
@@ -601,6 +629,10 @@ internal sealed record DownscaleQualityRange(
     }
 }
 
+/*
+Это одно sample-окно для измерений autosample.
+Оно задаёт старт и длительность фрагмента, который будет измеряться через ffmpeg.
+*/
 /// <summary>
 /// Represents one autosample window inside a downscale profile.
 /// </summary>
@@ -617,6 +649,10 @@ internal sealed record DownscaleSampleWindow(
         : throw new ArgumentOutOfRangeException(nameof(DurationSeconds), DurationSeconds, "DurationSeconds must be greater than zero.");
 }
 
+/*
+Это необязательный bounds-override для конкретного source-height bucket.
+Он позволяет локально подправить допустимые границы профиля.
+*/
 /// <summary>
 /// Represents one optional bounds override attached to a source-height bucket.
 /// </summary>
@@ -677,6 +713,10 @@ internal sealed record DownscaleBoundsOverride(
     }
 }
 
+/*
+Это bucket исходной высоты для профиля downscale.
+Через него профиль различает правила для разных source-size диапазонов.
+*/
 /// <summary>
 /// Represents one source-height bucket used by downscale profiles.
 /// </summary>

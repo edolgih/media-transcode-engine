@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Plans;
 
+/*
+Это узкий контейнер ffmpeg-специфичных подсказок для сценариев.
+Он нужен там, где одного общего TranscodePlan недостаточно для точной формы команды.
+*/
 /// <summary>
 /// Carries optional ffmpeg-specific rendering hints for scenarios that need a narrower command shape than the shared defaults.
 /// </summary>

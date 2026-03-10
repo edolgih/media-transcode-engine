@@ -2,6 +2,13 @@ using MediaTranscodeEngine.Runtime.Plans;
 
 namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 
+/*
+Этот helper выбирает аргументы codec-compatibility для выходного видео.
+Сейчас он рассчитывает профиль и level прежде всего для H.264.
+*/
+/// <summary>
+/// Resolves codec compatibility arguments, such as H.264 profile and level, from output dimensions and frame rate.
+/// </summary>
 internal static class VideoCodecCompatibility
 {
     private static readonly H264LevelLimit[] H264Levels =

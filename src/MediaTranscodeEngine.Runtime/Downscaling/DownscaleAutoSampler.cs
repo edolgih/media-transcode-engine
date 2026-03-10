@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Downscaling;
 
+/*
+Этот компонент решает autosample-путь для downscale.
+Он берёт профиль, source facts и measured reduction и выбирает итоговые настройки.
+*/
 /// <summary>
 /// Resolves downscale autosample settings from profile data and measured reduction values.
 /// </summary>
@@ -305,6 +309,13 @@ internal sealed class DownscaleAutoSampler
     }
 }
 
+/*
+Это внутренний результат одной autosample-итерации.
+Он хранит вычисленные настройки и признаки попадания в corridor.
+*/
+/// <summary>
+/// Represents one intermediate autosample result before the final diagnostics payload is assembled.
+/// </summary>
 internal sealed record DownscaleAutoSampleResult(
     DownscaleDefaults Settings,
     decimal? LastReduction,
@@ -319,6 +330,13 @@ internal sealed record DownscaleAutoSampleResult(
     }
 }
 
+/*
+Это итоговое разрешение autosample.
+Оно хранит финальные настройки и диагностику выбранного пути для логирования.
+*/
+/// <summary>
+/// Represents the final autosample resolution together with diagnostics about the chosen path.
+/// </summary>
 internal sealed record DownscaleAutoSampleResolution(
     DownscaleDefaults Settings,
     string Mode,

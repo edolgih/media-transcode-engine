@@ -1,10 +1,16 @@
 using System.Globalization;
 using MediaTranscodeEngine.Runtime.Plans;
+using MediaTranscodeEngine.Runtime.Tools;
+using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 using MediaTranscodeEngine.Runtime.Videos;
 using Microsoft.Extensions.Logging;
 
-namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
+namespace MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 
+/*
+Это ffmpeg-адаптер сценария toh264gpu.
+Он рендерит web/stream/local-ориентированный план в ffmpeg-команду с remux или H.264 NVENC encode path.
+*/
 /// <summary>
 /// Renders web/stream-oriented toh264gpu plans into ffmpeg execution recipes.
 /// </summary>

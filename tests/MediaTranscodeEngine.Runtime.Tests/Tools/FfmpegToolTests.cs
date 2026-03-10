@@ -2,7 +2,8 @@ using FluentAssertions;
 using MediaTranscodeEngine.Runtime.Downscaling;
 using MediaTranscodeEngine.Runtime.Tests.Logging;
 using MediaTranscodeEngine.Runtime.Plans;
-using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
+using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
+using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Tools;
@@ -594,7 +595,7 @@ public sealed class FfmpegToolTests
     public void BuildExecution_WhenDownscaleManualCqIsProvided_SkipsAutoSample()
     {
         var providerCalls = 0;
-        var logger = new ListLogger<FfmpegTool>();
+        var logger = new ListLogger<ToMkvGpuFfmpegTool>();
         var sut = CreateSut(sampleReductionProvider: (_, _, _, _) =>
         {
             providerCalls++;
@@ -657,7 +658,7 @@ public sealed class FfmpegToolTests
     [Fact]
     public void BuildExecution_WhenDownscaleFastAutoSampleIsRequestedAndProbeBitrateIsMissing_UsesFileSizeDurationEstimate()
     {
-        var logger = new ListLogger<FfmpegTool>();
+        var logger = new ListLogger<ToMkvGpuFfmpegTool>();
         var sut = CreateSut(logger: logger);
         var filePath = CreateTempFileWithLength(10_000_000);
 
@@ -751,7 +752,7 @@ public sealed class FfmpegToolTests
     public void BuildExecution_WhenDownscaleAccurateAutoSampleIsRequested_UsesMeasuredSettings()
     {
         IReadOnlyList<DownscaleSampleWindow>? actualWindows = null;
-        var logger = new ListLogger<FfmpegTool>();
+        var logger = new ListLogger<ToMkvGpuFfmpegTool>();
         var sut = CreateSut(sampleReductionProvider: (_, _, settings, windows) =>
         {
             actualWindows = windows;
@@ -1163,17 +1164,17 @@ public sealed class FfmpegToolTests
         actual.Should().BeFalse();
     }
 
-    private static FfmpegTool CreateSut(
+    private static ToMkvGpuFfmpegTool CreateSut(
         string ffmpegPath = "ffmpeg",
         DownscaleProfiles? downscaleProfiles = null,
         Func<string, int, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider = null,
-        Microsoft.Extensions.Logging.ILogger<FfmpegTool>? logger = null)
+        Microsoft.Extensions.Logging.ILogger<ToMkvGpuFfmpegTool>? logger = null)
     {
-        return new FfmpegTool(
+        return new ToMkvGpuFfmpegTool(
             ffmpegPath,
             downscaleProfiles ?? DownscaleProfiles.Default,
             sampleReductionProvider,
-            logger ?? CreateLogger<FfmpegTool>());
+            logger ?? CreateLogger<ToMkvGpuFfmpegTool>());
     }
 
     private static ToH264GpuFfmpegTool CreateToH264GpuSut(

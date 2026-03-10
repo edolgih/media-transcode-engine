@@ -3,6 +3,10 @@ using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 
+/*
+Этот форматтер собирает короткую сводку по решению tomkvgpu.
+Он нужен для info-режима и failure-маркеров, близких к старому поведению.
+*/
 /// <summary>
 /// Formats a concise ToMkvGpu decision summary from an inspected source video and the scenario plan.
 /// </summary>

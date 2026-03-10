@@ -6,7 +6,6 @@ using MediaTranscodeEngine.Runtime.Inspection;
 using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Tools;
-using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 using MediaTranscodeEngine.Runtime.Videos;
 using Microsoft.Extensions.Logging;
 
@@ -19,7 +18,7 @@ public sealed class PrimaryTranscodeProcessorTests
     {
         var sut = new PrimaryTranscodeProcessor(
             CreateInspector(CreateVideo(filePath: @"C:\video\a.mkv", container: "mkv", videoCodec: "av1")),
-            [new FfmpegTool("ffmpeg", CreateLogger<FfmpegTool>())],
+            [new ToMkvGpuFfmpegTool("ffmpeg", CreateLogger<ToMkvGpuFfmpegTool>())],
             CreateScenarioRegistry(),
             CreateLogger<PrimaryTranscodeProcessor>());
 
@@ -57,7 +56,7 @@ public sealed class PrimaryTranscodeProcessorTests
                 formatName: "mov,mp4,m4a,3gp,3g2,mj2")),
             [
                 new ToH264GpuFfmpegTool("ffmpeg", CreateLogger<ToH264GpuFfmpegTool>()),
-                new FfmpegTool("ffmpeg", CreateLogger<FfmpegTool>())
+                new ToMkvGpuFfmpegTool("ffmpeg", CreateLogger<ToMkvGpuFfmpegTool>())
             ],
             CreateScenarioRegistry(),
             CreateLogger<PrimaryTranscodeProcessor>());
@@ -138,7 +137,7 @@ public sealed class PrimaryTranscodeProcessorTests
                     new VideoProbeStream(streamType: "audio", codec: "aac")
                 ],
                 duration: TimeSpan.FromMinutes(10))),
-            [new FfmpegTool("ffmpeg", CreateLogger<FfmpegTool>())],
+            [new ToMkvGpuFfmpegTool("ffmpeg", CreateLogger<ToMkvGpuFfmpegTool>())],
             CreateScenarioRegistry(),
             CreateLogger<PrimaryTranscodeProcessor>());
 
@@ -294,7 +293,7 @@ public sealed class PrimaryTranscodeProcessorTests
         using var loggerFactory = LoggerFactory.Create(builder => builder.AddProvider(provider));
         var sut = new PrimaryTranscodeProcessor(
             CreateInspector(CreateVideo(filePath: @"C:\video\a.mkv", container: "mkv", videoCodec: "av1")),
-            [new FfmpegTool("ffmpeg", loggerFactory.CreateLogger<FfmpegTool>())],
+            [new ToMkvGpuFfmpegTool("ffmpeg", loggerFactory.CreateLogger<ToMkvGpuFfmpegTool>())],
             CreateScenarioRegistry(),
             loggerFactory.CreateLogger<PrimaryTranscodeProcessor>());
 

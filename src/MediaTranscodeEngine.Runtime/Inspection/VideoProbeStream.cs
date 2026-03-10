@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Inspection;
 
+/*
+Это сырое описание одного потока из результата probe.
+Оно хранит поля как можно ближе к исходным данным до дальнейшей нормализации.
+*/
 /// <summary>
 /// Describes a single raw stream returned by a probe tool.
 /// </summary>

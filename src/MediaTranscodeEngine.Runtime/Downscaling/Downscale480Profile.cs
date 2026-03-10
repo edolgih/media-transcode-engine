@@ -1,5 +1,12 @@
 namespace MediaTranscodeEngine.Runtime.Downscaling;
 
+/*
+Это фабрика профиля downscale для целевой высоты 480.
+Она возвращает типизированный профиль со своими defaults, corridor и bucket-правилами.
+*/
+/// <summary>
+/// Builds the typed downscale profile for target height 480.
+/// </summary>
 internal static class Downscale480Profile
 {
     public static DownscaleProfile Create()

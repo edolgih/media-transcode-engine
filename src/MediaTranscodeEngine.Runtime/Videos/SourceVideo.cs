@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Videos;
 
+/*
+Это нормализованное описание входного видеофайла.
+Сценарии и tool-адаптеры используют эти факты как общий источник данных о видео.
+*/
 /// <summary>
 /// Represents a source video file with normalized facts that scenarios can use to make decisions.
 /// </summary>

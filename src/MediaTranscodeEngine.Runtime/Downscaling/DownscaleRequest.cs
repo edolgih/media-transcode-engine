@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Downscaling;
 
+/*
+Это общая request-модель для downscale-намерения.
+Она описывает целевую высоту и возможные overrides профиля без привязки к конкретному сценарию.
+*/
 /// <summary>
 /// Captures reusable downscale directives independent from a specific scenario.
 /// </summary>

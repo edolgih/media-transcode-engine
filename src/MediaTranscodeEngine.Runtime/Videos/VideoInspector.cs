@@ -2,6 +2,10 @@ using MediaTranscodeEngine.Runtime.Inspection;
 
 namespace MediaTranscodeEngine.Runtime.Videos;
 
+/*
+Этот сервис читает сырые probe-данные и превращает их в нормализованный SourceVideo.
+Он отделяет внешний формат ffprobe от внутренней модели фактов.
+*/
 /// <summary>
 /// Loads a source video from a file path and normalizes the metadata required by scenarios.
 /// </summary>

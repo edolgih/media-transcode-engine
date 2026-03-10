@@ -5,7 +5,6 @@ using MediaTranscodeEngine.Runtime.Inspection;
 using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Tools;
-using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 using MediaTranscodeEngine.Runtime.Videos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -71,8 +70,8 @@ public static class Program
             builder.Services.AddSingleton<ITranscodeTool>(static services =>
             {
                 var options = services.GetRequiredService<IOptions<RuntimeValues>>().Value;
-                var logger = services.GetRequiredService<ILogger<FfmpegTool>>();
-                return new FfmpegTool(options.FfmpegPath!, logger);
+                var logger = services.GetRequiredService<ILogger<ToMkvGpuFfmpegTool>>();
+                return new ToMkvGpuFfmpegTool(options.FfmpegPath!, logger);
             });
             builder.Services.AddSingleton<ITranscodeTool>(static services =>
             {

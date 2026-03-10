@@ -5,6 +5,10 @@ using System.Text.Json;
 
 namespace MediaTranscodeEngine.Runtime.Inspection;
 
+/*
+Это адаптер над реальным ffprobe.
+Он запускает внешний процесс и преобразует его JSON-ответ в сырую probe-модель runtime.
+*/
 /// <summary>
 /// Reads raw probe metadata from a real ffprobe process.
 /// </summary>

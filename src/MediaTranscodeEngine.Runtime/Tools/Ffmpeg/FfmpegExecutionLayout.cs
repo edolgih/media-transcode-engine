@@ -3,6 +3,13 @@ using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 
+/*
+Этот helper отвечает за файловую раскладку ffmpeg-выполнения.
+Он вычисляет финальный и временный output path и добавляет post-steps для delete/rename.
+*/
+/// <summary>
+/// Provides shared path and post-operation helpers for ffmpeg-based tool adapters.
+/// </summary>
 internal static class FfmpegExecutionLayout
 {
     public static string ResolveFinalOutputPath(SourceVideo video, TranscodePlan plan)

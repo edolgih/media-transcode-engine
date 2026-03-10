@@ -1,5 +1,9 @@
 namespace MediaTranscodeEngine.Runtime.Plans;
 
+/*
+Это перечень совместимых video-profile вариантов, которые может выбрать сценарий.
+Сейчас он используется для совместимости H.264-выхода с целевыми устройствами.
+*/
 /// <summary>
 /// Enumerates scenario-selected compatibility profiles for video encoders.
 /// </summary>
