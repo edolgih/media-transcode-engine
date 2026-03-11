@@ -15,15 +15,14 @@ public sealed class ToH264GpuRequest
     /// Initializes scenario-specific directives for the ToH264Gpu workflow.
     /// </summary>
     public ToH264GpuRequest(
+        bool keepSource = false,
         int? downscaleTargetHeight = null,
         bool keepFramesPerSecond = false,
         string? downscaleAlgorithm = null,
         int? cq = null,
         string? nvencPreset = null,
-        bool useAdaptiveQuantization = false,
-        int aqStrength = 4,
         bool denoise = false,
-        bool fixTimestamps = false,
+        bool synchronizeAudio = false,
         bool outputMkv = false)
     {
         if (downscaleTargetHeight.HasValue &&
@@ -37,22 +36,21 @@ public sealed class ToH264GpuRequest
             throw new ArgumentOutOfRangeException(nameof(cq), cq.Value, "CQ must be between 1 and 51.");
         }
 
-        if (aqStrength < 0 || aqStrength > 15)
-        {
-            throw new ArgumentOutOfRangeException(nameof(aqStrength), aqStrength, "AQ strength must be between 0 and 15.");
-        }
-
+        KeepSource = keepSource;
         DownscaleTargetHeight = downscaleTargetHeight;
         KeepFramesPerSecond = keepFramesPerSecond;
         DownscaleAlgorithm = NormalizeName(downscaleAlgorithm) ?? "bicubic";
         Cq = cq;
         NvencPreset = NormalizeName(nvencPreset);
-        UseAdaptiveQuantization = useAdaptiveQuantization;
-        AqStrength = aqStrength;
         Denoise = denoise;
-        FixTimestamps = fixTimestamps;
+        SynchronizeAudio = synchronizeAudio;
         OutputMkv = outputMkv;
     }
+
+    /// <summary>
+    /// Gets a value indicating whether the source file should be preserved after execution.
+    /// </summary>
+    public bool KeepSource { get; }
 
     /// <summary>
     /// Gets the optional downscale target height.
@@ -80,24 +78,14 @@ public sealed class ToH264GpuRequest
     public string? NvencPreset { get; }
 
     /// <summary>
-    /// Gets a value indicating whether AQ/lookahead should be enabled.
-    /// </summary>
-    public bool UseAdaptiveQuantization { get; }
-
-    /// <summary>
-    /// Gets the AQ strength value.
-    /// </summary>
-    public int AqStrength { get; }
-
-    /// <summary>
     /// Gets a value indicating whether denoise should be enabled when normal encoding is used.
     /// </summary>
     public bool Denoise { get; }
 
     /// <summary>
-    /// Gets a value indicating whether timestamp repair was explicitly requested.
+    /// Gets a value indicating whether the sync-safe repair path was explicitly requested.
     /// </summary>
-    public bool FixTimestamps { get; }
+    public bool SynchronizeAudio { get; }
 
     /// <summary>
     /// Gets a value indicating whether the target container should be MKV instead of MP4.

@@ -177,7 +177,7 @@ public sealed class ToH264GpuFfmpegTool : ITranscodeTool
             : $"-vf {FfmpegExecutionLayout.Quote(options.VideoFilter)} ";
         var compatibilityPart = ResolveVideoCompatibilityPart(video, plan);
         var gop = ResolveGop(video, plan);
-        var preset = plan.EncoderPreset ?? "p5";
+        var preset = plan.EncoderPreset ?? "p6";
 
         if (plan.TargetHeight.HasValue)
         {
@@ -201,9 +201,19 @@ public sealed class ToH264GpuFfmpegTool : ITranscodeTool
 
         return plan.CopyAudio
             ? $"{mapPart} -c:a copy"
-            : plan.SynchronizeAudio
-                ? $"{mapPart} -c:a aac -ar 48000 -ac 2 -b:a 192k -af \"aresample=async=1:first_pts=0\""
+            : RequiresAudioRepair(plan)
+                ? BuildRepairAudioEncodePart(mapPart, options)
                 : BuildAudioEncodePart(mapPart, options);
+    }
+
+    private static string BuildRepairAudioEncodePart(string mapPart, FfmpegOptions options)
+    {
+        var repairedOptions = new FfmpegOptions(
+            audioBitrateKbps: options.AudioBitrateKbps ?? 192,
+            audioSampleRate: options.AudioSampleRate ?? 48000,
+            audioChannels: options.AudioChannels ?? 2,
+            audioFilter: BuildRepairAudioFilter(options.AudioFilter));
+        return BuildAudioEncodePart(mapPart, repairedOptions);
     }
 
     private static string BuildAudioEncodePart(string mapPart, FfmpegOptions options)
@@ -237,6 +247,11 @@ public sealed class ToH264GpuFfmpegTool : ITranscodeTool
     private static bool UsesStrongSyncRemux(TranscodePlan plan)
     {
         return plan.CopyVideo && plan.SynchronizeAudio;
+    }
+
+    private static bool RequiresAudioRepair(TranscodePlan plan)
+    {
+        return plan.SynchronizeAudio || plan.FixTimestamps;
     }
 
     private static bool ShouldUseHardwareDecode(TranscodePlan plan)
@@ -301,6 +316,19 @@ public sealed class ToH264GpuFfmpegTool : ITranscodeTool
         }
 
         return $"{string.Join(" ", parts)} ";
+    }
+
+    private static string BuildRepairAudioFilter(string? existingFilter)
+    {
+        if (string.IsNullOrWhiteSpace(existingFilter))
+        {
+            return "aresample=async=1:first_pts=0";
+        }
+
+        var normalized = existingFilter.Trim();
+        return normalized.Contains("async=1:first_pts=0", StringComparison.OrdinalIgnoreCase)
+            ? normalized
+            : $"{normalized},aresample=async=1:first_pts=0";
     }
 
     private static string ResolveFrameRateToken(SourceVideo video, TranscodePlan plan)

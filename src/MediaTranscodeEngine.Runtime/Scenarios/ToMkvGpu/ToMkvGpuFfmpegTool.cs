@@ -213,7 +213,7 @@ public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
     {
         return plan.CopyAudio
             ? "-map 0:a? -c:a copy"
-            : plan.SynchronizeAudio
+            : RequiresAudioRepair(plan)
                 ? "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k -af \"aresample=async=1:first_pts=0\""
                 : "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k";
     }
@@ -221,6 +221,11 @@ public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
     private static bool UsesStrongSyncRemux(TranscodePlan plan)
     {
         return plan.CopyVideo && plan.SynchronizeAudio;
+    }
+
+    private static bool RequiresAudioRepair(TranscodePlan plan)
+    {
+        return plan.SynchronizeAudio || plan.FixTimestamps;
     }
 
     private static string ResolveVideoEncoder(TranscodePlan plan)

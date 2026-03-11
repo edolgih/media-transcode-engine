@@ -112,15 +112,14 @@ public sealed class CliParsingTests
             [
                 "--scenario", "toh264gpu",
                 "--input", @"C:\video\a.mkv",
+                "--keep-source",
                 "--downscale", "576",
                 "--keep-fps",
                 "--downscale-algo", "lanczos",
                 "--cq", "21",
                 "--nvenc-preset", "p6",
-                "--use-aq",
-                "--aq-strength", "5",
                 "--denoise",
-                "--fix-timestamps",
+                "--sync-audio",
                 "--mkv"
             ],
             out var parsed,
@@ -132,15 +131,14 @@ public sealed class CliParsingTests
         parsed.Scenario.Should().Be("toh264gpu");
         parsed.Info.Should().BeFalse();
         parsed.ScenarioArgs.Should().Equal(
+            "--keep-source",
             "--downscale", "576",
             "--keep-fps",
             "--downscale-algo", "lanczos",
             "--cq", "21",
             "--nvenc-preset", "p6",
-            "--use-aq",
-            "--aq-strength", "5",
             "--denoise",
-            "--fix-timestamps",
+            "--sync-audio",
             "--mkv");
     }
 
@@ -151,15 +149,14 @@ public sealed class CliParsingTests
             [
                 "--scenario", "toh264gpu",
                 "--input", @"C:\video\a.mkv",
+                "--keep-source",
                 "--downscale", "576",
                 "--keep-fps",
                 "--downscale-algo", "lanczos",
                 "--cq", "21",
                 "--nvenc-preset", "p6",
-                "--use-aq",
-                "--aq-strength", "5",
                 "--denoise",
-                "--fix-timestamps",
+                "--sync-audio",
                 "--mkv"
             ],
             out var parsed,
@@ -178,15 +175,14 @@ public sealed class CliParsingTests
         var actual = handler.CreateScenario(request).Should().BeOfType<ToH264GpuScenario>().Subject;
         var scenarioRequest = actual.Request;
 
+        scenarioRequest.KeepSource.Should().BeTrue();
         scenarioRequest.DownscaleTargetHeight.Should().Be(576);
         scenarioRequest.KeepFramesPerSecond.Should().BeTrue();
         scenarioRequest.DownscaleAlgorithm.Should().Be("lanczos");
         scenarioRequest.Cq.Should().Be(21);
         scenarioRequest.NvencPreset.Should().Be("p6");
-        scenarioRequest.UseAdaptiveQuantization.Should().BeTrue();
-        scenarioRequest.AqStrength.Should().Be(5);
         scenarioRequest.Denoise.Should().BeTrue();
-        scenarioRequest.FixTimestamps.Should().BeTrue();
+        scenarioRequest.SynchronizeAudio.Should().BeTrue();
         scenarioRequest.OutputMkv.Should().BeTrue();
     }
 

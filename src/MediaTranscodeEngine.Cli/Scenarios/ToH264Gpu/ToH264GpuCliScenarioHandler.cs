@@ -17,15 +17,14 @@ namespace MediaTranscodeEngine.Cli.Scenarios;
 /// </summary>
 internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
 {
+    private const string KeepSourceOptionName = "--keep-source";
     private const string DownscaleOptionName = "--downscale";
     private const string KeepFpsOptionName = "--keep-fps";
     private const string DownscaleAlgoOptionName = "--downscale-algo";
     private const string CqOptionName = "--cq";
     private const string NvencPresetOptionName = "--nvenc-preset";
-    private const string UseAqOptionName = "--use-aq";
-    private const string AqStrengthOptionName = "--aq-strength";
     private const string DenoiseOptionName = "--denoise";
-    private const string FixTimestampsOptionName = "--fix-timestamps";
+    private const string SynchronizeAudioOptionName = "--sync-audio";
     private const string MkvOptionName = "--mkv";
 
     private readonly ToH264GpuInfoFormatter _infoFormatter;
@@ -41,15 +40,14 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
 
     public IReadOnlyList<CliHelpOption> HelpOptions =>
     [
+        new CliHelpOption("--keep-source", "Keep the source file instead of replacing it when output path matches the input."),
         new CliHelpOption("--downscale <720|576>", "GPU downscale when the source is higher than the target."),
         new CliHelpOption("--keep-fps", "Keep the source FPS in downscale mode instead of capping to 30000/1001."),
         new CliHelpOption("--downscale-algo <bicubic|lanczos|bilinear>", "scale_cuda interpolation algorithm."),
         new CliHelpOption("--cq <1..51>", "Explicit CQ override."),
         new CliHelpOption("--nvenc-preset <p1..p7>", "Explicit NVENC preset override."),
-        new CliHelpOption("--use-aq", "Enable AQ/lookahead."),
-        new CliHelpOption("--aq-strength <0..15>", "AQ strength used with --use-aq."),
         new CliHelpOption("--denoise", "Enable hqdn3d in normal encode mode."),
-        new CliHelpOption("--fix-timestamps", "Force timestamp-repair path and disable audio copy."),
+        new CliHelpOption("--sync-audio", "Use the sync-safe repair path and disable audio copy."),
         new CliHelpOption("--mkv", "Write MKV instead of MP4.")
     ];
 
@@ -60,7 +58,7 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
         return
         [
             $"{exeName} --scenario toh264gpu --input C:\\video\\input.m4v",
-            $"{exeName} --scenario toh264gpu --input C:\\video\\input.mkv --downscale 576 --use-aq --aq-strength 4"
+            $"{exeName} --scenario toh264gpu --input C:\\video\\input.mkv --keep-source --sync-audio"
         ];
     }
 
@@ -139,15 +137,14 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
         request = null!;
         errorText = null;
 
+        var keepSource = false;
         var downscaleTargetHeight = (int?)null;
         var keepFramesPerSecond = false;
         string? downscaleAlgorithm = null;
         var cq = (int?)null;
         string? nvencPreset = null;
-        var useAdaptiveQuantization = false;
-        var aqStrength = 4;
         var denoise = false;
-        var fixTimestamps = false;
+        var synchronizeAudio = false;
         var outputMkv = false;
 
         for (var index = 0; index < args.Count; index++)
@@ -155,6 +152,10 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
             var token = args[index];
             switch (token)
             {
+                case KeepSourceOptionName:
+                    keepSource = true;
+                    break;
+
                 case DownscaleOptionName:
                     if (!TryReadInt(args, ref index, DownscaleOptionName, "--downscale must be 720 or 576.", out downscaleTargetHeight, out errorText))
                     {
@@ -215,31 +216,12 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
 
                     break;
 
-                case UseAqOptionName:
-                    useAdaptiveQuantization = true;
-                    break;
-
-                case AqStrengthOptionName:
-                    if (!TryReadInt(args, ref index, AqStrengthOptionName, "--aq-strength must be an integer from 0 to 15.", out var parsedAqStrength, out errorText))
-                    {
-                        return false;
-                    }
-
-                    if (!parsedAqStrength.HasValue || parsedAqStrength.Value < 0 || parsedAqStrength.Value > 15)
-                    {
-                        errorText = "--aq-strength must be an integer from 0 to 15.";
-                        return false;
-                    }
-
-                    aqStrength = parsedAqStrength.Value;
-                    break;
-
                 case DenoiseOptionName:
                     denoise = true;
                     break;
 
-                case FixTimestampsOptionName:
-                    fixTimestamps = true;
+                case SynchronizeAudioOptionName:
+                    synchronizeAudio = true;
                     break;
 
                 case MkvOptionName:
@@ -253,15 +235,14 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
         }
 
         request = new ToH264GpuRequest(
+            keepSource: keepSource,
             downscaleTargetHeight: downscaleTargetHeight,
             keepFramesPerSecond: keepFramesPerSecond,
             downscaleAlgorithm: downscaleAlgorithm,
             cq: cq,
             nvencPreset: nvencPreset,
-            useAdaptiveQuantization: useAdaptiveQuantization,
-            aqStrength: aqStrength,
             denoise: denoise,
-            fixTimestamps: fixTimestamps,
+            synchronizeAudio: synchronizeAudio,
             outputMkv: outputMkv);
         return true;
     }

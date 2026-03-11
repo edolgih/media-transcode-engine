@@ -15,7 +15,7 @@ public sealed class ToH264GpuScenario : TranscodeScenario
 {
     private const double FrameRateTolerance = 0.0001;
     private const double DownscaleFrameRateCap = 30000d / 1001d;
-    private const int DefaultAudioBitrateKbps = 160;
+    private const int DefaultAudioBitrateKbps = 192;
     private const int MinAudioBitrateKbps = 48;
     private const int MaxAudioBitrateKbps = 320;
     private const int DefaultCq = 19;
@@ -39,37 +39,55 @@ public sealed class ToH264GpuScenario : TranscodeScenario
     {
         var targetContainer = Request.OutputMkv ? "mkv" : "mp4";
         var useDownscale = Request.DownscaleTargetHeight.HasValue && video.Height > Request.DownscaleTargetHeight.Value;
-        var fixTimestamps = Request.FixTimestamps || RequiresAutomaticTimestampRepair(video);
-        var remuxOnly = CanRemuxOnly(video, fixTimestamps, useDownscale);
-        var copyAudio = remuxOnly || CanCopyAudio(video, fixTimestamps);
-        var targetFramesPerSecond = remuxOnly
+        var synchronizeAudio = Request.SynchronizeAudio || RequiresAutomaticTimestampRepair(video);
+        var videoCopyCompatible = CanCopyVideo(video, targetContainer, useDownscale);
+        var copyVideo = !synchronizeAudio && videoCopyCompatible && CanCopyAudio(video) ||
+                        synchronizeAudio && videoCopyCompatible;
+        var copyAudio = !synchronizeAudio && CanCopyAudio(video);
+        var targetFramesPerSecond = copyVideo
             ? (double?)null
             : ResolveTargetFramesPerSecond(video, useDownscale);
-        var ffmpegOptions = BuildFfmpegOptions(video, remuxOnly, fixTimestamps, useDownscale, targetContainer);
+        var ffmpegOptions = BuildFfmpegOptions(video, copyVideo, copyAudio, useDownscale, targetContainer);
 
         return new TranscodePlan(
             targetContainer: targetContainer,
-            targetVideoCodec: remuxOnly ? null : "h264",
-            preferredBackend: remuxOnly ? null : "gpu",
-            videoCompatibilityProfile: remuxOnly ? null : VideoCompatibilityProfile.H264High,
+            targetVideoCodec: copyVideo ? null : "h264",
+            preferredBackend: copyVideo ? null : "gpu",
+            videoCompatibilityProfile: copyVideo ? null : VideoCompatibilityProfile.H264High,
             targetHeight: useDownscale ? Request.DownscaleTargetHeight : null,
             targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: false,
             downscale: useDownscale ? Request.BuildDownscaleRequest() : null,
-            copyVideo: remuxOnly,
+            copyVideo: copyVideo,
             copyAudio: copyAudio,
-            fixTimestamps: fixTimestamps,
-            keepSource: false,
-            encoderPreset: remuxOnly ? null : (Request.NvencPreset ?? "p5"),
+            fixTimestamps: synchronizeAudio,
+            keepSource: Request.KeepSource,
+            encoderPreset: copyVideo ? null : (Request.NvencPreset ?? "p6"),
             outputPath: ResolveOutputPath(video, targetContainer),
+            synchronizeAudio: synchronizeAudio,
             ffmpegOptions: ffmpegOptions);
     }
 
-    private bool CanRemuxOnly(SourceVideo video, bool fixTimestamps, bool useDownscale)
+    private bool CanCopyVideo(SourceVideo video, string targetContainer, bool useDownscale)
     {
-        if (Request.Denoise || fixTimestamps || useDownscale)
+        if (Request.Denoise || useDownscale)
         {
             return false;
+        }
+
+        if (!video.VideoCodec.Equals("h264", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (HasVariableFrameRateSignal(video))
+        {
+            return false;
+        }
+
+        if (targetContainer.Equals("mkv", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
         }
 
         if (!IsMp4Family(video.FormatName))
@@ -83,22 +101,12 @@ public sealed class ToH264GpuScenario : TranscodeScenario
             return false;
         }
 
-        if (!video.VideoCodec.Equals("h264", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (!CanCopyAudio(video, fixTimestamps))
-        {
-            return false;
-        }
-
-        return !HasVariableFrameRateSignal(video);
+        return true;
     }
 
-    private bool CanCopyAudio(SourceVideo video, bool fixTimestamps)
+    private bool CanCopyAudio(SourceVideo video)
     {
-        if (fixTimestamps || !video.HasAudio)
+        if (!video.HasAudio)
         {
             return !video.HasAudio;
         }
@@ -123,8 +131,8 @@ public sealed class ToH264GpuScenario : TranscodeScenario
 
     private FfmpegOptions BuildFfmpegOptions(
         SourceVideo video,
-        bool remuxOnly,
-        bool fixTimestamps,
+        bool copyVideo,
+        bool copyAudio,
         bool useDownscale,
         string targetContainer)
     {
@@ -135,17 +143,17 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         return new FfmpegOptions(
             optimizeForFastStart: targetContainer.Equals("mp4", StringComparison.OrdinalIgnoreCase),
             mapPrimaryAudioOnly: true,
-            useHardwareDecode: remuxOnly ? null : useDownscale,
-            enableAdaptiveQuantization: remuxOnly ? null : Request.UseAdaptiveQuantization,
-            aqStrength: !remuxOnly && Request.UseAdaptiveQuantization ? Request.AqStrength : null,
-            rcLookahead: !remuxOnly && Request.UseAdaptiveQuantization ? 32 : null,
-            videoBitrateKbps: remuxOnly ? null : rateControl.VideoBitrateKbps,
-            videoMaxrateKbps: remuxOnly ? null : rateControl.VideoMaxrateKbps,
-            videoBufferSizeKbps: remuxOnly ? null : rateControl.VideoBufferSizeKbps,
-            videoCq: remuxOnly ? null : rateControl.VideoCq,
-            videoFilter: remuxOnly || useDownscale || !Request.Denoise ? null : "hqdn3d=1.2:1.2:6:6",
-            pixelFormat: remuxOnly || useDownscale ? null : "yuv420p",
-            audioBitrateKbps: remuxOnly || CanCopyAudio(video, fixTimestamps) ? null : audioBitrateKbps,
+            useHardwareDecode: copyVideo ? null : useDownscale,
+            enableAdaptiveQuantization: copyVideo ? null : true,
+            aqStrength: null,
+            rcLookahead: copyVideo ? null : 32,
+            videoBitrateKbps: copyVideo ? null : rateControl.VideoBitrateKbps,
+            videoMaxrateKbps: copyVideo ? null : rateControl.VideoMaxrateKbps,
+            videoBufferSizeKbps: copyVideo ? null : rateControl.VideoBufferSizeKbps,
+            videoCq: copyVideo ? null : rateControl.VideoCq,
+            videoFilter: copyVideo || useDownscale || !Request.Denoise ? null : "hqdn3d=1.2:1.2:6:6",
+            pixelFormat: copyVideo || useDownscale ? null : "yuv420p",
+            audioBitrateKbps: copyAudio ? null : audioBitrateKbps,
             audioSampleRate: usesAmrAudio ? 48000 : null,
             audioChannels: usesAmrAudio ? 1 : null,
             audioFilter: usesAmrAudio ? "aresample=48000:async=1:first_pts=0" : null);
@@ -297,7 +305,7 @@ public sealed class ToH264GpuScenario : TranscodeScenario
                 codec.Equals("amrnb", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string ResolveOutputPath(SourceVideo video, string targetContainer)
+    private string ResolveOutputPath(SourceVideo video, string targetContainer)
     {
         var directory = Path.GetDirectoryName(video.FilePath);
         if (string.IsNullOrWhiteSpace(directory))
@@ -305,7 +313,14 @@ public sealed class ToH264GpuScenario : TranscodeScenario
             directory = ".";
         }
 
-        return Path.Combine(directory, $"{video.FileNameWithoutExtension}.{targetContainer}");
+        var outputPath = Path.Combine(directory, $"{video.FileNameWithoutExtension}.{targetContainer}");
+        if (!Request.KeepSource ||
+            !outputPath.Equals(video.FilePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return outputPath;
+        }
+
+        return Path.Combine(directory, $"{video.FileNameWithoutExtension}_out.{targetContainer}");
     }
 
     private sealed class VideoRateControl

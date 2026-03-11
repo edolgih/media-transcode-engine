@@ -62,10 +62,10 @@ dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --inpu
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --downscale 576
 ```
 
-`toh264gpu` encode with AQ:
+`toh264gpu` sync-safe repair path:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --use-aq --aq-strength 4
+dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --sync-audio --keep-source
 ```
 
 Read paths from stdin:
@@ -100,15 +100,15 @@ Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | dotnet run --project sr
 
 `toh264gpu` options:
 
+- `--keep-source`
 - `--downscale <720|576>`
 - `--keep-fps`
 - `--downscale-algo <bilinear|bicubic|lanczos>`
 - `--cq <1..51>`
 - `--nvenc-preset <p1..p7>`
-- `--use-aq`
-- `--aq-strength <0..15>`
 - `--denoise`
-- `--fix-timestamps`
+- `--sync-audio`
+  Uses the sync-safe repair path with async audio resample instead of audio copy.
 - `--mkv`
 
 ## Requirements

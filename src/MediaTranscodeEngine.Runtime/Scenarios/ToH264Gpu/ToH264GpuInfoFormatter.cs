@@ -54,9 +54,9 @@ public sealed class ToH264GpuInfoFormatter
             parts.Add($"downscale {plan.TargetHeight.Value}p");
         }
 
-        if (plan.FixTimestamps)
+        if (plan.SynchronizeAudio)
         {
-            parts.Add("fix timestamps");
+            parts.Add("sync audio");
         }
 
         if (parts.Count == 0)

@@ -205,6 +205,25 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void BuildExecution_WhenToH264GpuPresetIsNotSpecified_UsesP6Preset()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "av1", filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            ffmpegOptions: new FfmpegOptions(videoCq: 21),
+            outputPath: @"C:\video\input.mp4",
+            targetContainer: "mp4");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-preset p6");
+    }
+
+    [Fact]
     public void BuildExecution_WhenAudioEncodingOptionsAreProvided_UsesRequestedAudioSettings()
     {
         var sut = CreateToH264GpuSut();
@@ -225,6 +244,31 @@ public sealed class FfmpegToolTests
         var actual = sut.BuildExecution(video, plan);
 
         actual.Commands[0].Should().Contain("-c:a aac -ar 48000 -ac 1 -b:a 96k -af \"aresample=48000:async=1:first_pts=0\"");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenToH264GpuPlanSynchronizesAudioWithCopiedVideo_UsesSharedRepairPath()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "h264", audioCodecs: ["aac"], filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: true,
+            copyAudio: false,
+            fixTimestamps: true,
+            synchronizeAudio: true,
+            ffmpegOptions: new FfmpegOptions(
+                mapPrimaryAudioOnly: true),
+            outputPath: @"C:\video\input.mp4",
+            targetContainer: "mp4");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-c:v copy");
+        actual.Commands[0].Should().Contain("-copytb 1");
+        actual.Commands[0].Should().Contain("-map 0:a:0? -c:a aac");
+        actual.Commands[0].Should().Contain("-ar 48000 -ac 2 -b:a 192k");
+        actual.Commands[0].Should().Contain("-af \"aresample=async=1:first_pts=0\"");
+        actual.Commands[0].Should().Contain("-fflags +genpts+igndts -avoid_negative_ts make_zero");
     }
 
     [Fact]
@@ -1085,6 +1129,25 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("-avoid_negative_ts make_zero");
         actual.Commands[0].Should().NotContain("-fflags +genpts");
         actual.Commands[0].Should().NotContain("+igndts");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenOnlyAudioEncodingNeedsTimestampRepair_UsesAsyncResample()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "h264", audioCodecs: ["ac3"], filePath: @"C:\video\input.mkv");
+        var plan = CreatePlan(
+            copyVideo: true,
+            copyAudio: false,
+            fixTimestamps: true,
+            outputPath: @"C:\video\input_out.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-c:v copy");
+        actual.Commands[0].Should().Contain("-c:a aac");
+        actual.Commands[0].Should().Contain("-af \"aresample=async=1:first_pts=0\"");
+        actual.Commands[0].Should().Contain("-fflags +genpts+igndts -avoid_negative_ts make_zero");
     }
 
     [Fact]

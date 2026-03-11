@@ -50,9 +50,9 @@ public sealed class ToH264GpuScenarioTests
     }
 
     [Fact]
-    public void BuildPlan_WhenFixTimestampsIsRequested_DisablesAudioCopy()
+    public void BuildPlan_WhenSynchronizeAudioIsRequested_KeepsCopyCompatibleVideoAndDisablesAudioCopy()
     {
-        var sut = CreateSut(new ToH264GpuRequest(fixTimestamps: true));
+        var sut = CreateSut(new ToH264GpuRequest(synchronizeAudio: true));
         var video = CreateVideo(
             filePath: @"C:\video\input.mp4",
             container: "mp4",
@@ -63,7 +63,8 @@ public sealed class ToH264GpuScenarioTests
         var actual = sut.BuildPlan(video);
 
         actual.FixTimestamps.Should().BeTrue();
-        actual.CopyVideo.Should().BeFalse();
+        actual.SynchronizeAudio.Should().BeTrue();
+        actual.CopyVideo.Should().BeTrue();
         actual.CopyAudio.Should().BeFalse();
     }
 
@@ -83,6 +84,7 @@ public sealed class ToH264GpuScenarioTests
         var actual = sut.BuildPlan(video);
 
         actual.FixTimestamps.Should().BeTrue();
+        actual.SynchronizeAudio.Should().BeTrue();
         actual.CopyAudio.Should().BeFalse();
     }
 
@@ -100,6 +102,7 @@ public sealed class ToH264GpuScenarioTests
         var actual = sut.BuildPlan(video);
 
         actual.FixTimestamps.Should().BeTrue();
+        actual.SynchronizeAudio.Should().BeTrue();
         actual.CopyAudio.Should().BeFalse();
     }
 
@@ -142,6 +145,23 @@ public sealed class ToH264GpuScenarioTests
     }
 
     [Fact]
+    public void BuildPlan_WhenPrimaryAudioBitrateIsMissing_UsesDefaultAudioBitrate()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            primaryAudioBitrate: null);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FfmpegOptions!.AudioBitrateKbps.Should().Be(192);
+    }
+
+    [Fact]
     public void BuildPlan_WhenDurationIsMissing_UsesCqFallback()
     {
         var sut = CreateSut();
@@ -175,6 +195,56 @@ public sealed class ToH264GpuScenarioTests
 
         actual.FfmpegOptions!.VideoCq.Should().Be(21);
         actual.FfmpegOptions.VideoBitrateKbps.Should().BeNull();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenKeepSourceIsRequestedAndTargetPathMatchesSource_ReturnsDistinctOutputPath()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(keepSource: true));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mp4",
+            container: "mp4",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: ["aac"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.KeepSource.Should().BeTrue();
+        actual.OutputPath.Should().Be(@"C:\video\input_out.mp4");
+    }
+
+    [Fact]
+    public void BuildPlan_WhenEncodePresetIsNotSpecified_UsesP6Preset()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.EncoderPreset.Should().Be("p6");
+    }
+
+    [Fact]
+    public void BuildPlan_WhenVideoIsEncoded_EnablesDefaultAdaptiveQuantization()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FfmpegOptions!.EnableAdaptiveQuantization.Should().BeTrue();
+        actual.FfmpegOptions.AqStrength.Should().BeNull();
     }
 
     [Fact]
