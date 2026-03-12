@@ -3,6 +3,7 @@ using MediaTranscodeEngine.Cli.Parsing;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Scenarios;
 using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Videos;
 using Microsoft.Extensions.Logging;
 
@@ -308,17 +309,22 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
             return false;
         }
 
-        request = new ToH264GpuRequest(
-            keepSource: keepSource,
-            downscaleTargetHeight: downscaleTargetHeight,
-            keepFramesPerSecond: keepFramesPerSecond,
+        var videoSettingsRequest = new VideoSettingsRequest(
             contentProfile: contentProfile,
             qualityProfile: qualityProfile,
             autoSampleMode: autoSampleMode,
-            downscaleAlgorithm: downscaleAlgorithm,
             cq: cq,
             maxrate: maxrate,
-            bufsize: bufsize,
+            bufsize: bufsize);
+        var downscaleRequest = downscaleTargetHeight.HasValue
+            ? new DownscaleRequest(downscaleTargetHeight.Value, downscaleAlgorithm)
+            : null;
+
+        request = new ToH264GpuRequest(
+            keepSource: keepSource,
+            downscale: downscaleRequest,
+            keepFramesPerSecond: keepFramesPerSecond,
+            videoSettings: videoSettingsRequest.HasValue ? videoSettingsRequest : null,
             nvencPreset: nvencPreset,
             denoise: denoise,
             synchronizeAudio: synchronizeAudio,

@@ -39,7 +39,7 @@ public sealed class ToH264GpuScenario : TranscodeScenario
     protected override TranscodePlan BuildPlanCore(SourceVideo video)
     {
         var targetContainer = Request.OutputMkv ? "mkv" : "mp4";
-        var downscaleRequest = Request.BuildDownscaleRequest();
+        var downscaleRequest = Request.Downscale;
         var useDownscale = downscaleRequest is not null && video.Height > downscaleRequest.TargetHeight;
         var synchronizeAudio = Request.SynchronizeAudio || RequiresAutomaticTimestampRepair(video);
         var videoCopyCompatible = CanCopyVideo(video, targetContainer, useDownscale);
@@ -48,7 +48,7 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         var copyAudio = !synchronizeAudio && CanCopyAudio(video);
         var videoSettingsRequest = copyVideo
             ? null
-            : Request.BuildVideoSettingsRequest();
+            : Request.VideoSettings;
         var targetFramesPerSecond = copyVideo
             ? (double?)null
             : ResolveTargetFramesPerSecond(video, useDownscale);

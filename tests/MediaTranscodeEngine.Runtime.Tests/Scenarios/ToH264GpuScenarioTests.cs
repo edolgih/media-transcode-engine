@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 using MediaTranscodeEngine.Runtime.Videos;
@@ -189,7 +190,8 @@ public sealed class ToH264GpuScenarioTests
     [Fact]
     public void BuildPlan_WhenCqIsSpecified_UsesCqOverride()
     {
-        var sut = CreateSut(new ToH264GpuRequest(cq: 19));
+        var sut = CreateSut(new ToH264GpuRequest(
+            videoSettings: new VideoSettingsRequest(cq: 19)));
         var video = CreateVideo(
             filePath: @"C:\video\input.mkv",
             container: "mkv",
@@ -209,8 +211,9 @@ public sealed class ToH264GpuScenarioTests
     public void BuildPlan_WhenOrdinaryEncodeUsesProfileOnlyRequest_UsesFastAutosampleDefaults()
     {
         var sut = CreateSut(new ToH264GpuRequest(
-            contentProfile: "anime",
-            qualityProfile: "default"));
+            videoSettings: new VideoSettingsRequest(
+                contentProfile: "anime",
+                qualityProfile: "default")));
         var video = CreateVideo(
             filePath: @"C:\video\input.mkv",
             container: "mkv",
@@ -280,7 +283,7 @@ public sealed class ToH264GpuScenarioTests
     [Fact]
     public void BuildPlan_WhenDownscaleIsRequestedAndSourceIsAlreadySmall_KeepsSourceDimensions()
     {
-        var sut = CreateSut(new ToH264GpuRequest(downscaleTargetHeight: 576));
+        var sut = CreateSut(new ToH264GpuRequest(downscale: new DownscaleRequest(576)));
         var video = CreateVideo(
             filePath: @"C:\video\input.mp4",
             container: "mp4",
@@ -299,7 +302,7 @@ public sealed class ToH264GpuScenarioTests
     [Fact]
     public void BuildPlan_WhenDownscaleIsRequestedAndCopyIsStillSafe_CreatesRemuxOnlyPlan()
     {
-        var sut = CreateSut(new ToH264GpuRequest(downscaleTargetHeight: 576));
+        var sut = CreateSut(new ToH264GpuRequest(downscale: new DownscaleRequest(576)));
         var video = CreateVideo(
             filePath: @"C:\video\input.mp4",
             container: "mp4",
@@ -318,7 +321,7 @@ public sealed class ToH264GpuScenarioTests
     [Fact]
     public void BuildPlan_WhenDownscaleIsRequestedForLargeSource_CapsFrameRateTo30000Over1001()
     {
-        var sut = CreateSut(new ToH264GpuRequest(downscaleTargetHeight: 576));
+        var sut = CreateSut(new ToH264GpuRequest(downscale: new DownscaleRequest(576)));
         var video = CreateVideo(
             filePath: @"C:\video\input.mkv",
             container: "mkv",
@@ -339,9 +342,10 @@ public sealed class ToH264GpuScenarioTests
     public void BuildPlan_WhenDownscaleUsesProfileOnlyRequest_UsesProfileDefaults()
     {
         var sut = CreateSut(new ToH264GpuRequest(
-            downscaleTargetHeight: 576,
-            contentProfile: "anime",
-            qualityProfile: "default"));
+            downscale: new DownscaleRequest(576),
+            videoSettings: new VideoSettingsRequest(
+                contentProfile: "anime",
+                qualityProfile: "default")));
         var video = CreateVideo(
             filePath: @"C:\video\input.mkv",
             container: "mkv",
@@ -363,9 +367,10 @@ public sealed class ToH264GpuScenarioTests
     public void BuildPlan_WhenDownscale480UsesProfileOnlyRequest_UsesProfileDefaults()
     {
         var sut = CreateSut(new ToH264GpuRequest(
-            downscaleTargetHeight: 480,
-            contentProfile: "film",
-            qualityProfile: "default"));
+            downscale: new DownscaleRequest(480),
+            videoSettings: new VideoSettingsRequest(
+                contentProfile: "film",
+                qualityProfile: "default")));
         var video = CreateVideo(
             filePath: @"C:\video\input.mkv",
             container: "mkv",
@@ -387,9 +392,10 @@ public sealed class ToH264GpuScenarioTests
     public void BuildPlan_WhenDownscale424UsesProfileOnlyRequest_UsesFastAutosampleDefaults()
     {
         var sut = CreateSut(new ToH264GpuRequest(
-            downscaleTargetHeight: 424,
-            contentProfile: "film",
-            qualityProfile: "default"));
+            downscale: new DownscaleRequest(424),
+            videoSettings: new VideoSettingsRequest(
+                contentProfile: "film",
+                qualityProfile: "default")));
         var video = CreateVideo(
             filePath: @"C:\video\input.mkv",
             container: "mkv",

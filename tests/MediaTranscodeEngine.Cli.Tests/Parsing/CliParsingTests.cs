@@ -182,13 +182,15 @@ public sealed class CliParsingTests
         var scenarioRequest = actual.Request;
 
         scenarioRequest.KeepSource.Should().BeTrue();
-        scenarioRequest.DownscaleTargetHeight.Should().Be(576);
+        scenarioRequest.Downscale.Should().NotBeNull();
+        scenarioRequest.Downscale!.TargetHeight.Should().Be(576);
         scenarioRequest.KeepFramesPerSecond.Should().BeTrue();
-        scenarioRequest.ContentProfile.Should().Be("film");
-        scenarioRequest.QualityProfile.Should().Be("default");
-        scenarioRequest.AutoSampleMode.Should().Be("fast");
-        scenarioRequest.DownscaleAlgorithm.Should().Be("lanczos");
-        scenarioRequest.Cq.Should().Be(21);
+        scenarioRequest.VideoSettings.Should().NotBeNull();
+        scenarioRequest.VideoSettings!.ContentProfile.Should().Be("film");
+        scenarioRequest.VideoSettings.QualityProfile.Should().Be("default");
+        scenarioRequest.VideoSettings.AutoSampleMode.Should().Be("fast");
+        scenarioRequest.Downscale.Algorithm.Should().Be("lanczos");
+        scenarioRequest.VideoSettings.Cq.Should().Be(21);
         scenarioRequest.NvencPreset.Should().Be("p6");
         scenarioRequest.Denoise.Should().BeTrue();
         scenarioRequest.SynchronizeAudio.Should().BeTrue();
@@ -249,7 +251,8 @@ public sealed class CliParsingTests
             scenarioArgs: parsed.ScenarioArgs);
         var scenario = handler.CreateScenario(request).Should().BeOfType<ToH264GpuScenario>().Subject;
 
-        scenario.Request.DownscaleTargetHeight.Should().Be(targetHeight);
+        scenario.Request.Downscale.Should().NotBeNull();
+        scenario.Request.Downscale!.TargetHeight.Should().Be(targetHeight);
     }
 
     [Theory]
