@@ -43,7 +43,12 @@ public sealed class ToH264GpuFfmpegTool : ITranscodeTool
     {
         ArgumentNullException.ThrowIfNull(plan);
 
-        if (executionSpec is not ToH264GpuExecutionSpec || plan.UseFrameInterpolation)
+        if (executionSpec is not ToH264GpuExecutionSpec)
+        {
+            return false;
+        }
+
+        if (plan.UseFrameInterpolation)
         {
             return false;
         }
@@ -71,7 +76,10 @@ public sealed class ToH264GpuFfmpegTool : ITranscodeTool
         ArgumentNullException.ThrowIfNull(video);
         ArgumentNullException.ThrowIfNull(plan);
 
-        if (executionSpec is not ToH264GpuExecutionSpec spec || !CanHandle(plan, executionSpec))
+        var spec = executionSpec as ToH264GpuExecutionSpec
+            ?? throw new NotSupportedException("The supplied transcode plan is not supported by ToH264Gpu ffmpeg tool.");
+
+        if (!CanHandle(plan, spec))
         {
             throw new NotSupportedException("The supplied transcode plan is not supported by ToH264Gpu ffmpeg tool.");
         }
