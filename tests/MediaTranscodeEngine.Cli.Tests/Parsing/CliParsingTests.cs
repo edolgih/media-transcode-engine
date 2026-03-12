@@ -18,7 +18,6 @@ public sealed class CliParsingTests
                 "--downscale", "576",
                 "--content-profile", "Anime",
                 "--quality-profile", "High",
-                "--no-autosample",
                 "--autosample-mode", "Hybrid",
                 "--downscale-algo", "Lanczos",
                 "--max-fps", "50",
@@ -39,7 +38,6 @@ public sealed class CliParsingTests
             "--downscale", "576",
             "--content-profile", "Anime",
             "--quality-profile", "High",
-            "--no-autosample",
             "--autosample-mode", "Hybrid",
             "--downscale-algo", "Lanczos",
             "--max-fps", "50",
@@ -62,7 +60,6 @@ public sealed class CliParsingTests
                 "--downscale", "576",
                 "--content-profile", "Film",
                 "--quality-profile", "Default",
-                "--no-autosample",
                 "--autosample-mode", "Fast",
                 "--downscale-algo", "Bicubic",
                 "--max-fps", "40",
@@ -91,16 +88,15 @@ public sealed class CliParsingTests
         scenarioRequest.KeepSource.Should().BeTrue();
         scenarioRequest.OverlayBackground.Should().BeTrue();
         scenarioRequest.SynchronizeAudio.Should().BeTrue();
-        scenarioRequest.Downscale.Should().NotBeNull();
-        scenarioRequest.Downscale!.TargetHeight.Should().Be(576);
-        scenarioRequest.Downscale.ContentProfile.Should().Be("film");
-        scenarioRequest.Downscale.QualityProfile.Should().Be("default");
-        scenarioRequest.Downscale.NoAutoSample.Should().BeTrue();
-        scenarioRequest.Downscale.AutoSampleMode.Should().Be("fast");
-        scenarioRequest.Downscale.Algorithm.Should().Be("bicubic");
-        scenarioRequest.Downscale.Cq.Should().Be(24);
-        scenarioRequest.Downscale.Maxrate.Should().Be(3.7m);
-        scenarioRequest.Downscale.Bufsize.Should().Be(7.4m);
+        scenarioRequest.VideoSettings.Should().NotBeNull();
+        scenarioRequest.VideoSettings!.TargetHeight.Should().Be(576);
+        scenarioRequest.VideoSettings.ContentProfile.Should().Be("film");
+        scenarioRequest.VideoSettings.QualityProfile.Should().Be("default");
+        scenarioRequest.VideoSettings.AutoSampleMode.Should().Be("fast");
+        scenarioRequest.VideoSettings.Algorithm.Should().Be("bicubic");
+        scenarioRequest.VideoSettings.Cq.Should().Be(24);
+        scenarioRequest.VideoSettings.Maxrate.Should().Be(3.7m);
+        scenarioRequest.VideoSettings.Bufsize.Should().Be(7.4m);
         scenarioRequest.MaxFramesPerSecond.Should().Be(40);
         scenarioRequest.NvencPreset.Should().Be("p6");
     }
@@ -115,6 +111,9 @@ public sealed class CliParsingTests
                 "--keep-source",
                 "--downscale", "576",
                 "--keep-fps",
+                "--content-profile", "film",
+                "--quality-profile", "default",
+                "--autosample-mode", "fast",
                 "--downscale-algo", "lanczos",
                 "--cq", "21",
                 "--nvenc-preset", "p6",
@@ -134,6 +133,9 @@ public sealed class CliParsingTests
             "--keep-source",
             "--downscale", "576",
             "--keep-fps",
+            "--content-profile", "film",
+            "--quality-profile", "default",
+            "--autosample-mode", "fast",
             "--downscale-algo", "lanczos",
             "--cq", "21",
             "--nvenc-preset", "p6",
@@ -152,6 +154,9 @@ public sealed class CliParsingTests
                 "--keep-source",
                 "--downscale", "576",
                 "--keep-fps",
+                "--content-profile", "film",
+                "--quality-profile", "default",
+                "--autosample-mode", "fast",
                 "--downscale-algo", "lanczos",
                 "--cq", "21",
                 "--nvenc-preset", "p6",
@@ -178,6 +183,9 @@ public sealed class CliParsingTests
         scenarioRequest.KeepSource.Should().BeTrue();
         scenarioRequest.DownscaleTargetHeight.Should().Be(576);
         scenarioRequest.KeepFramesPerSecond.Should().BeTrue();
+        scenarioRequest.ContentProfile.Should().Be("film");
+        scenarioRequest.QualityProfile.Should().Be("default");
+        scenarioRequest.AutoSampleMode.Should().Be("fast");
         scenarioRequest.DownscaleAlgorithm.Should().Be("lanczos");
         scenarioRequest.Cq.Should().Be(21);
         scenarioRequest.NvencPreset.Should().Be("p6");
@@ -187,19 +195,60 @@ public sealed class CliParsingTests
     }
 
     [Fact]
-    public void TryParse_WhenToH264GpuArgumentsAreInvalid_ReturnsFalse()
+    public void CreateScenario_WhenTomkvgpuUsesSupportedHdDownscale_MapsRuntimeRequest()
+    {
+        var parsedOk = CliArgumentParser.TryParse(
+            [
+                "--scenario", "tomkvgpu",
+                "--input", @"C:\video\a.mkv",
+                "--downscale", "720"
+            ],
+            out var parsed,
+            out var errorText);
+
+        parsedOk.Should().BeTrue();
+        errorText.Should().BeNull();
+        parsed.Should().NotBeNull();
+        var handler = new ToMkvGpuCliScenarioHandler(new ToMkvGpuInfoFormatter());
+        var request = new CliTranscodeRequest(
+            inputPath: @"C:\video\a.mkv",
+            scenarioName: parsed!.Scenario,
+            info: parsed.Info,
+            scenarioArgs: parsed.ScenarioArgs);
+
+        var scenario = handler.CreateScenario(request).Should().BeOfType<ToMkvGpuScenario>().Subject;
+
+        scenario.Request.VideoSettings.Should().NotBeNull();
+        scenario.Request.VideoSettings!.TargetHeight.Should().Be(720);
+    }
+
+    [Theory]
+    [InlineData(480)]
+    [InlineData(424)]
+    public void TryParse_WhenToH264GpuUsesSupportedSdDownscale_ReturnsScenarioRequest(int targetHeight)
     {
         var actual = CliArgumentParser.TryParse(
             [
                 "--scenario", "toh264gpu",
                 "--input", @"C:\video\a.mkv",
-                "--downscale", "480"
+                "--downscale", targetHeight.ToString()
             ],
-            out _,
+            out var parseResult,
             out var errorText);
 
-        actual.Should().BeFalse();
-        errorText.Should().Be("--downscale must be 720 or 576.");
+        actual.Should().BeTrue();
+        errorText.Should().BeNull();
+        parseResult.Should().NotBeNull();
+        var parsed = parseResult!;
+        var handler = new ToH264GpuCliScenarioHandler(new ToH264GpuInfoFormatter());
+        var request = new CliTranscodeRequest(
+            inputPath: @"C:\video\a.mkv",
+            scenarioName: parsed.Scenario,
+            info: parsed.Info,
+            scenarioArgs: parsed.ScenarioArgs);
+        var scenario = handler.CreateScenario(request).Should().BeOfType<ToH264GpuScenario>().Subject;
+
+        scenario.Request.DownscaleTargetHeight.Should().Be(targetHeight);
     }
 
     [Theory]
@@ -307,6 +356,18 @@ public sealed class CliParsingTests
 
         actual.Should().BeFalse();
         errorText.Should().Be("--max-fps must be one of: 50, 40, 30, 24.");
+    }
+
+    [Fact]
+    public void TryParse_WhenTomkvgpuDownscaleIsUnsupported_ReturnsFalse()
+    {
+        var actual = CliArgumentParser.TryParse(
+            ["--scenario", "tomkvgpu", "--input", @"C:\video\a.mp4", "--downscale", "360"],
+            out _,
+            out var errorText);
+
+        actual.Should().BeFalse();
+        errorText.Should().Be("--downscale must be one of: 720, 576, 480, 424.");
     }
 
     [Fact]

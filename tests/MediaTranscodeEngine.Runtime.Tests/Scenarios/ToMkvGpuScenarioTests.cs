@@ -1,8 +1,9 @@
 using FluentAssertions;
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Videos;
+using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Scenarios;
 
@@ -179,8 +180,8 @@ public sealed class ToMkvGpuScenarioTests
         var actual = sut.BuildPlan(video);
 
         actual.TargetHeight.Should().Be(576);
-        actual.Downscale.Should().NotBeNull();
-        actual.Downscale!.TargetHeight.Should().Be(576);
+        actual.VideoSettings.Should().NotBeNull();
+        actual.VideoSettings!.TargetHeight.Should().Be(576);
         actual.CopyVideo.Should().BeFalse();
         actual.FixTimestamps.Should().BeFalse();
         actual.TargetVideoCodec.Should().Be("h264");
@@ -252,38 +253,42 @@ public sealed class ToMkvGpuScenarioTests
     public void BuildPlan_WhenEncodeOverridesAreRequestedWithoutResize_PreservesOverridesForToolRendering()
     {
         var sut = new ToMkvGpuScenario(new ToMkvGpuRequest(
-            downscale: new DownscaleRequest(cq: 23),
+            videoSettings: new VideoSettingsRequest(cq: 23),
             nvencPreset: "p5"));
         var video = CreateVideo(container: "mp4", videoCodec: "av1", audioCodecs: ["aac"], filePath: @"C:\video\input.mp4");
 
         var actual = sut.BuildPlan(video);
 
         actual.CopyVideo.Should().BeFalse();
-        actual.Downscale.Should().NotBeNull();
-        actual.Downscale!.Cq.Should().Be(23);
+        actual.VideoSettings.Should().NotBeNull();
+        actual.VideoSettings!.Cq.Should().Be(23);
         actual.EncoderPreset.Should().Be("p5");
     }
 
     [Fact]
-    public void BuildPlan_WhenDownscale720Requested_ThrowsNotSupportedException()
+    public void BuildPlan_WhenDownscale720RequestedForLargerSource_AppliesDownscaleAndForcesEncode()
     {
         var sut = CreateSut(downscaleTarget: 720);
         var video = CreateVideo();
 
-        var action = () => sut.BuildPlan(video);
+        var actual = sut.BuildPlan(video);
 
-        action.Should().Throw<NotSupportedException>()
-            .WithMessage("*720*");
+        actual.TargetHeight.Should().Be(720);
+        actual.VideoSettings.Should().NotBeNull();
+        actual.VideoSettings!.TargetHeight.Should().Be(720);
+        actual.CopyVideo.Should().BeFalse();
+        actual.CopyAudio.Should().BeFalse();
+        actual.TargetVideoCodec.Should().Be("h264");
     }
 
     [Fact]
     public void BuildPlan_WhenDownscale576SourceBucketIsMissing_ThrowsInformativeError()
     {
-        var profile = new DownscaleProfile(
+        var profile = new VideoSettingsProfile(
             targetHeight: 576,
             defaultContentProfile: "film",
             defaultQualityProfile: "default",
-            rateModel: new DownscaleRateModel(0.4m, 2.0m),
+            rateModel: new VideoSettingsRateModel(0.4m, 2.0m),
             autoSampling: CreateAutoSampling(),
             sourceBuckets:
             [
@@ -295,8 +300,8 @@ public sealed class ToMkvGpuScenarioTests
             ],
             defaults: CreateDefaults());
         var sut = new ToMkvGpuScenario(
-            new ToMkvGpuRequest(downscale: new DownscaleRequest(targetHeight: 576)),
-            DownscaleProfiles.Create(profile));
+            new ToMkvGpuRequest(videoSettings: new VideoSettingsRequest(targetHeight: 576)),
+            VideoSettingsProfiles.Create(profile));
         var video = CreateVideo(container: "mp4", height: 900, videoCodec: "h264", audioCodecs: ["aac"], filePath: @"C:\video\input.mp4");
 
         var action = () => sut.BuildPlan(video);
@@ -309,11 +314,11 @@ public sealed class ToMkvGpuScenarioTests
     [Fact]
     public void BuildPlan_WhenDownscale576BucketRangesAreIncomplete_ThrowsInformativeError()
     {
-        var profile = new DownscaleProfile(
+        var profile = new VideoSettingsProfile(
             targetHeight: 576,
             defaultContentProfile: "film",
             defaultQualityProfile: "default",
-            rateModel: new DownscaleRateModel(0.4m, 2.0m),
+            rateModel: new VideoSettingsRateModel(0.4m, 2.0m),
             autoSampling: CreateAutoSampling(),
             sourceBuckets:
             [
@@ -325,8 +330,8 @@ public sealed class ToMkvGpuScenarioTests
             ],
             defaults: CreateDefaults());
         var sut = new ToMkvGpuScenario(
-            new ToMkvGpuRequest(downscale: new DownscaleRequest(targetHeight: 576)),
-            DownscaleProfiles.Create(profile));
+            new ToMkvGpuRequest(videoSettings: new VideoSettingsRequest(targetHeight: 576)),
+            VideoSettingsProfiles.Create(profile));
         var video = CreateVideo(container: "mp4", height: 1080, videoCodec: "h264", audioCodecs: ["aac"], filePath: @"C:\video\input.mp4");
 
         var action = () => sut.BuildPlan(video);
@@ -347,7 +352,7 @@ public sealed class ToMkvGpuScenarioTests
             overlayBackground: overlayBackground,
             synchronizeAudio: synchronizeAudio,
             keepSource: keepSource,
-            downscale: downscaleTarget.HasValue ? new DownscaleRequest(targetHeight: downscaleTarget) : null,
+            videoSettings: downscaleTarget.HasValue ? new VideoSettingsRequest(targetHeight: downscaleTarget) : null,
             maxFramesPerSecond: maxFramesPerSecond));
     }
 
@@ -371,41 +376,41 @@ public sealed class ToMkvGpuScenarioTests
             duration: TimeSpan.FromMinutes(10));
     }
 
-    private static DownscaleDefaults[] CreateDefaults()
+    private static VideoSettingsDefaults[] CreateDefaults()
     {
         return
         [
-            new DownscaleDefaults("anime", "high", 22, 3.3m, 6.5m, "bilinear", 19, 24, 2.4m, 4.2m),
-            new DownscaleDefaults("anime", "default", 23, 2.4m, 4.8m, "bilinear", 20, 26, 2.0m, 3.0m),
-            new DownscaleDefaults("anime", "low", 29, 2.1m, 4.1m, "bilinear", 24, 35, 1.0m, 3.2m),
-            new DownscaleDefaults("mult", "high", 24, 2.7m, 5.3m, "bilinear", 21, 26, 2.4m, 3.2m),
-            new DownscaleDefaults("mult", "default", 26, 2.4m, 4.8m, "bilinear", 23, 29, 2.0m, 2.8m),
-            new DownscaleDefaults("mult", "low", 29, 1.7m, 3.5m, "bilinear", 26, 31, 1.6m, 2.0m),
-            new DownscaleDefaults("film", "high", 24, 3.7m, 7.4m, "bilinear", 16, 33, 2.0m, 8.0m),
-            new DownscaleDefaults("film", "default", 26, 3.4m, 6.9m, "bilinear", 18, 35, 1.6m, 8.0m),
-            new DownscaleDefaults("film", "low", 30, 2.2m, 4.5m, "bilinear", 20, 38, 1.2m, 4.0m)
+            new VideoSettingsDefaults("anime", "high", 22, 3.3m, 6.5m, "bilinear", 19, 24, 2.4m, 4.2m),
+            new VideoSettingsDefaults("anime", "default", 23, 2.4m, 4.8m, "bilinear", 20, 26, 2.0m, 3.0m),
+            new VideoSettingsDefaults("anime", "low", 29, 2.1m, 4.1m, "bilinear", 24, 35, 1.0m, 3.2m),
+            new VideoSettingsDefaults("mult", "high", 24, 2.7m, 5.3m, "bilinear", 21, 26, 2.4m, 3.2m),
+            new VideoSettingsDefaults("mult", "default", 26, 2.4m, 4.8m, "bilinear", 23, 29, 2.0m, 2.8m),
+            new VideoSettingsDefaults("mult", "low", 29, 1.7m, 3.5m, "bilinear", 26, 31, 1.6m, 2.0m),
+            new VideoSettingsDefaults("film", "high", 24, 3.7m, 7.4m, "bilinear", 16, 33, 2.0m, 8.0m),
+            new VideoSettingsDefaults("film", "default", 26, 3.4m, 6.9m, "bilinear", 18, 35, 1.6m, 8.0m),
+            new VideoSettingsDefaults("film", "low", 30, 2.2m, 4.5m, "bilinear", 20, 38, 1.2m, 4.0m)
         ];
     }
 
-    private static DownscaleRange[] CreateCompleteRanges()
+    private static VideoSettingsRange[] CreateCompleteRanges()
     {
         return
         [
-            new DownscaleRange("anime", "high", MinInclusive: 30.0m, MaxInclusive: 45.0m),
-            new DownscaleRange("anime", "default", MinInclusive: 45.0m, MaxInclusive: 60.0m),
-            new DownscaleRange("anime", "low", MinInclusive: 60.0m, MaxInclusive: 80.0m),
-            new DownscaleRange("mult", "high", MinInclusive: 28.0m, MaxInclusive: 42.0m),
-            new DownscaleRange("mult", "default", MinInclusive: 42.0m, MaxInclusive: 57.0m),
-            new DownscaleRange("mult", "low", MinInclusive: 57.0m, MaxInclusive: 77.0m),
-            new DownscaleRange("film", "high", MinInclusive: 20.0m, MaxInclusive: 35.0m),
-            new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m),
-            new DownscaleRange("film", "low", MinInclusive: 50.0m, MaxInclusive: 70.0m)
+            new VideoSettingsRange("anime", "high", MinInclusive: 30.0m, MaxInclusive: 45.0m),
+            new VideoSettingsRange("anime", "default", MinInclusive: 45.0m, MaxInclusive: 60.0m),
+            new VideoSettingsRange("anime", "low", MinInclusive: 60.0m, MaxInclusive: 80.0m),
+            new VideoSettingsRange("mult", "high", MinInclusive: 28.0m, MaxInclusive: 42.0m),
+            new VideoSettingsRange("mult", "default", MinInclusive: 42.0m, MaxInclusive: 57.0m),
+            new VideoSettingsRange("mult", "low", MinInclusive: 57.0m, MaxInclusive: 77.0m),
+            new VideoSettingsRange("film", "high", MinInclusive: 20.0m, MaxInclusive: 35.0m),
+            new VideoSettingsRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m),
+            new VideoSettingsRange("film", "low", MinInclusive: 50.0m, MaxInclusive: 70.0m)
         ];
     }
 
-    private static DownscaleAutoSampling CreateAutoSampling()
+    private static VideoSettingsAutoSampling CreateAutoSampling()
     {
-        return new DownscaleAutoSampling(
+        return new VideoSettingsAutoSampling(
             EnabledByDefault: true,
             ModeDefault: "accurate",
             MaxIterations: 8,

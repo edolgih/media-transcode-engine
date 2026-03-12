@@ -121,18 +121,6 @@ public sealed class ToMkvGpuInfoFormatterTests
     }
 
     [Fact]
-    public void FormatFailure_WhenDownscaleIsNotSupported_ReturnsDownscaleMarker()
-    {
-        var sut = CreateSut();
-
-        var actual = sut.FormatFailure(
-            @"C:\nested\folder\input.mp4",
-            new NotSupportedException("Downscale 720 is not implemented for ToMkvGpu."));
-
-        actual.Should().Be("input.mp4: [downscale not supported]");
-    }
-
-    [Fact]
     public void FormatFailure_WhenDownscaleSourceBucketIsMissing_ReturnsBucketHint()
     {
         var sut = CreateSut();
@@ -195,7 +183,7 @@ public sealed class ToMkvGpuInfoFormatterTests
             targetHeight: null,
             targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: false,
-            downscale: null,
+            videoSettings: null,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
             fixTimestamps: false,

@@ -1,14 +1,125 @@
 using FluentAssertions;
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
+using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
 
-namespace MediaTranscodeEngine.Runtime.Tests.Downscaling;
+namespace MediaTranscodeEngine.Runtime.Tests.VideoSettings;
 
-public sealed class DownscaleProfilesTests
+public sealed class VideoSettingsProfilesTests
 {
+    [Theory]
+    [InlineData(400, 424)]
+    [InlineData(500, 480)]
+    [InlineData(577, 576)]
+    [InlineData(650, 720)]
+    [InlineData(900, 1080)]
+    public void ResolveOutputProfile_WhenHeightIsMapped_ReturnsExpectedProfile(int outputHeight, int expectedTargetHeight)
+    {
+        var sut = VideoSettingsProfiles.Default;
+
+        var actual = sut.ResolveOutputProfile(outputHeight);
+
+        actual.TargetHeight.Should().Be(expectedTargetHeight);
+    }
+
+    [Fact]
+    public void Default_When720ProfileIsRequested_ResolvesFilmDefault()
+    {
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(720);
+
+        var actual = sut.ResolveDefaults(contentProfile: null, qualityProfile: null);
+
+        actual.ContentProfile.Should().Be("film");
+        actual.QualityProfile.Should().Be("default");
+        actual.Cq.Should().Be(23);
+        actual.Maxrate.Should().Be(4.5m);
+        actual.Bufsize.Should().Be(9.0m);
+    }
+
+    [Fact]
+    public void Default_When1080ProfileIsRequested_ResolvesFilmDefault()
+    {
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(1080);
+
+        var actual = sut.ResolveDefaults(contentProfile: null, qualityProfile: null);
+
+        actual.ContentProfile.Should().Be("film");
+        actual.QualityProfile.Should().Be("default");
+        actual.Cq.Should().Be(21);
+        actual.Maxrate.Should().Be(5.2m);
+        actual.Bufsize.Should().Be(10.4m);
+    }
+
+    [Fact]
+    public void ResolveDefaults_When720ProfileUsesAnimeHigh_ReturnsConfiguredMaxrate()
+    {
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(720);
+
+        var actual = sut.ResolveDefaults(contentProfile: "anime", qualityProfile: "high");
+
+        actual.Maxrate.Should().Be(3.6m);
+        actual.Bufsize.Should().Be(7.2m);
+    }
+
+    [Fact]
+    public void Default_When720ProfileIsRequested_ReturnsConfiguredSourceBuckets()
+    {
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(720);
+
+        sut.SourceBuckets.Should().HaveCount(2);
+        sut.SourceBuckets.Select(static bucket => bucket.Name).Should().Equal("fhd_1080", "uhd_2160");
+    }
+
+    [Fact]
+    public void Default_When1080ProfileIsRequested_ReturnsConfiguredSourceBuckets()
+    {
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(1080);
+
+        sut.SourceBuckets.Should().HaveCount(2);
+        sut.SourceBuckets.Select(static bucket => bucket.Name).Should().Equal("qhd_1440", "uhd_2160");
+    }
+
+    [Fact]
+    public void ResolveRange_When720ProfileUsesFhd1080Bucket_ReturnsConfiguredBucketRange()
+    {
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(720);
+
+        var actual = sut.ResolveRange(sourceHeight: 1080, contentProfile: "film", qualityProfile: "default");
+
+        actual.Should().NotBeNull();
+        actual!.MinInclusive.Should().Be(30.0m);
+        actual.MaxInclusive.Should().Be(45.0m);
+    }
+
+    [Fact]
+    public void ResolveDefaults_When720ProfileUsesFhd1080BucketBoundsOverride_AppliesOnlyOverride()
+    {
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(720);
+
+        var actual = sut.ResolveDefaults(sourceHeight: 1080, contentProfile: "mult", qualityProfile: "default");
+
+        actual.Cq.Should().Be(25);
+        actual.CqMin.Should().Be(21);
+        actual.CqMax.Should().Be(29);
+        actual.MaxrateMin.Should().Be(2.0m);
+        actual.MaxrateMax.Should().Be(3.6m);
+    }
+
+    [Fact]
+    public void ResolveRange_When1080ProfileUsesUhd2160Bucket_ReturnsConfiguredBucketRange()
+    {
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(1080);
+
+        var actual = sut.ResolveRange(sourceHeight: 2160, contentProfile: "film", qualityProfile: "default");
+
+        actual.Should().NotBeNull();
+        actual!.MinInclusive.Should().Be(33.0m);
+        actual.MaxInclusive.Should().Be(48.0m);
+    }
+
     [Fact]
     public void Default_When576ProfileIsRequested_ReturnsConfiguredSourceBuckets()
     {
-        var sut = DownscaleProfiles.Default;
+        var sut = VideoSettingsProfiles.Default;
 
         var actual = sut.GetRequiredProfile(576);
 
@@ -24,7 +135,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void Default_When480ProfileIsRequested_ReturnsConfiguredSourceBuckets()
     {
-        var sut = DownscaleProfiles.Default;
+        var sut = VideoSettingsProfiles.Default;
 
         var actual = sut.GetRequiredProfile(480);
 
@@ -43,7 +154,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void Default_When424ProfileIsRequested_ReturnsConfiguredSourceBuckets()
     {
-        var sut = DownscaleProfiles.Default;
+        var sut = VideoSettingsProfiles.Default;
 
         var actual = sut.GetRequiredProfile(424);
 
@@ -62,7 +173,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveDefaults_WhenContentAndQualityAreMissing_UsesFilmDefaultEntry()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveDefaults(contentProfile: null, qualityProfile: null);
 
@@ -77,7 +188,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveDefaults_When424ProfileUsesMissingContentAndQuality_UsesFilmDefaultEntry()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(424);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(424);
 
         var actual = sut.ResolveDefaults(contentProfile: null, qualityProfile: null);
 
@@ -92,7 +203,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveDefaults_WhenOnlyContentProfileIsProvided_UsesDefaultQualityForThatContent()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveDefaults(contentProfile: "anime", qualityProfile: null);
 
@@ -106,7 +217,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveDefaults_WhenOnlyQualityProfileIsProvided_UsesFilmAsDefaultContent()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveDefaults(contentProfile: null, qualityProfile: "high");
 
@@ -120,7 +231,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveDefaults_WhenHd720BucketHasBoundsOverride_AppliesOnlyThoseBounds()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var defaultActual = sut.ResolveDefaults(sourceHeight: 720, contentProfile: "mult", qualityProfile: "default");
         var highActual = sut.ResolveDefaults(sourceHeight: 720, contentProfile: "mult", qualityProfile: "high");
@@ -149,7 +260,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveDefaults_WhenFhd1080BucketUsesBaseBounds_KeepsBaseOrSpecificOverride()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var defaultActual = sut.ResolveDefaults(sourceHeight: 1080, contentProfile: "mult", qualityProfile: "default");
         var lowActual = sut.ResolveDefaults(sourceHeight: 1080, contentProfile: "mult", qualityProfile: "low");
@@ -175,7 +286,7 @@ public sealed class DownscaleProfilesTests
     [InlineData(1301, null)]
     public void ResolveSourceBucket_WhenHeightIsOnBoundary_MatchesConfiguredBuckets(int sourceHeight, string? expectedBucket)
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveSourceBucket(sourceHeight);
 
@@ -185,7 +296,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveSourceBucketIssue_WhenBucketIsMissing_ReturnsHint()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveSourceBucketIssue(900);
 
@@ -195,7 +306,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void Default_When576ProfileIsRequested_ReturnsConfiguredRateModel()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         sut.RateModel.CqStepToMaxrateStep.Should().Be(0.4m);
         sut.RateModel.BufsizeMultiplier.Should().Be(2.0m);
@@ -204,7 +315,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void Default_When576ProfileIsRequested_ReturnsConfiguredAutoSampling()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         sut.AutoSampling.EnabledByDefault.Should().BeTrue();
         sut.AutoSampling.ModeDefault.Should().Be("accurate");
@@ -220,42 +331,42 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void GetSampleWindows_WhenDurationIsLong_ReturnsThree30SecondWindowsUsingConfiguredAnchors()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(8));
 
         actual.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 81, DurationSeconds: 30),
-            new DownscaleSampleWindow(StartSeconds: 225, DurationSeconds: 30),
-            new DownscaleSampleWindow(StartSeconds: 369, DurationSeconds: 30));
+            new VideoSettingsSampleWindow(StartSeconds: 81, DurationSeconds: 30),
+            new VideoSettingsSampleWindow(StartSeconds: 225, DurationSeconds: 30),
+            new VideoSettingsSampleWindow(StartSeconds: 369, DurationSeconds: 30));
     }
 
     [Fact]
     public void GetSampleWindows_WhenDurationIsMedium_ReturnsTwo30SecondWindowsUsingConfiguredAnchors()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(3));
 
         actual.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 48, DurationSeconds: 30),
-            new DownscaleSampleWindow(StartSeconds: 102, DurationSeconds: 30));
+            new VideoSettingsSampleWindow(StartSeconds: 48, DurationSeconds: 30),
+            new VideoSettingsSampleWindow(StartSeconds: 102, DurationSeconds: 30));
     }
 
     [Fact]
     public void GetSampleWindows_WhenDurationIsShort_ReturnsOne30SecondWindow()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(2));
 
-        actual.Should().Equal(new DownscaleSampleWindow(StartSeconds: 45, DurationSeconds: 30));
+        actual.Should().Equal(new VideoSettingsSampleWindow(StartSeconds: 45, DurationSeconds: 30));
     }
 
     [Fact]
     public void GetSampleWindows_WhenCustomAnchorsAndSharedDurationAreConfigured_UsesThoseValues()
     {
-        var sut = new DownscaleAutoSampling(
+        var sut = new VideoSettingsAutoSampling(
             EnabledByDefault: true,
             ModeDefault: "accurate",
             MaxIterations: 8,
@@ -274,14 +385,14 @@ public sealed class DownscaleProfilesTests
         var actual = sut.GetSampleWindows(TimeSpan.FromMinutes(10));
 
         actual.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 105, DurationSeconds: 30),
-            new DownscaleSampleWindow(StartSeconds: 465, DurationSeconds: 30));
+            new VideoSettingsSampleWindow(StartSeconds: 105, DurationSeconds: 30),
+            new VideoSettingsSampleWindow(StartSeconds: 465, DurationSeconds: 30));
     }
 
     [Fact]
     public void GetSampleWindows_WhenDurationIsMissing_ReturnsEmptySet()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.GetSampleWindows(TimeSpan.Zero);
 
@@ -291,7 +402,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveRange_WhenContentProfileAnimeAndQualityDefault_ReturnsConfiguredBucketRange()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveRange(sourceHeight: 1080, contentProfile: "anime", qualityProfile: "default");
 
@@ -303,7 +414,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveRange_WhenContentProfileMultAndQualityDefault_ReturnsConfiguredBucketRange()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveRange(sourceHeight: 1080, contentProfile: "mult", qualityProfile: "default");
 
@@ -315,7 +426,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void ResolveRange_WhenContentProfileFilmAndQualityDefault_ReturnsConfiguredBucketRange()
     {
-        var sut = DownscaleProfiles.Default.GetRequiredProfile(576);
+        var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
         var actual = sut.ResolveRange(sourceHeight: 1080, contentProfile: "film", qualityProfile: "default");
 
@@ -360,7 +471,7 @@ public sealed class DownscaleProfilesTests
                     MaxHeight: 1300,
                     QualityRanges:
                     [
-                        new DownscaleQualityRange("default", MinExclusive: 80.0m, MaxInclusive: 90.0m)
+                        new VideoSettingsQualityRange("default", MinExclusive: 80.0m, MaxInclusive: 90.0m)
                     ]),
                 new SourceHeightBucket(
                     "fallback",
@@ -368,7 +479,7 @@ public sealed class DownscaleProfilesTests
                     MaxHeight: 1,
                     QualityRanges:
                     [
-                        new DownscaleQualityRange("default", MinExclusive: 33.0m, MaxInclusive: 44.0m)
+                        new VideoSettingsQualityRange("default", MinExclusive: 33.0m, MaxInclusive: 44.0m)
                     ],
                     IsDefault: true)
             ]);
@@ -386,8 +497,8 @@ public sealed class DownscaleProfilesTests
         var sut = CreateProfileWithFallbacks(
             sourceBuckets:
             [
-                new SourceHeightBucket("fhd", MinHeight: 1000, MaxHeight: 1300, Ranges: [new DownscaleRange("anime", "default", MinInclusive: 80.0m, MaxInclusive: 90.0m)]),
-                new SourceHeightBucket("fallback", MinHeight: 1, MaxHeight: 1, QualityRanges: [new DownscaleQualityRange("default", MinExclusive: 33.0m, MaxInclusive: 44.0m)], IsDefault: true)
+                new SourceHeightBucket("fhd", MinHeight: 1000, MaxHeight: 1300, Ranges: [new VideoSettingsRange("anime", "default", MinInclusive: 80.0m, MaxInclusive: 90.0m)]),
+                new SourceHeightBucket("fallback", MinHeight: 1, MaxHeight: 1, QualityRanges: [new VideoSettingsQualityRange("default", MinExclusive: 33.0m, MaxInclusive: 44.0m)], IsDefault: true)
             ]);
 
         var actual = sut.ResolveSourceBucket(900);
@@ -398,7 +509,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void Contains_WhenValueEqualsLowerInclusive_ReturnsTrue()
     {
-        var sut = new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m);
+        var sut = new VideoSettingsRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m);
 
         sut.Contains(35.0m).Should().BeTrue();
     }
@@ -406,7 +517,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void Contains_WhenValueEqualsLowerExclusive_ReturnsFalse()
     {
-        var sut = new DownscaleRange("film", "default", MinExclusive: 35.0m, MaxInclusive: 50.0m);
+        var sut = new VideoSettingsRange("film", "default", MinExclusive: 35.0m, MaxInclusive: 50.0m);
 
         sut.Contains(35.0m).Should().BeFalse();
     }
@@ -414,7 +525,7 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void Contains_WhenValueEqualsUpperInclusive_ReturnsTrue()
     {
-        var sut = new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m);
+        var sut = new VideoSettingsRange("film", "default", MinInclusive: 35.0m, MaxInclusive: 50.0m);
 
         sut.Contains(50.0m).Should().BeTrue();
     }
@@ -422,21 +533,21 @@ public sealed class DownscaleProfilesTests
     [Fact]
     public void Contains_WhenValueEqualsUpperExclusive_ReturnsFalse()
     {
-        var sut = new DownscaleRange("film", "default", MinInclusive: 35.0m, MaxExclusive: 50.0m);
+        var sut = new VideoSettingsRange("film", "default", MinInclusive: 35.0m, MaxExclusive: 50.0m);
 
         sut.Contains(50.0m).Should().BeFalse();
     }
 
-    private static DownscaleProfile CreateProfileWithFallbacks(
+    private static VideoSettingsProfile CreateProfileWithFallbacks(
         IReadOnlyList<SourceHeightBucket>? sourceBuckets = null,
-        IReadOnlyList<DownscaleRange>? globalContentRanges = null)
+        IReadOnlyList<VideoSettingsRange>? globalContentRanges = null)
     {
-        return new DownscaleProfile(
+        return new VideoSettingsProfile(
             targetHeight: 576,
             defaultContentProfile: "film",
             defaultQualityProfile: "default",
-            rateModel: new DownscaleRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
-            autoSampling: new DownscaleAutoSampling(
+            rateModel: new VideoSettingsRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
+            autoSampling: new VideoSettingsAutoSampling(
                 EnabledByDefault: true,
                 ModeDefault: "accurate",
                 MaxIterations: 8,
@@ -459,21 +570,21 @@ public sealed class DownscaleProfilesTests
                                    MaxHeight: 1300,
                                    Ranges:
                                    [
-                                       new DownscaleRange("anime", "default", MinInclusive: 80.0m, MaxInclusive: 90.0m)
+                                       new VideoSettingsRange("anime", "default", MinInclusive: 80.0m, MaxInclusive: 90.0m)
                                    ])
                            ],
             defaults:
             [
-                new DownscaleDefaults("anime", "default", Cq: 23, Maxrate: 2.4m, Bufsize: 4.8m, Algorithm: "bilinear", CqMin: 20, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 3.0m),
-                new DownscaleDefaults("film", "default", Cq: 26, Maxrate: 3.4m, Bufsize: 6.9m, Algorithm: "bilinear", CqMin: 18, CqMax: 35, MaxrateMin: 1.6m, MaxrateMax: 8.0m)
+                new VideoSettingsDefaults("anime", "default", Cq: 23, Maxrate: 2.4m, Bufsize: 4.8m, Algorithm: "bilinear", CqMin: 20, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 3.0m),
+                new VideoSettingsDefaults("film", "default", Cq: 26, Maxrate: 3.4m, Bufsize: 6.9m, Algorithm: "bilinear", CqMin: 18, CqMax: 35, MaxrateMin: 1.6m, MaxrateMax: 8.0m)
             ],
             globalContentRanges: globalContentRanges ??
                                  [
-                                     new DownscaleRange("anime", "default", MinExclusive: 40.0m, MaxInclusive: 50.0m)
+                                     new VideoSettingsRange("anime", "default", MinExclusive: 40.0m, MaxInclusive: 50.0m)
                                  ],
             globalQualityRanges:
             [
-                new DownscaleQualityRange("default", MinExclusive: 40.0m, MaxInclusive: 50.0m)
+                new VideoSettingsQualityRange("default", MinExclusive: 40.0m, MaxInclusive: 50.0m)
             ]);
     }
 }

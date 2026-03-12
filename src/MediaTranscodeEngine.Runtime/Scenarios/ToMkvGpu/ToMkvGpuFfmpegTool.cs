@@ -1,5 +1,5 @@
 using System.Globalization;
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Tools;
 using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
@@ -18,32 +18,32 @@ namespace MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
 {
     private readonly string _ffmpegPath;
-    private readonly DownscaleProfiles _downscaleProfiles;
-    private readonly DownscaleAutoSampler _autoSampler;
+    private readonly VideoSettingsProfiles _videoSettingsProfiles;
+    private readonly ProfileDrivenVideoSettingsResolver _settingsResolver;
     private readonly FfmpegSampleMeasurer _sampleMeasurer;
-    private readonly Func<string, int, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?> _sampleReductionProvider;
+    private readonly Func<string, int, VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?> _sampleReductionProvider;
     private readonly ILogger<ToMkvGpuFfmpegTool> _logger;
 
     /// <summary>
     /// Initializes the mkv-oriented ffmpeg tool.
     /// </summary>
     public ToMkvGpuFfmpegTool(string ffmpegPath, ILogger<ToMkvGpuFfmpegTool> logger)
-        : this(ffmpegPath, DownscaleProfiles.Default, null, logger)
+        : this(ffmpegPath, VideoSettingsProfiles.Default, null, logger)
     {
     }
 
     internal ToMkvGpuFfmpegTool(
         string ffmpegPath,
-        DownscaleProfiles downscaleProfiles,
-        Func<string, int, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider,
+        VideoSettingsProfiles videoSettingsProfiles,
+        Func<string, int, VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?>? sampleReductionProvider,
         ILogger<ToMkvGpuFfmpegTool> logger)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ffmpegPath);
         ArgumentNullException.ThrowIfNull(logger);
 
         _ffmpegPath = ffmpegPath.Trim();
-        _downscaleProfiles = downscaleProfiles ?? throw new ArgumentNullException(nameof(downscaleProfiles));
-        _autoSampler = new DownscaleAutoSampler(_downscaleProfiles);
+        _videoSettingsProfiles = videoSettingsProfiles ?? throw new ArgumentNullException(nameof(videoSettingsProfiles));
+        _settingsResolver = new ProfileDrivenVideoSettingsResolver(_videoSettingsProfiles);
         _sampleMeasurer = new FfmpegSampleMeasurer(_ffmpegPath);
         _sampleReductionProvider = sampleReductionProvider ?? _sampleMeasurer.MeasureAverageReduction;
         _logger = logger;
@@ -328,126 +328,38 @@ public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
             : value + 1;
     }
 
-    private DownscaleDefaults ResolveVideoSettings(SourceVideo video, TranscodePlan plan)
+    private VideoSettingsDefaults ResolveVideoSettings(SourceVideo video, TranscodePlan plan)
     {
-        if (plan.Downscale is not null)
+        var outputHeight = ResolveOutputDimensions(video, plan).Height;
+        if (outputHeight <= 0)
         {
-            var defaults = ResolveBaseDefaults(video, plan);
-            defaults = ResolveAutoSampledDefaults(video, plan, defaults);
-            return ApplyOverrides(defaults, plan.Downscale);
-        }
-
-        return new DownscaleDefaults(
-            ContentProfile: "default",
-            QualityProfile: "default",
-            Cq: 21,
-            Maxrate: 4m,
-            Bufsize: 8m,
-            Algorithm: "bilinear",
-            CqMin: 1,
-            CqMax: int.MaxValue,
-            MaxrateMin: 0.001m,
-            MaxrateMax: decimal.MaxValue);
-    }
-
-    private DownscaleDefaults ResolveAutoSampledDefaults(SourceVideo video, TranscodePlan plan, DownscaleDefaults defaults)
-    {
-        if (!plan.TargetHeight.HasValue || plan.Downscale is null)
-        {
-            return defaults;
-        }
-
-        if (!_downscaleProfiles.TryGetProfile(plan.TargetHeight.Value, out _))
-        {
-            return defaults;
+            outputHeight = plan.TargetHeight ?? video.Height;
         }
 
         var sourceBitrate = ResolveSourceBitrate(video);
-        var resolution = _autoSampler.ResolveWithDiagnostics(
-            request: plan.Downscale,
-            baseSettings: defaults,
-            sourceHeight: video.Height,
-            duration: video.Duration,
-            sourceBitrate: sourceBitrate.Bitrate,
-            hasAudio: video.AudioCodecs.Count > 0,
-            accurateReductionProvider: (settings, windows) => _sampleReductionProvider(video.FilePath, plan.TargetHeight.Value, settings, windows));
-        LogAutoSampleResolution(video.FilePath, defaults, resolution, sourceBitrate);
-        return resolution.Settings;
-    }
-
-    private DownscaleDefaults ResolveBaseDefaults(SourceVideo video, TranscodePlan plan)
-    {
-        if (plan.TargetHeight.HasValue &&
-            _downscaleProfiles.TryGetProfile(plan.TargetHeight.Value, out var profile))
-        {
-            return profile.ResolveDefaults(
+        var actualSampleHeight = plan.TargetHeight ?? outputHeight;
+        var accurateReductionProvider = actualSampleHeight > 0
+            ? (Func<VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?>)((settings, windows) => _sampleReductionProvider(video.FilePath, actualSampleHeight, settings, windows))
+            : null;
+        var resolution = plan.TargetHeight.HasValue
+            ? _settingsResolver.ResolveForDownscale(
+                request: plan.VideoSettings ?? throw new InvalidOperationException("Downscale request is required when target height is specified."),
                 sourceHeight: video.Height,
-                contentProfile: plan.Downscale?.ContentProfile,
-                qualityProfile: plan.Downscale?.QualityProfile);
-        }
-
-        return new DownscaleDefaults(
-            ContentProfile: "default",
-            QualityProfile: "default",
-            Cq: 21,
-            Maxrate: 4m,
-            Bufsize: 8m,
-            Algorithm: "bilinear",
-            CqMin: 1,
-            CqMax: int.MaxValue,
-            MaxrateMin: 0.001m,
-            MaxrateMax: decimal.MaxValue);
-    }
-
-    private DownscaleDefaults ApplyOverrides(DownscaleDefaults defaults, DownscaleRequest request)
-    {
-        var cq = request.Cq ?? defaults.Cq;
-        var maxrate = request.Maxrate;
-        DownscaleProfile? profile = null;
-        var hasProfile = request.TargetHeight.HasValue &&
-                         _downscaleProfiles.TryGetProfile(request.TargetHeight.Value, out profile);
-
-        if (!maxrate.HasValue && request.Cq.HasValue && hasProfile && profile is not null)
-        {
-            var delta = defaults.Cq - cq;
-            var resolved = defaults.Maxrate + (delta * profile.RateModel.CqStepToMaxrateStep);
-            maxrate = Clamp(resolved, defaults.MaxrateMin, defaults.MaxrateMax);
-        }
-
-        maxrate ??= defaults.Maxrate;
-
-        var bufsize = request.Bufsize;
-        if (!bufsize.HasValue && (request.Maxrate.HasValue || request.Cq.HasValue))
-        {
-            var multiplier = hasProfile && profile is not null
-                ? profile.RateModel.BufsizeMultiplier
-                : 2.0m;
-            bufsize = maxrate.Value * multiplier;
-        }
-
-        bufsize ??= defaults.Bufsize;
-
-        return new DownscaleDefaults(
-            ContentProfile: defaults.ContentProfile,
-            QualityProfile: defaults.QualityProfile,
-            Cq: cq,
-            Maxrate: maxrate.Value,
-            Bufsize: bufsize.Value,
-            Algorithm: request.Algorithm ?? defaults.Algorithm,
-            CqMin: defaults.CqMin,
-            CqMax: defaults.CqMax,
-            MaxrateMin: defaults.MaxrateMin,
-            MaxrateMax: defaults.MaxrateMax);
-    }
-
-    private static decimal Clamp(decimal value, decimal min, decimal max)
-    {
-        if (value < min)
-        {
-            return min;
-        }
-
-        return value > max ? max : value;
+                duration: video.Duration,
+                sourceBitrate: sourceBitrate.Bitrate,
+                hasAudio: video.AudioCodecs.Count > 0,
+                defaultAutoSampleMode: "hybrid",
+                accurateReductionProvider: accurateReductionProvider)
+            : _settingsResolver.ResolveForEncode(
+                request: plan.VideoSettings,
+                outputHeight: outputHeight,
+                duration: video.Duration,
+                sourceBitrate: sourceBitrate.Bitrate,
+                hasAudio: video.AudioCodecs.Count > 0,
+                defaultAutoSampleMode: "fast",
+                accurateReductionProvider: accurateReductionProvider);
+        LogAutoSampleResolution(video.FilePath, resolution.BaseSettings, resolution.AutoSample, sourceBitrate);
+        return resolution.Settings;
     }
 
     private static string FormatRate(decimal value)
@@ -457,12 +369,12 @@ public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
 
     private void LogAutoSampleResolution(
         string inputPath,
-        DownscaleDefaults baseSettings,
-        DownscaleAutoSampleResolution resolution,
+        VideoSettingsDefaults baseSettings,
+        VideoSettingsAutoSampleResolution resolution,
         ResolvedSourceBitrate sourceBitrate)
     {
         _logger.LogInformation(
-            "Downscale autosample resolved. InputPath={InputPath} Profile={Profile} Mode={Mode} Path={Path} Reason={Reason} SourceBitrateOrigin={SourceBitrateOrigin} SourceBitrateMbps={SourceBitrateMbps} Corridor={Corridor} Windows={Windows} Iterations={Iterations} LastReductionPercent={LastReductionPercent} InBounds={InBounds} Base={BaseSettings} Resolved={ResolvedSettings}",
+            "Video settings autosample resolved. InputPath={InputPath} Profile={Profile} Mode={Mode} Path={Path} Reason={Reason} SourceBitrateOrigin={SourceBitrateOrigin} SourceBitrateMbps={SourceBitrateMbps} Corridor={Corridor} Windows={Windows} Iterations={Iterations} LastReductionPercent={LastReductionPercent} InBounds={InBounds} Base={BaseSettings} Resolved={ResolvedSettings}",
             inputPath,
             $"{baseSettings.ContentProfile}/{baseSettings.QualityProfile}",
             resolution.Mode,
@@ -523,7 +435,7 @@ public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
 
     private sealed record ResolvedSourceBitrate(long? Bitrate, string Origin);
 
-    private static string FormatRange(DownscaleRange? range)
+    private static string FormatRange(VideoSettingsRange? range)
     {
         if (range is null)
         {
@@ -543,14 +455,14 @@ public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
         return $"{min}..{max}";
     }
 
-    private static string FormatWindows(IReadOnlyList<DownscaleSampleWindow> windows)
+    private static string FormatWindows(IReadOnlyList<VideoSettingsSampleWindow> windows)
     {
         return windows.Count == 0
             ? "-"
             : string.Join(",", windows.Select(static window => $"{window.StartSeconds}+{window.DurationSeconds}"));
     }
 
-    private static string FormatSettings(DownscaleDefaults settings)
+    private static string FormatSettings(VideoSettingsDefaults settings)
     {
         return string.Create(
             CultureInfo.InvariantCulture,

@@ -110,11 +110,6 @@ public sealed class ToMkvGpuInfoFormatter
             return message;
         }
 
-        if (message.Contains("downscale", StringComparison.OrdinalIgnoreCase))
-        {
-            return "downscale not supported";
-        }
-
         return "ffprobe failed";
     }
 }

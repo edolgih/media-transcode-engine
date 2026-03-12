@@ -1,4 +1,4 @@
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 
 namespace MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 
@@ -18,17 +18,22 @@ public sealed class ToH264GpuRequest
         bool keepSource = false,
         int? downscaleTargetHeight = null,
         bool keepFramesPerSecond = false,
+        string? contentProfile = null,
+        string? qualityProfile = null,
+        string? autoSampleMode = null,
         string? downscaleAlgorithm = null,
         int? cq = null,
+        decimal? maxrate = null,
+        decimal? bufsize = null,
         string? nvencPreset = null,
         bool denoise = false,
         bool synchronizeAudio = false,
         bool outputMkv = false)
     {
         if (downscaleTargetHeight.HasValue &&
-            downscaleTargetHeight.Value is not (720 or 576))
+            downscaleTargetHeight.Value is not (720 or 576 or 480 or 424))
         {
-            throw new ArgumentOutOfRangeException(nameof(downscaleTargetHeight), downscaleTargetHeight.Value, "Supported values: 720, 576.");
+            throw new ArgumentOutOfRangeException(nameof(downscaleTargetHeight), downscaleTargetHeight.Value, "Supported values: 720, 576, 480, 424.");
         }
 
         if (cq.HasValue && (cq.Value <= 0 || cq.Value > 51))
@@ -36,11 +41,26 @@ public sealed class ToH264GpuRequest
             throw new ArgumentOutOfRangeException(nameof(cq), cq.Value, "CQ must be between 1 and 51.");
         }
 
+        if (maxrate.HasValue && maxrate.Value <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxrate), maxrate.Value, "Maxrate must be greater than zero.");
+        }
+
+        if (bufsize.HasValue && bufsize.Value <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(bufsize), bufsize.Value, "Bufsize must be greater than zero.");
+        }
+
         KeepSource = keepSource;
         DownscaleTargetHeight = downscaleTargetHeight;
         KeepFramesPerSecond = keepFramesPerSecond;
-        DownscaleAlgorithm = NormalizeName(downscaleAlgorithm) ?? "bicubic";
+        ContentProfile = NormalizeName(contentProfile);
+        QualityProfile = NormalizeName(qualityProfile);
+        AutoSampleMode = NormalizeName(autoSampleMode);
+        DownscaleAlgorithm = NormalizeName(downscaleAlgorithm);
         Cq = cq;
+        Maxrate = maxrate;
+        Bufsize = bufsize;
         NvencPreset = NormalizeName(nvencPreset);
         Denoise = denoise;
         SynchronizeAudio = synchronizeAudio;
@@ -63,14 +83,39 @@ public sealed class ToH264GpuRequest
     public bool KeepFramesPerSecond { get; }
 
     /// <summary>
+    /// Gets the requested content profile.
+    /// </summary>
+    public string? ContentProfile { get; }
+
+    /// <summary>
+    /// Gets the requested quality profile.
+    /// </summary>
+    public string? QualityProfile { get; }
+
+    /// <summary>
+    /// Gets the requested autosample mode.
+    /// </summary>
+    public string? AutoSampleMode { get; }
+
+    /// <summary>
     /// Gets the downscale interpolation algorithm.
     /// </summary>
-    public string DownscaleAlgorithm { get; }
+    public string? DownscaleAlgorithm { get; }
 
     /// <summary>
     /// Gets the explicit CQ override.
     /// </summary>
     public int? Cq { get; }
+
+    /// <summary>
+    /// Gets the explicit maxrate override in Mbit/s.
+    /// </summary>
+    public decimal? Maxrate { get; }
+
+    /// <summary>
+    /// Gets the explicit bufsize override in Mbit/s.
+    /// </summary>
+    public decimal? Bufsize { get; }
 
     /// <summary>
     /// Gets the explicit NVENC preset override.
@@ -92,16 +137,21 @@ public sealed class ToH264GpuRequest
     /// </summary>
     public bool OutputMkv { get; }
 
-    internal DownscaleRequest? BuildDownscaleRequest()
+    internal VideoSettingsRequest? BuildVideoSettingsRequest(bool includeTargetHeight = true)
     {
-        if (!DownscaleTargetHeight.HasValue)
-        {
-            return null;
-        }
+        var request = new VideoSettingsRequest(
+            targetHeight: includeTargetHeight ? DownscaleTargetHeight : null,
+            contentProfile: ContentProfile,
+            qualityProfile: QualityProfile,
+            autoSampleMode: AutoSampleMode,
+            algorithm: DownscaleAlgorithm,
+            cq: Cq,
+            maxrate: Maxrate,
+            bufsize: Bufsize);
 
-        return new DownscaleRequest(
-            targetHeight: DownscaleTargetHeight.Value,
-            algorithm: DownscaleAlgorithm);
+        return request.HasValue
+            ? request
+            : null;
     }
 
     private static string? NormalizeName(string? value)

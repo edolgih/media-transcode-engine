@@ -1,10 +1,11 @@
 using FluentAssertions;
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Tests.Logging;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Videos;
+using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Tools;
 
@@ -139,7 +140,7 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().NotContain(" -r ");
         actual.Commands[0].Should().NotContain("-af \"aresample=async=1:first_pts=0\"");
         actual.Commands[0].Should().Contain("-cq 21");
-        actual.Commands[0].Should().Contain("-maxrate 4M -bufsize 8M");
+        actual.Commands[0].Should().Contain("-maxrate 5.2M -bufsize 10.4M");
     }
 
     [Fact]
@@ -160,6 +161,48 @@ public sealed class FfmpegToolTests
 
         actual.Commands[0].Should().Contain("-map 0:a:0? -c:a aac");
         actual.Commands[0].Should().NotContain("-map 0:a? -c:a aac");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenOrdinaryEncodeUsesProfileOnlyRequest_UsesOrdinaryEncodeProfileDefaults()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "av1", filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            videoSettings: new VideoSettingsRequest(contentProfile: "anime", qualityProfile: "default"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-cq 21");
+        actual.Commands[0].Should().Contain("-maxrate 3.4M -bufsize 6.8M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenOrdinaryEncodeUsesFastAutoSample_UsesBitrateGuidedSettings()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(
+            container: "mp4",
+            videoCodec: "av1",
+            filePath: @"C:\video\input.mp4",
+            bitrate: 10_000_000);
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            videoSettings: new VideoSettingsRequest(autoSampleMode: "fast"),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("-cq 21");
+        actual.Commands[0].Should().Contain("-maxrate 5.2M -bufsize 10.4M");
     }
 
     [Fact]
@@ -323,13 +366,13 @@ public sealed class FfmpegToolTests
             copyAudio: false,
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
-            downscale: new DownscaleRequest(cq: 23),
+            videoSettings: new VideoSettingsRequest(cq: 23),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
 
         actual.Commands[0].Should().Contain("-cq 23");
-        actual.Commands[0].Should().Contain("-maxrate 4M -bufsize 8M");
+        actual.Commands[0].Should().Contain("-maxrate 4.4M -bufsize 8.8M");
     }
 
     [Fact]
@@ -345,7 +388,7 @@ public sealed class FfmpegToolTests
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
-            downscale: null,
+            videoSettings: null,
             copyVideo: false,
             copyAudio: false,
             fixTimestamps: false,
@@ -381,7 +424,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -408,7 +451,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 480,
-            downscale: new DownscaleRequest(targetHeight: 480),
+            videoSettings: new VideoSettingsRequest(targetHeight: 480),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -416,6 +459,27 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("scale_cuda=-2:480:interp_algo=bilinear:format=nv12");
         actual.Commands[0].Should().Contain("-cq 27");
         actual.Commands[0].Should().Contain("-maxrate 2.6M -bufsize 5.2M");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenDownscale720UsesDefaultProfile_Uses720Defaults()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "h264", height: 1080, filePath: @"C:\video\input.mp4");
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: false,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetHeight: 720,
+            videoSettings: new VideoSettingsRequest(targetHeight: 720),
+            outputPath: @"C:\video\input.mkv");
+
+        var actual = sut.BuildExecution(video, plan);
+
+        actual.Commands[0].Should().Contain("scale_cuda=-2:720:interp_algo=bilinear:format=nv12");
+        actual.Commands[0].Should().Contain("-cq 23");
+        actual.Commands[0].Should().Contain("-maxrate 4.5M -bufsize 9M");
     }
 
     [Fact]
@@ -429,7 +493,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 424,
-            downscale: new DownscaleRequest(targetHeight: 424),
+            videoSettings: new VideoSettingsRequest(targetHeight: 424),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -450,7 +514,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -470,7 +534,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, qualityProfile: "high"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, qualityProfile: "high"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -496,7 +560,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -564,7 +628,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, algorithm: "lanczos"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, algorithm: "lanczos"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -583,7 +647,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, maxrate: 2.5m),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, maxrate: 2.5m),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -602,7 +666,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", cq: 21),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", cq: 21),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -623,7 +687,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "mult", qualityProfile: "default", cq: 21),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "mult", qualityProfile: "default", cq: 21),
             outputPath: @"C:\video\output.mkv");
 
         var hdActual = sut.BuildExecution(hdVideo, plan);
@@ -658,7 +722,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", cq: 21),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", cq: 21),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -667,7 +731,7 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("-cq 21");
         actual.Commands[0].Should().Contain("-maxrate 3M -bufsize 6M");
         logger.Entries.Should().Contain(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Information &&
-                                                 entry.Message.Contains("Downscale autosample resolved.", StringComparison.Ordinal) &&
+                                                 entry.Message.Contains("Video settings autosample resolved.", StringComparison.Ordinal) &&
                                                  Equals(entry.Properties["Mode"], "none") &&
                                                  Equals(entry.Properties["Path"], "skip") &&
                                                  Equals(entry.Properties["Reason"], "manual_override"));
@@ -690,7 +754,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, autoSampleMode: "fast"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, autoSampleMode: "fast"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -721,7 +785,7 @@ public sealed class FfmpegToolTests
                 targetVideoCodec: "h264",
                 preferredBackend: "gpu",
                 targetHeight: 576,
-                downscale: new DownscaleRequest(targetHeight: 576, autoSampleMode: "fast"),
+                videoSettings: new VideoSettingsRequest(targetHeight: 576, autoSampleMode: "fast"),
                 outputPath: Path.ChangeExtension(filePath, ".mkv"));
 
             var actual = sut.BuildExecution(video, plan);
@@ -729,7 +793,7 @@ public sealed class FfmpegToolTests
             actual.Commands[0].Should().Contain("-cq 24");
             actual.Commands[0].Should().Contain("-maxrate 4.2M -bufsize 8.4M");
             logger.Entries.Should().Contain(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Information &&
-                                                     entry.Message.Contains("Downscale autosample resolved.", StringComparison.Ordinal) &&
+                                                     entry.Message.Contains("Video settings autosample resolved.", StringComparison.Ordinal) &&
                                                      Equals(entry.Properties["Mode"], "fast") &&
                                                      Equals(entry.Properties["SourceBitrateOrigin"], "file_size_estimate") &&
                                                      Equals(entry.Properties["SourceBitrateMbps"], "8"));
@@ -741,7 +805,7 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
-    public void BuildExecution_WhenDownscaleFastAutoSampleIsRequestedButNoAutoSampleIsSet_UsesBaseProfileSettings()
+    public void BuildExecution_WhenDownscaleFastAutoSampleIsRequested_UsesFastAutosamplePath()
     {
         var sut = CreateSut();
         var video = CreateVideo(
@@ -757,13 +821,13 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, autoSampleMode: "fast", noAutoSample: true),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, autoSampleMode: "fast"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
 
-        actual.Commands[0].Should().Contain("-cq 26");
-        actual.Commands[0].Should().Contain("-maxrate 3.4M -bufsize 6.9M");
+        actual.Commands[0].Should().Contain("-cq 28");
+        actual.Commands[0].Should().Contain("-maxrate 2.6M -bufsize 5.2M");
     }
 
     [Fact]
@@ -783,7 +847,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, autoSampleMode: "fast"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, autoSampleMode: "fast"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -795,7 +859,7 @@ public sealed class FfmpegToolTests
     [Fact]
     public void BuildExecution_WhenDownscaleAccurateAutoSampleIsRequested_UsesMeasuredSettings()
     {
-        IReadOnlyList<DownscaleSampleWindow>? actualWindows = null;
+        IReadOnlyList<VideoSettingsSampleWindow>? actualWindows = null;
         var logger = new ListLogger<ToMkvGpuFfmpegTool>();
         var sut = CreateSut(sampleReductionProvider: (_, _, settings, windows) =>
         {
@@ -816,7 +880,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "accurate"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "accurate"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -824,11 +888,11 @@ public sealed class FfmpegToolTests
         actual.Commands[0].Should().Contain("-cq 23");
         actual.Commands[0].Should().Contain("-maxrate 2.4M -bufsize 4.8M");
         actualWindows.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 105, DurationSeconds: 30),
-            new DownscaleSampleWindow(StartSeconds: 285, DurationSeconds: 30),
-            new DownscaleSampleWindow(StartSeconds: 465, DurationSeconds: 30));
+            new VideoSettingsSampleWindow(StartSeconds: 105, DurationSeconds: 30),
+            new VideoSettingsSampleWindow(StartSeconds: 285, DurationSeconds: 30),
+            new VideoSettingsSampleWindow(StartSeconds: 465, DurationSeconds: 30));
         logger.Entries.Should().Contain(entry => entry.Level == Microsoft.Extensions.Logging.LogLevel.Information &&
-                                                 entry.Message.Contains("Downscale autosample resolved.", StringComparison.Ordinal) &&
+                                                 entry.Message.Contains("Video settings autosample resolved.", StringComparison.Ordinal) &&
                                                  Equals(entry.Properties["Mode"], "accurate") &&
                                                  Equals(entry.Properties["Path"], "accurate") &&
                                                  Equals(entry.Properties["Reason"], "in_range") &&
@@ -837,7 +901,7 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
-    public void BuildExecution_WhenDownscaleAutoSampleModeIsOmitted_UsesAccurateByDefault()
+    public void BuildExecution_WhenDownscaleAutoSampleModeIsOmitted_UsesHybridByDefault()
     {
         var providerCalls = 0;
         var sut = CreateSut(sampleReductionProvider: (_, _, _, _) =>
@@ -857,7 +921,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -872,7 +936,7 @@ public sealed class FfmpegToolTests
     {
         var providerCalls = 0;
         var sut = CreateSut(
-            downscaleProfiles: CreateDownscaleProfiles(maxIterations: 1, hybridAccurateIterations: 1),
+            videoSettingsProfiles: CreateVideoSettingsProfiles(maxIterations: 1, hybridAccurateIterations: 1),
             sampleReductionProvider: (_, _, _, _) =>
             {
                 providerCalls++;
@@ -891,7 +955,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "hybrid"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "hybrid"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -904,9 +968,9 @@ public sealed class FfmpegToolTests
     [Fact]
     public void BuildExecution_WhenDownscaleHybridAutoSampleFastSeedIsOutsideCorridor_UsesMeasuredRefinement()
     {
-        DownscaleDefaults? actualStart = null;
+        VideoSettingsDefaults? actualStart = null;
         var sut = CreateSut(
-            downscaleProfiles: CreateDownscaleProfiles(maxIterations: 1, hybridAccurateIterations: 1),
+            videoSettingsProfiles: CreateVideoSettingsProfiles(maxIterations: 1, hybridAccurateIterations: 1),
             sampleReductionProvider: (_, _, settings, _) =>
             {
                 actualStart ??= settings;
@@ -925,7 +989,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "hybrid"),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", autoSampleMode: "hybrid"),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -959,7 +1023,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", maxrate: 2.7m),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", maxrate: 2.7m),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -990,7 +1054,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", bufsize: 7.0m),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", bufsize: 7.0m),
             outputPath: @"C:\video\input.mkv");
 
         var actual = sut.BuildExecution(video, plan);
@@ -1066,7 +1130,7 @@ public sealed class FfmpegToolTests
             targetVideoCodec: "h264",
             preferredBackend: "gpu",
             targetHeight: 576,
-            downscale: new DownscaleRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default", noAutoSample: true),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576, contentProfile: "anime", qualityProfile: "default"),
             outputPath: @"C:\video\input.mkv",
             applyOverlayBackground: true);
 
@@ -1229,13 +1293,13 @@ public sealed class FfmpegToolTests
 
     private static ToMkvGpuFfmpegTool CreateSut(
         string ffmpegPath = "ffmpeg",
-        DownscaleProfiles? downscaleProfiles = null,
-        Func<string, int, DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? sampleReductionProvider = null,
+        VideoSettingsProfiles? videoSettingsProfiles = null,
+        Func<string, int, VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?>? sampleReductionProvider = null,
         Microsoft.Extensions.Logging.ILogger<ToMkvGpuFfmpegTool>? logger = null)
     {
         return new ToMkvGpuFfmpegTool(
             ffmpegPath,
-            downscaleProfiles ?? DownscaleProfiles.Default,
+            videoSettingsProfiles ?? VideoSettingsProfiles.Default,
             sampleReductionProvider,
             logger ?? CreateLogger<ToMkvGpuFfmpegTool>());
     }
@@ -1254,11 +1318,11 @@ public sealed class FfmpegToolTests
         return new ListLogger<T>();
     }
 
-    private static DownscaleProfiles CreateDownscaleProfiles(int maxIterations, int hybridAccurateIterations)
+    private static VideoSettingsProfiles CreateVideoSettingsProfiles(int maxIterations, int hybridAccurateIterations)
     {
-        var profile = Downscale576Profile.Create();
-        return DownscaleProfiles.Create(
-            new DownscaleProfile(
+        var profile = VideoSettings576Profile.Create();
+        return VideoSettingsProfiles.Create(
+            new VideoSettingsProfile(
                 targetHeight: profile.TargetHeight,
                 defaultContentProfile: profile.DefaultContentProfile,
                 defaultQualityProfile: profile.DefaultQualityProfile,
@@ -1338,7 +1402,7 @@ public sealed class FfmpegToolTests
         int? targetHeight = null,
         double? targetFramesPerSecond = null,
         bool useFrameInterpolation = false,
-        DownscaleRequest? downscale = null,
+        VideoSettingsRequest? videoSettings = null,
         bool fixTimestamps = false,
         bool keepSource = false,
         string? encoderPreset = null,
@@ -1356,7 +1420,7 @@ public sealed class FfmpegToolTests
             targetHeight: targetHeight,
             targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: useFrameInterpolation,
-            downscale: downscale,
+            videoSettings: videoSettings,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
             fixTimestamps: fixTimestamps,

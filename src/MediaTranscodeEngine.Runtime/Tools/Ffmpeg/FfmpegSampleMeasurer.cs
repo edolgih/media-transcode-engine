@@ -1,15 +1,15 @@
 using System.Diagnostics;
 using System.Globalization;
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 
 namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 
 /*
 Этот helper измеряет bitrate reduction на sample-участках через ffmpeg.
-Он нужен для autosample-режимов downscale-профилей.
+Он нужен для autosample-режимов video-settings профилей.
 */
 /// <summary>
-/// Measures downscale sample reduction by running temporary ffmpeg commands on source fragments.
+/// Measures video-settings sample reduction by running temporary ffmpeg commands on source fragments.
 /// </summary>
 internal sealed class FfmpegSampleMeasurer
 {
@@ -24,8 +24,8 @@ internal sealed class FfmpegSampleMeasurer
     public decimal? MeasureAverageReduction(
         string inputPath,
         int targetHeight,
-        DownscaleDefaults settings,
-        IReadOnlyList<DownscaleSampleWindow> windows)
+        VideoSettingsDefaults settings,
+        IReadOnlyList<VideoSettingsSampleWindow> windows)
     {
         if (string.IsNullOrWhiteSpace(inputPath) || windows.Count == 0)
         {
@@ -67,7 +67,7 @@ internal sealed class FfmpegSampleMeasurer
         return Math.Round(reductions.Average(), 2, MidpointRounding.AwayFromZero);
     }
 
-    private SourceSample? CreateSourceSample(string inputPath, DownscaleSampleWindow window)
+    private SourceSample? CreateSourceSample(string inputPath, VideoSettingsSampleWindow window)
     {
         if (!File.Exists(inputPath) || window.DurationSeconds < 1)
         {
@@ -106,7 +106,7 @@ internal sealed class FfmpegSampleMeasurer
         return new SourceSample(samplePath, size);
     }
 
-    private long? EncodeSample(string samplePath, int targetHeight, DownscaleDefaults settings)
+    private long? EncodeSample(string samplePath, int targetHeight, VideoSettingsDefaults settings)
     {
         if (!File.Exists(samplePath))
         {

@@ -1,6 +1,6 @@
 using System.Globalization;
 using MediaTranscodeEngine.Cli.Parsing;
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Scenarios;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
@@ -18,6 +18,7 @@ namespace MediaTranscodeEngine.Cli.Scenarios;
 /// </summary>
 internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
 {
+    private const string SupportedDownscaleHeightsDisplay = "720, 576, 480, 424";
     private const string DownscaleOptionName = "--downscale";
     private const string KeepSourceOptionName = "--keep-source";
     private const string OverlayBackgroundOptionName = "--overlay-bg";
@@ -25,7 +26,6 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
     private const string SynchronizeAudioOptionName = "--sync-audio";
     private const string ContentProfileOptionName = "--content-profile";
     private const string QualityProfileOptionName = "--quality-profile";
-    private const string NoAutoSampleOptionName = "--no-autosample";
     private const string AutoSampleModeOptionName = "--autosample-mode";
     private const string DownscaleAlgorithmOptionName = "--downscale-algo";
     private const string CqOptionName = "--cq";
@@ -50,14 +50,13 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
 
     public IReadOnlyList<CliHelpOption> HelpOptions { get; } =
     [
-        new CliHelpOption("--downscale <576|480|424>", "Downscale target height."),
+        new CliHelpOption("--downscale <720|576|480|424>", "Downscale target height."),
         new CliHelpOption("--keep-source", "Keep source file and write output to a new path."),
         new CliHelpOption("--overlay-bg", "Apply overlay background path during encode."),
         new CliHelpOption("--max-fps <50|40|30|24>", "Optional frame-rate cap. Supported values: 50, 40, 30, 24."),
         new CliHelpOption("--sync-audio", "Force sync-safe audio path."),
         new CliHelpOption("--content-profile <anime|mult|film>", "Downscale profile content kind."),
         new CliHelpOption("--quality-profile <high|default|low>", "Downscale profile quality kind."),
-        new CliHelpOption("--no-autosample", "Disable downscale autosample adjustments."),
         new CliHelpOption("--autosample-mode <accurate|fast|hybrid>", "Downscale autosample mode."),
         new CliHelpOption("--downscale-algo <bilinear|bicubic|lanczos>", "Explicit downscale algorithm override."),
         new CliHelpOption("--cq <int>", "Explicit NVENC CQ override."),
@@ -77,9 +76,10 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
         [
             $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\"",
             $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\" --info",
-            $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\" --keep-source --downscale 480",
+            $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\" --keep-source --downscale 720",
             $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\" --overlay-bg --sync-audio",
             $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\" --max-fps 50",
+            $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\" --downscale 720 --content-profile film --quality-profile default",
             $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\" --downscale 576 --content-profile film --quality-profile default",
             $"{exeName} --scenario tomkvgpu --input \"C:\\video\\movie.mkv\" --downscale 480 --content-profile film --quality-profile default",
             $"Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | {exeName} --scenario tomkvgpu --info"
@@ -140,7 +140,6 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
         {
             HandledFailureKind.UnknownDimensionsOverlay => $"REM Unknown dimensions: {fileName}",
             HandledFailureKind.NoVideoStream => $"REM Нет видеопотока: {fileName}",
-            HandledFailureKind.DownscaleNotImplemented => $"REM Downscale 720 not implemented: {fileName}",
             HandledFailureKind.DownscaleSourceBucket => $"REM {exception.Message}",
             HandledFailureKind.ProbeFailure => $"REM ffprobe failed: {fileName}",
             HandledFailureKind.IoError => $"REM I/O error: {fileName}",
@@ -175,7 +174,6 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
         var overlayBackground = false;
         var synchronizeAudio = false;
         var keepSource = false;
-        var noAutoSample = false;
         int? downscale = null;
         int? maxFramesPerSecond = null;
         int? cq = null;
@@ -205,12 +203,6 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
             if (string.Equals(token, SynchronizeAudioOptionName, StringComparison.OrdinalIgnoreCase))
             {
                 synchronizeAudio = true;
-                continue;
-            }
-
-            if (string.Equals(token, NoAutoSampleOptionName, StringComparison.OrdinalIgnoreCase))
-            {
-                noAutoSample = true;
                 continue;
             }
 
@@ -327,13 +319,19 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
             return false;
         }
 
+        if (downscale is > 0 &&
+            !IsSupportedDownscaleTarget(downscale.Value))
+        {
+            errorText = $"--downscale must be one of: {SupportedDownscaleHeightsDisplay}.";
+            return false;
+        }
+
         try
         {
-            var downscaleRequest = new DownscaleRequest(
+            var downscaleRequest = new VideoSettingsRequest(
                 targetHeight: downscale,
                 contentProfile: contentProfile,
                 qualityProfile: qualityProfile,
-                noAutoSample: noAutoSample,
                 autoSampleMode: autoSampleMode,
                 algorithm: algorithm,
                 cq: cq,
@@ -344,7 +342,7 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
                 overlayBackground: overlayBackground,
                 synchronizeAudio: synchronizeAudio,
                 keepSource: keepSource,
-                downscale: downscaleRequest.HasValue ? downscaleRequest : null,
+                videoSettings: downscaleRequest.HasValue ? downscaleRequest : null,
                 nvencPreset: nvencPreset,
                 maxFramesPerSecond: maxFramesPerSecond);
 
@@ -477,12 +475,6 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
             return new HandledFailure(HandledFailureKind.NoVideoStream, "no_video_stream", LogLevel.Warning);
         }
 
-        if (message.Contains("downscale", StringComparison.OrdinalIgnoreCase) &&
-            message.Contains("720", StringComparison.OrdinalIgnoreCase))
-        {
-            return new HandledFailure(HandledFailureKind.DownscaleNotImplemented, "downscale_not_implemented", LogLevel.Warning);
-        }
-
         if (message.Contains("source bucket missing", StringComparison.OrdinalIgnoreCase) ||
             message.Contains("source bucket invalid", StringComparison.OrdinalIgnoreCase))
         {
@@ -503,11 +495,15 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
     {
         UnknownDimensionsOverlay,
         NoVideoStream,
-        DownscaleNotImplemented,
         DownscaleSourceBucket,
         ProbeFailure,
         IoError,
         UnexpectedFailure
+    }
+
+    private static bool IsSupportedDownscaleTarget(int targetHeight)
+    {
+        return targetHeight is 720 or 576 or 480 or 424;
     }
 
     private sealed class HandledFailure

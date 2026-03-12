@@ -20,8 +20,13 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
     private const string KeepSourceOptionName = "--keep-source";
     private const string DownscaleOptionName = "--downscale";
     private const string KeepFpsOptionName = "--keep-fps";
+    private const string ContentProfileOptionName = "--content-profile";
+    private const string QualityProfileOptionName = "--quality-profile";
+    private const string AutoSampleModeOptionName = "--autosample-mode";
     private const string DownscaleAlgoOptionName = "--downscale-algo";
     private const string CqOptionName = "--cq";
+    private const string MaxrateOptionName = "--maxrate";
+    private const string BufsizeOptionName = "--bufsize";
     private const string NvencPresetOptionName = "--nvenc-preset";
     private const string DenoiseOptionName = "--denoise";
     private const string SynchronizeAudioOptionName = "--sync-audio";
@@ -41,10 +46,15 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
     public IReadOnlyList<CliHelpOption> HelpOptions =>
     [
         new CliHelpOption("--keep-source", "Keep the source file instead of replacing it when output path matches the input."),
-        new CliHelpOption("--downscale <720|576>", "GPU downscale when the source is higher than the target."),
+        new CliHelpOption("--downscale <720|576|480|424>", "GPU downscale when the source is higher than the target."),
         new CliHelpOption("--keep-fps", "Keep the source FPS in downscale mode instead of capping to 30000/1001."),
+        new CliHelpOption("--content-profile <anime|mult|film>", "Quality-oriented content profile."),
+        new CliHelpOption("--quality-profile <high|default|low>", "Quality-oriented quality profile."),
+        new CliHelpOption("--autosample-mode <accurate|fast|hybrid>", "Autosample mode."),
         new CliHelpOption("--downscale-algo <bicubic|lanczos|bilinear>", "scale_cuda interpolation algorithm."),
         new CliHelpOption("--cq <1..51>", "Explicit CQ override."),
+        new CliHelpOption("--maxrate <number>", "Explicit VBV maxrate in Mbit/s."),
+        new CliHelpOption("--bufsize <number>", "Explicit VBV bufsize in Mbit/s."),
         new CliHelpOption("--nvenc-preset <p1..p7>", "Explicit NVENC preset override."),
         new CliHelpOption("--denoise", "Enable hqdn3d in normal encode mode."),
         new CliHelpOption("--sync-audio", "Use the sync-safe repair path and disable audio copy."),
@@ -58,7 +68,8 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
         return
         [
             $"{exeName} --scenario toh264gpu --input C:\\video\\input.m4v",
-            $"{exeName} --scenario toh264gpu --input C:\\video\\input.mkv --keep-source --sync-audio"
+            $"{exeName} --scenario toh264gpu --input C:\\video\\input.mkv --keep-source --sync-audio",
+            $"{exeName} --scenario toh264gpu --input C:\\video\\input.mkv --content-profile film --quality-profile default"
         ];
     }
 
@@ -142,6 +153,11 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
         var keepFramesPerSecond = false;
         string? downscaleAlgorithm = null;
         var cq = (int?)null;
+        var maxrate = (decimal?)null;
+        var bufsize = (decimal?)null;
+        string? contentProfile = null;
+        string? qualityProfile = null;
+        string? autoSampleMode = null;
         string? nvencPreset = null;
         var denoise = false;
         var synchronizeAudio = false;
@@ -157,14 +173,14 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
                     break;
 
                 case DownscaleOptionName:
-                    if (!TryReadInt(args, ref index, DownscaleOptionName, "--downscale must be 720 or 576.", out downscaleTargetHeight, out errorText))
+                    if (!TryReadInt(args, ref index, DownscaleOptionName, "--downscale must be 720, 576, 480 or 424.", out downscaleTargetHeight, out errorText))
                     {
                         return false;
                     }
 
-                    if (downscaleTargetHeight is not (720 or 576))
+                    if (downscaleTargetHeight is not (720 or 576 or 480 or 424))
                     {
-                        errorText = "--downscale must be 720 or 576.";
+                        errorText = "--downscale must be 720, 576, 480 or 424.";
                         return false;
                     }
 
@@ -172,6 +188,30 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
 
                 case KeepFpsOptionName:
                     keepFramesPerSecond = true;
+                    break;
+
+                case ContentProfileOptionName:
+                    if (!TryReadString(args, ref index, ContentProfileOptionName, out contentProfile, out errorText))
+                    {
+                        return false;
+                    }
+
+                    break;
+
+                case QualityProfileOptionName:
+                    if (!TryReadString(args, ref index, QualityProfileOptionName, out qualityProfile, out errorText))
+                    {
+                        return false;
+                    }
+
+                    break;
+
+                case AutoSampleModeOptionName:
+                    if (!TryReadString(args, ref index, AutoSampleModeOptionName, out autoSampleMode, out errorText))
+                    {
+                        return false;
+                    }
+
                     break;
 
                 case DownscaleAlgoOptionName:
@@ -197,6 +237,34 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
                     if (!cq.HasValue || cq.Value <= 0 || cq.Value > 51)
                     {
                         errorText = "--cq must be an integer from 1 to 51.";
+                        return false;
+                    }
+
+                    break;
+
+                case MaxrateOptionName:
+                    if (!TryReadDecimal(args, ref index, MaxrateOptionName, "--maxrate must be a number.", out maxrate, out errorText))
+                    {
+                        return false;
+                    }
+
+                    if (!maxrate.HasValue || maxrate.Value <= 0m)
+                    {
+                        errorText = "--maxrate must be greater than zero.";
+                        return false;
+                    }
+
+                    break;
+
+                case BufsizeOptionName:
+                    if (!TryReadDecimal(args, ref index, BufsizeOptionName, "--bufsize must be a number.", out bufsize, out errorText))
+                    {
+                        return false;
+                    }
+
+                    if (!bufsize.HasValue || bufsize.Value <= 0m)
+                    {
+                        errorText = "--bufsize must be greater than zero.";
                         return false;
                     }
 
@@ -238,8 +306,13 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
             keepSource: keepSource,
             downscaleTargetHeight: downscaleTargetHeight,
             keepFramesPerSecond: keepFramesPerSecond,
+            contentProfile: contentProfile,
+            qualityProfile: qualityProfile,
+            autoSampleMode: autoSampleMode,
             downscaleAlgorithm: downscaleAlgorithm,
             cq: cq,
+            maxrate: maxrate,
+            bufsize: bufsize,
             nvencPreset: nvencPreset,
             denoise: denoise,
             synchronizeAudio: synchronizeAudio,
@@ -293,6 +366,32 @@ internal sealed class ToH264GpuCliScenarioHandler : ICliScenarioHandler
         }
 
         if (!int.TryParse(token, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedValue))
+        {
+            errorText = invalidValueError;
+            return false;
+        }
+
+        value = parsedValue;
+        return true;
+    }
+
+    private static bool TryReadDecimal(
+        IReadOnlyList<string> args,
+        ref int index,
+        string optionName,
+        string invalidValueError,
+        out decimal? value,
+        out string? errorText)
+    {
+        value = null;
+        errorText = null;
+
+        if (!TryReadString(args, ref index, optionName, out var token, out errorText))
+        {
+            return false;
+        }
+
+        if (!decimal.TryParse(token, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsedValue))
         {
             errorText = invalidValueError;
             return false;

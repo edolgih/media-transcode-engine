@@ -1,29 +1,31 @@
-namespace MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
+
+namespace MediaTranscodeEngine.Runtime.VideoSettings;
 
 /*
-Этот компонент решает autosample-путь для downscale.
+Этот компонент решает autosample-путь для video settings.
 Он берёт профиль, source facts и measured reduction и выбирает итоговые настройки.
 */
 /// <summary>
-/// Resolves downscale autosample settings from profile data and measured reduction values.
+/// Resolves video-settings autosample settings from profile data and measured reduction values.
 /// </summary>
-internal sealed class DownscaleAutoSampler
+internal sealed class VideoSettingsAutoSampler
 {
-    private readonly DownscaleProfiles _profiles;
+    private readonly VideoSettingsProfiles _profiles;
 
-    public DownscaleAutoSampler(DownscaleProfiles profiles)
+    public VideoSettingsAutoSampler(VideoSettingsProfiles profiles)
     {
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
     }
 
-    public DownscaleDefaults Resolve(
-        DownscaleRequest request,
-        DownscaleDefaults baseSettings,
+    public VideoSettingsDefaults Resolve(
+        VideoSettingsRequest request,
+        VideoSettingsDefaults baseSettings,
         int? sourceHeight,
         TimeSpan duration,
         long? sourceBitrate,
         bool hasAudio,
-        Func<DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? accurateReductionProvider = null)
+        Func<VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?>? accurateReductionProvider = null)
     {
         return ResolveWithDiagnostics(
             request,
@@ -35,54 +37,49 @@ internal sealed class DownscaleAutoSampler
             accurateReductionProvider).Settings;
     }
 
-    internal DownscaleAutoSampleResolution ResolveWithDiagnostics(
-        DownscaleRequest request,
-        DownscaleDefaults baseSettings,
+    internal VideoSettingsAutoSampleResolution ResolveWithDiagnostics(
+        VideoSettingsRequest request,
+        VideoSettingsDefaults baseSettings,
         int? sourceHeight,
         TimeSpan duration,
         long? sourceBitrate,
         bool hasAudio,
-        Func<DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? accurateReductionProvider = null)
+        Func<VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?>? accurateReductionProvider = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(baseSettings);
 
-        if (request.NoAutoSample)
-        {
-            return DownscaleAutoSampleResolution.Skip(baseSettings, "disabled_by_request");
-        }
-
         if (request.Cq.HasValue || request.Maxrate.HasValue || request.Bufsize.HasValue)
         {
-            return DownscaleAutoSampleResolution.Skip(baseSettings, "manual_override");
+            return VideoSettingsAutoSampleResolution.Skip(baseSettings, "manual_override");
         }
 
         if (!request.TargetHeight.HasValue)
         {
-            return DownscaleAutoSampleResolution.Skip(baseSettings, "no_target_height");
+            return VideoSettingsAutoSampleResolution.Skip(baseSettings, "no_target_height");
         }
 
         var profile = _profiles.GetRequiredProfile(request.TargetHeight.Value);
         if (string.IsNullOrWhiteSpace(request.AutoSampleMode) && !profile.AutoSampling.EnabledByDefault)
         {
-            return DownscaleAutoSampleResolution.Skip(baseSettings, "disabled_by_profile");
+            return VideoSettingsAutoSampleResolution.Skip(baseSettings, "disabled_by_profile");
         }
 
         if (duration <= TimeSpan.Zero)
         {
-            return DownscaleAutoSampleResolution.Skip(baseSettings, "missing_duration");
+            return VideoSettingsAutoSampleResolution.Skip(baseSettings, "missing_duration");
         }
 
         var range = profile.ResolveRange(sourceHeight, request.ContentProfile, request.QualityProfile);
         if (range is null)
         {
-            return DownscaleAutoSampleResolution.Skip(baseSettings, "missing_range");
+            return VideoSettingsAutoSampleResolution.Skip(baseSettings, "missing_range");
         }
 
         var mode = NormalizeMode(request.AutoSampleMode) ?? profile.AutoSampling.ModeDefault;
         if (mode.Equals("fast", StringComparison.OrdinalIgnoreCase))
         {
-            return DownscaleAutoSampleResolution.FromResult(
+            return VideoSettingsAutoSampleResolution.FromResult(
                 mode,
                 range,
                 [],
@@ -93,14 +90,14 @@ internal sealed class DownscaleAutoSampler
         if (mode.Equals("hybrid", StringComparison.OrdinalIgnoreCase))
         {
             var result = RunHybrid(profile, baseSettings, range, windows, sourceBitrate, hasAudio, accurateReductionProvider);
-            return DownscaleAutoSampleResolution.FromResult(
+            return VideoSettingsAutoSampleResolution.FromResult(
                 mode,
                 range,
                 result.Path == "hybrid-accurate" ? windows : [],
                 result);
         }
 
-        return DownscaleAutoSampleResolution.FromResult(
+        return VideoSettingsAutoSampleResolution.FromResult(
             mode,
             range,
             windows,
@@ -114,16 +111,16 @@ internal sealed class DownscaleAutoSampler
             : value.Trim().ToLowerInvariant();
     }
 
-    private static DownscaleAutoSampleResult RunFast(
-        DownscaleProfile profile,
-        DownscaleDefaults baseSettings,
-        DownscaleRange range,
+    private static VideoSettingsAutoSampleResult RunFast(
+        VideoSettingsProfile profile,
+        VideoSettingsDefaults baseSettings,
+        VideoSettingsRange range,
         long? sourceBitrate,
         bool hasAudio)
     {
         if (!sourceBitrate.HasValue || sourceBitrate.Value <= 0)
         {
-            return DownscaleAutoSampleResult.FromSettings(baseSettings, "fast", "missing_source_bitrate");
+            return VideoSettingsAutoSampleResult.FromSettings(baseSettings, "fast", "missing_source_bitrate");
         }
 
         return RunLoop(
@@ -139,17 +136,17 @@ internal sealed class DownscaleAutoSampler
                 audioBitrateEstimateMbps: profile.AutoSampling.AudioBitrateEstimateMbps));
     }
 
-    private static DownscaleAutoSampleResult RunAccurate(
-        DownscaleProfile profile,
-        DownscaleDefaults baseSettings,
-        DownscaleRange range,
-        IReadOnlyList<DownscaleSampleWindow> windows,
-        Func<DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? accurateReductionProvider,
+    private static VideoSettingsAutoSampleResult RunAccurate(
+        VideoSettingsProfile profile,
+        VideoSettingsDefaults baseSettings,
+        VideoSettingsRange range,
+        IReadOnlyList<VideoSettingsSampleWindow> windows,
+        Func<VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?>? accurateReductionProvider,
         int maxIterations)
     {
         if (accurateReductionProvider is null || windows.Count == 0)
         {
-            return DownscaleAutoSampleResult.FromSettings(baseSettings, "accurate", "missing_accurate_measurement");
+            return VideoSettingsAutoSampleResult.FromSettings(baseSettings, "accurate", "missing_accurate_measurement");
         }
 
         return RunLoop(
@@ -161,14 +158,14 @@ internal sealed class DownscaleAutoSampler
             settings => accurateReductionProvider(settings, windows));
     }
 
-    private static DownscaleAutoSampleResult RunHybrid(
-        DownscaleProfile profile,
-        DownscaleDefaults baseSettings,
-        DownscaleRange range,
-        IReadOnlyList<DownscaleSampleWindow> windows,
+    private static VideoSettingsAutoSampleResult RunHybrid(
+        VideoSettingsProfile profile,
+        VideoSettingsDefaults baseSettings,
+        VideoSettingsRange range,
+        IReadOnlyList<VideoSettingsSampleWindow> windows,
         long? sourceBitrate,
         bool hasAudio,
-        Func<DownscaleDefaults, IReadOnlyList<DownscaleSampleWindow>, decimal?>? accurateReductionProvider)
+        Func<VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?>? accurateReductionProvider)
     {
         var fastResult = RunFast(profile, baseSettings, range, sourceBitrate, hasAudio);
         if (fastResult.InBounds)
@@ -191,13 +188,13 @@ internal sealed class DownscaleAutoSampler
             settings => accurateReductionProvider(settings, windows));
     }
 
-    private static DownscaleAutoSampleResult RunLoop(
-        DownscaleProfile profile,
-        DownscaleDefaults startSettings,
-        DownscaleRange range,
+    private static VideoSettingsAutoSampleResult RunLoop(
+        VideoSettingsProfile profile,
+        VideoSettingsDefaults startSettings,
+        VideoSettingsRange range,
         int maxIterations,
         string path,
-        Func<DownscaleDefaults, decimal?> reductionProvider)
+        Func<VideoSettingsDefaults, decimal?> reductionProvider)
     {
         var current = startSettings;
         decimal? lastReduction = null;
@@ -208,32 +205,32 @@ internal sealed class DownscaleAutoSampler
             var reduction = reductionProvider(current);
             if (!reduction.HasValue)
             {
-                return new DownscaleAutoSampleResult(current, lastReduction, InBounds: false, iterations, "missing_reduction", path);
+                return new VideoSettingsAutoSampleResult(current, lastReduction, InBounds: false, iterations, "missing_reduction", path);
             }
 
             iterations++;
             lastReduction = reduction.Value;
             if (range.Contains(reduction.Value))
             {
-                return new DownscaleAutoSampleResult(current, lastReduction, InBounds: true, iterations, "in_range", path);
+                return new VideoSettingsAutoSampleResult(current, lastReduction, InBounds: true, iterations, "in_range", path);
             }
 
             var previous = current;
             current = Adjust(current, range, reduction.Value, profile.RateModel);
             if (previous.Cq == current.Cq && previous.Maxrate == current.Maxrate)
             {
-                return new DownscaleAutoSampleResult(current, lastReduction, InBounds: false, iterations, "no_movement", path);
+                return new VideoSettingsAutoSampleResult(current, lastReduction, InBounds: false, iterations, "no_movement", path);
             }
         }
 
-        return new DownscaleAutoSampleResult(current, lastReduction, InBounds: false, iterations, "max_iterations", path);
+        return new VideoSettingsAutoSampleResult(current, lastReduction, InBounds: false, iterations, "max_iterations", path);
     }
 
-    private static DownscaleDefaults Adjust(
-        DownscaleDefaults current,
-        DownscaleRange range,
+    private static VideoSettingsDefaults Adjust(
+        VideoSettingsDefaults current,
+        VideoSettingsRange range,
         decimal reduction,
-        DownscaleRateModel rateModel)
+        VideoSettingsRateModel rateModel)
     {
         var cq = current.Cq;
         var maxrate = current.Maxrate;
@@ -265,7 +262,7 @@ internal sealed class DownscaleAutoSampler
         };
     }
 
-    private static bool IsBelowRange(DownscaleRange range, decimal value)
+    private static bool IsBelowRange(VideoSettingsRange range, decimal value)
     {
         if (range.MinInclusive.HasValue)
         {
@@ -316,17 +313,17 @@ internal sealed class DownscaleAutoSampler
 /// <summary>
 /// Represents one intermediate autosample result before the final diagnostics payload is assembled.
 /// </summary>
-internal sealed record DownscaleAutoSampleResult(
-    DownscaleDefaults Settings,
+internal sealed record VideoSettingsAutoSampleResult(
+    VideoSettingsDefaults Settings,
     decimal? LastReduction,
     bool InBounds,
     int Iterations,
     string Reason,
     string Path)
 {
-    public static DownscaleAutoSampleResult FromSettings(DownscaleDefaults settings, string path, string reason)
+    public static VideoSettingsAutoSampleResult FromSettings(VideoSettingsDefaults settings, string path, string reason)
     {
-        return new DownscaleAutoSampleResult(settings, LastReduction: null, InBounds: false, Iterations: 0, Reason: reason, Path: path);
+        return new VideoSettingsAutoSampleResult(settings, LastReduction: null, InBounds: false, Iterations: 0, Reason: reason, Path: path);
     }
 }
 
@@ -337,20 +334,20 @@ internal sealed record DownscaleAutoSampleResult(
 /// <summary>
 /// Represents the final autosample resolution together with diagnostics about the chosen path.
 /// </summary>
-internal sealed record DownscaleAutoSampleResolution(
-    DownscaleDefaults Settings,
+internal sealed record VideoSettingsAutoSampleResolution(
+    VideoSettingsDefaults Settings,
     string Mode,
     string Path,
     string Reason,
-    DownscaleRange? Range,
-    IReadOnlyList<DownscaleSampleWindow> Windows,
+    VideoSettingsRange? Range,
+    IReadOnlyList<VideoSettingsSampleWindow> Windows,
     decimal? LastReduction,
     bool InBounds,
     int Iterations)
 {
-    public static DownscaleAutoSampleResolution Skip(DownscaleDefaults settings, string reason)
+    public static VideoSettingsAutoSampleResolution Skip(VideoSettingsDefaults settings, string reason)
     {
-        return new DownscaleAutoSampleResolution(
+        return new VideoSettingsAutoSampleResolution(
             settings,
             Mode: "none",
             Path: "skip",
@@ -362,13 +359,13 @@ internal sealed record DownscaleAutoSampleResolution(
             Iterations: 0);
     }
 
-    public static DownscaleAutoSampleResolution FromResult(
+    public static VideoSettingsAutoSampleResolution FromResult(
         string mode,
-        DownscaleRange range,
-        IReadOnlyList<DownscaleSampleWindow> windows,
-        DownscaleAutoSampleResult result)
+        VideoSettingsRange range,
+        IReadOnlyList<VideoSettingsSampleWindow> windows,
+        VideoSettingsAutoSampleResult result)
     {
-        return new DownscaleAutoSampleResolution(
+        return new VideoSettingsAutoSampleResolution(
             Settings: result.Settings,
             Mode: mode,
             Path: result.Path,

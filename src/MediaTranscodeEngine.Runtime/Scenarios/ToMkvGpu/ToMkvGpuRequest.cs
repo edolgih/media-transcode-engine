@@ -1,4 +1,4 @@
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 
 namespace MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 
@@ -22,14 +22,14 @@ public sealed class ToMkvGpuRequest
     /// <param name="overlayBackground">Whether background overlay should be applied during encoding.</param>
     /// <param name="synchronizeAudio">Whether the audio sync-safe path should be forced.</param>
     /// <param name="keepSource">Whether the source file should be preserved after execution.</param>
-    /// <param name="downscale">Reusable downscale directives.</param>
+    /// <param name="videoSettings">Reusable video-settings directives.</param>
     /// <param name="nvencPreset">Explicit NVENC preset override.</param>
     /// <param name="maxFramesPerSecond">Optional frame-rate cap applied only when the source frame rate is higher.</param>
     public ToMkvGpuRequest(
         bool overlayBackground = false,
         bool synchronizeAudio = false,
         bool keepSource = false,
-        DownscaleRequest? downscale = null,
+        VideoSettingsRequest? videoSettings = null,
         string? nvencPreset = null,
         int? maxFramesPerSecond = null)
     {
@@ -44,7 +44,7 @@ public sealed class ToMkvGpuRequest
         OverlayBackground = overlayBackground;
         SynchronizeAudio = synchronizeAudio;
         KeepSource = keepSource;
-        Downscale = downscale?.HasValue == true ? downscale : null;
+        VideoSettings = videoSettings?.HasValue == true ? videoSettings : null;
         NvencPreset = NormalizeName(nvencPreset);
         MaxFramesPerSecond = maxFramesPerSecond;
     }
@@ -55,9 +55,9 @@ public sealed class ToMkvGpuRequest
     public bool OverlayBackground { get; }
 
     /// <summary>
-    /// Gets reusable downscale directives when the scenario requests them.
+    /// Gets reusable video-settings directives when the scenario requests them.
     /// </summary>
-    public DownscaleRequest? Downscale { get; }
+    public VideoSettingsRequest? VideoSettings { get; }
 
     /// <summary>
     /// Gets a value indicating whether the audio sync-safe path should be forced.

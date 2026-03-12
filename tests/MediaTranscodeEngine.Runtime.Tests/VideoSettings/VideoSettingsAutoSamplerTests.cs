@@ -1,17 +1,18 @@
 using FluentAssertions;
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
+using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
 
-namespace MediaTranscodeEngine.Runtime.Tests.Downscaling;
+namespace MediaTranscodeEngine.Runtime.Tests.VideoSettings;
 
-public sealed class DownscaleAutoSamplerTests
+public sealed class VideoSettingsAutoSamplerTests
 {
     [Fact]
     public void Resolve_WhenModeAccurate_UsesAccurateReductionProviderAndLongWindows()
     {
-        var sut = new DownscaleAutoSampler(DownscaleProfiles.Default);
+        var sut = new VideoSettingsAutoSampler(VideoSettingsProfiles.Default);
         var request = CreateRequest(autoSampleMode: "accurate");
         var baseSettings = ResolveAnimeDefault();
-        IReadOnlyList<DownscaleSampleWindow>? actualWindows = null;
+        IReadOnlyList<VideoSettingsSampleWindow>? actualWindows = null;
         var callCount = 0;
 
         var actual = sut.Resolve(
@@ -33,15 +34,15 @@ public sealed class DownscaleAutoSamplerTests
         actual.Maxrate.Should().Be(2.4m);
         actual.Bufsize.Should().Be(4.8m);
         actualWindows.Should().Equal(
-            new DownscaleSampleWindow(StartSeconds: 105, DurationSeconds: 30),
-            new DownscaleSampleWindow(StartSeconds: 285, DurationSeconds: 30),
-            new DownscaleSampleWindow(StartSeconds: 465, DurationSeconds: 30));
+            new VideoSettingsSampleWindow(StartSeconds: 105, DurationSeconds: 30),
+            new VideoSettingsSampleWindow(StartSeconds: 285, DurationSeconds: 30),
+            new VideoSettingsSampleWindow(StartSeconds: 465, DurationSeconds: 30));
     }
 
     [Fact]
     public void Resolve_WhenModeAccurateAndReductionAboveCorridor_DecreasesCqAndIncreasesMaxrate()
     {
-        var sut = new DownscaleAutoSampler(CreateProfiles(maxIterations: 1));
+        var sut = new VideoSettingsAutoSampler(CreateProfiles(maxIterations: 1));
         var request = CreateRequest(autoSampleMode: "accurate");
         var baseSettings = ResolveAnimeDefault();
 
@@ -62,7 +63,7 @@ public sealed class DownscaleAutoSamplerTests
     [Fact]
     public void Resolve_WhenAccurateReductionIsNull_ReturnsBaseSettings()
     {
-        var sut = new DownscaleAutoSampler(DownscaleProfiles.Default);
+        var sut = new VideoSettingsAutoSampler(VideoSettingsProfiles.Default);
         var request = CreateRequest(autoSampleMode: "accurate");
         var baseSettings = ResolveAnimeDefault();
 
@@ -81,7 +82,7 @@ public sealed class DownscaleAutoSamplerTests
     [Fact]
     public void Resolve_WhenMaxIterationsReached_ReturnsLastResolvedSettings()
     {
-        var sut = new DownscaleAutoSampler(CreateProfiles(maxIterations: 1));
+        var sut = new VideoSettingsAutoSampler(CreateProfiles(maxIterations: 1));
         var request = CreateRequest(autoSampleMode: "accurate");
         var baseSettings = ResolveAnimeDefault();
 
@@ -102,12 +103,12 @@ public sealed class DownscaleAutoSamplerTests
     [Fact]
     public void Resolve_WhenLimitsAreReachedAndStillOutsideCorridor_StopsWithoutFurtherChanges()
     {
-        var sut = new DownscaleAutoSampler(DownscaleProfiles.Create(
-            new DownscaleProfile(
+        var sut = new VideoSettingsAutoSampler(VideoSettingsProfiles.Create(
+            new VideoSettingsProfile(
                 targetHeight: 576,
                 defaultContentProfile: "anime",
                 defaultQualityProfile: "default",
-                rateModel: new DownscaleRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
+                rateModel: new VideoSettingsRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
                 autoSampling: CreateAutoSampling(maxIterations: 8, hybridAccurateIterations: 2),
                 sourceBuckets:
                 [
@@ -117,12 +118,12 @@ public sealed class DownscaleAutoSamplerTests
                         MaxHeight: 1300,
                         Ranges:
                         [
-                            new DownscaleRange("anime", "default", MinInclusive: 45.0m, MaxInclusive: 60.0m)
+                            new VideoSettingsRange("anime", "default", MinInclusive: 45.0m, MaxInclusive: 60.0m)
                         ])
                 ],
                 defaults:
                 [
-                    new DownscaleDefaults("anime", "default", Cq: 26, Maxrate: 2.0m, Bufsize: 4.0m, Algorithm: "bilinear", CqMin: 26, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 2.0m)
+                    new VideoSettingsDefaults("anime", "default", Cq: 26, Maxrate: 2.0m, Bufsize: 4.0m, Algorithm: "bilinear", CqMin: 26, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 2.0m)
                 ])));
         var request = CreateRequest(autoSampleMode: "accurate");
         var baseSettings = sutResolveDefaults();
@@ -144,12 +145,12 @@ public sealed class DownscaleAutoSamplerTests
     [Fact]
     public void Resolve_WhenMatchedBucketRangeDiffers_UsesMatchedBucketBounds()
     {
-        var sut = new DownscaleAutoSampler(DownscaleProfiles.Create(
-            new DownscaleProfile(
+        var sut = new VideoSettingsAutoSampler(VideoSettingsProfiles.Create(
+            new VideoSettingsProfile(
                 targetHeight: 576,
                 defaultContentProfile: "anime",
                 defaultQualityProfile: "default",
-                rateModel: new DownscaleRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
+                rateModel: new VideoSettingsRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
                 autoSampling: CreateAutoSampling(maxIterations: 1, hybridAccurateIterations: 1),
                 sourceBuckets:
                 [
@@ -159,19 +160,19 @@ public sealed class DownscaleAutoSamplerTests
                         MaxHeight: 1300,
                         Ranges:
                         [
-                            new DownscaleRange("anime", "default", MinExclusive: 80.0m, MaxInclusive: 90.0m)
+                            new VideoSettingsRange("anime", "default", MinExclusive: 80.0m, MaxInclusive: 90.0m)
                         ])
                 ],
                 defaults:
                 [
-                    new DownscaleDefaults("anime", "default", Cq: 23, Maxrate: 2.4m, Bufsize: 4.8m, Algorithm: "bilinear", CqMin: 20, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 3.0m)
+                    new VideoSettingsDefaults("anime", "default", Cq: 23, Maxrate: 2.4m, Bufsize: 4.8m, Algorithm: "bilinear", CqMin: 20, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 3.0m)
                 ],
                 globalContentRanges:
                 [
-                    new DownscaleRange("anime", "default", MinExclusive: 40.0m, MaxInclusive: 50.0m)
+                    new VideoSettingsRange("anime", "default", MinExclusive: 40.0m, MaxInclusive: 50.0m)
                 ])));
         var request = CreateRequest(autoSampleMode: "accurate");
-        var baseSettings = new DownscaleDefaults("anime", "default", Cq: 23, Maxrate: 2.4m, Bufsize: 4.8m, Algorithm: "bilinear", CqMin: 20, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 3.0m);
+        var baseSettings = new VideoSettingsDefaults("anime", "default", Cq: 23, Maxrate: 2.4m, Bufsize: 4.8m, Algorithm: "bilinear", CqMin: 20, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 3.0m);
 
         var actual = sut.Resolve(
             request,
@@ -190,7 +191,7 @@ public sealed class DownscaleAutoSamplerTests
     [Fact]
     public void Resolve_WhenModeHybridAndFastEstimateIsWithinCorridor_SkipsAccurate()
     {
-        var sut = new DownscaleAutoSampler(CreateProfiles(maxIterations: 1, hybridAccurateIterations: 1));
+        var sut = new VideoSettingsAutoSampler(CreateProfiles(maxIterations: 1, hybridAccurateIterations: 1));
         var request = CreateRequest(autoSampleMode: "hybrid");
         var baseSettings = ResolveAnimeDefault();
         var accurateCalls = 0;
@@ -215,10 +216,10 @@ public sealed class DownscaleAutoSamplerTests
     [Fact]
     public void Resolve_WhenModeHybridAndFastEstimateIsOutsideCorridor_RunsAccurateFromFastSeed()
     {
-        var sut = new DownscaleAutoSampler(CreateProfiles(maxIterations: 1, hybridAccurateIterations: 1));
+        var sut = new VideoSettingsAutoSampler(CreateProfiles(maxIterations: 1, hybridAccurateIterations: 1));
         var request = CreateRequest(autoSampleMode: "hybrid");
         var baseSettings = ResolveAnimeDefault();
-        DownscaleDefaults? accurateStart = null;
+        VideoSettingsDefaults? accurateStart = null;
 
         var actual = sut.Resolve(
             request,
@@ -241,28 +242,26 @@ public sealed class DownscaleAutoSamplerTests
         actual.Bufsize.Should().Be(4.0m);
     }
 
-    private static DownscaleRequest CreateRequest(
-        string? autoSampleMode = null,
-        bool noAutoSample = false)
+    private static VideoSettingsRequest CreateRequest(
+        string? autoSampleMode = null)
     {
-        return new DownscaleRequest(
+        return new VideoSettingsRequest(
             targetHeight: 576,
             contentProfile: "anime",
             qualityProfile: "default",
-            noAutoSample: noAutoSample,
             autoSampleMode: autoSampleMode);
     }
 
-    private static DownscaleDefaults ResolveAnimeDefault()
+    private static VideoSettingsDefaults ResolveAnimeDefault()
     {
-        return DownscaleProfiles.Default.GetRequiredProfile(576).ResolveDefaults("anime", "default");
+        return VideoSettingsProfiles.Default.GetRequiredProfile(576).ResolveDefaults("anime", "default");
     }
 
-    private static DownscaleProfiles CreateProfiles(int maxIterations, int hybridAccurateIterations = 2)
+    private static VideoSettingsProfiles CreateProfiles(int maxIterations, int hybridAccurateIterations = 2)
     {
-        var profile = Downscale576Profile.Create();
-        return DownscaleProfiles.Create(
-            new DownscaleProfile(
+        var profile = VideoSettings576Profile.Create();
+        return VideoSettingsProfiles.Create(
+            new VideoSettingsProfile(
                 targetHeight: profile.TargetHeight,
                 defaultContentProfile: profile.DefaultContentProfile,
                 defaultQualityProfile: profile.DefaultQualityProfile,
@@ -276,9 +275,9 @@ public sealed class DownscaleAutoSamplerTests
                 defaults: profile.Defaults));
     }
 
-    private static DownscaleAutoSampling CreateAutoSampling(int maxIterations, int hybridAccurateIterations)
+    private static VideoSettingsAutoSampling CreateAutoSampling(int maxIterations, int hybridAccurateIterations)
     {
-        return new DownscaleAutoSampling(
+        return new VideoSettingsAutoSampling(
             EnabledByDefault: true,
             ModeDefault: "accurate",
             MaxIterations: maxIterations,
@@ -295,8 +294,8 @@ public sealed class DownscaleAutoSamplerTests
             ShortWindowAnchors: [0.50]);
     }
 
-    private static DownscaleDefaults sutResolveDefaults()
+    private static VideoSettingsDefaults sutResolveDefaults()
     {
-        return new DownscaleDefaults("anime", "default", Cq: 26, Maxrate: 2.0m, Bufsize: 4.0m, Algorithm: "bilinear", CqMin: 26, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 2.0m);
+        return new VideoSettingsDefaults("anime", "default", Cq: 26, Maxrate: 2.0m, Bufsize: 4.0m, Algorithm: "bilinear", CqMin: 26, CqMax: 26, MaxrateMin: 2.0m, MaxrateMax: 2.0m);
     }
 }

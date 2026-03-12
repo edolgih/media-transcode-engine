@@ -181,7 +181,7 @@ public sealed class ToH264GpuFfmpegTool : ITranscodeTool
 
         if (plan.TargetHeight.HasValue)
         {
-            var algorithm = plan.Downscale?.Algorithm ?? "bicubic";
+            var algorithm = plan.VideoSettings?.Algorithm ?? "bicubic";
             return $"-map 0:v:0 {frameRatePart}-vf \"scale_cuda=-2:{plan.TargetHeight.Value}:interp_algo={algorithm}:format=nv12\" " +
                    $"-c:v h264_nvenc -preset {preset} {rateControlPart}{aqPart}" +
                    $"{compatibilityPart}-g {gop}";

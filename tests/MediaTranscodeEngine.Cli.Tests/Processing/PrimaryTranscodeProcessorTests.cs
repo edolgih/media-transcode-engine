@@ -149,17 +149,19 @@ public sealed class PrimaryTranscodeProcessorTests
     }
 
     [Fact]
-    public void Process_WhenDownscale720IsRequested_ReturnsLegacyDownscaleRemLine()
+    public void Process_WhenDownscale720IsRequested_ReturnsCudaScaleCommand()
     {
         var sut = new PrimaryTranscodeProcessor(
             CreateInspector(CreateVideo(filePath: @"C:\video\a.mp4", container: "mp4", videoCodec: "h264")),
-            [new StubTool()],
+            [new ToMkvGpuFfmpegTool("ffmpeg", CreateLogger<ToMkvGpuFfmpegTool>())],
             CreateScenarioRegistry(),
             CreateLogger<PrimaryTranscodeProcessor>());
 
         var actual = sut.Process(CreateRequest(@"C:\video\a.mp4", false, "--downscale", "720"));
 
-        actual.Should().Be("REM Downscale 720 not implemented: a.mp4");
+        actual.Should().StartWith("ffmpeg ");
+        actual.Should().Contain("scale_cuda=-2:720");
+        actual.Should().NotContain("REM ");
     }
 
     [Fact]

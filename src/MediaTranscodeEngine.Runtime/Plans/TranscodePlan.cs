@@ -1,4 +1,4 @@
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 
 namespace MediaTranscodeEngine.Runtime.Plans;
 
@@ -21,7 +21,7 @@ public sealed record TranscodePlan
     /// <param name="targetHeight">Target video height in pixels.</param>
     /// <param name="targetFramesPerSecond">Target frame rate.</param>
     /// <param name="useFrameInterpolation">Whether frame interpolation is requested.</param>
-    /// <param name="downscale">Optional reusable downscale intent.</param>
+    /// <param name="videoSettings">Optional reusable video-settings intent.</param>
     /// <param name="copyVideo">Whether the source video stream should be copied without re-encoding.</param>
     /// <param name="copyAudio">Whether compatible audio streams should be copied.</param>
     /// <param name="fixTimestamps">Whether timestamp normalization is requested.</param>
@@ -39,7 +39,7 @@ public sealed record TranscodePlan
         int? targetHeight,
         double? targetFramesPerSecond,
         bool useFrameInterpolation,
-        DownscaleRequest? downscale,
+        VideoSettingsRequest? videoSettings,
         bool copyVideo,
         bool copyAudio,
         bool fixTimestamps,
@@ -53,7 +53,7 @@ public sealed record TranscodePlan
         TargetContainer = NormalizeRequiredToken(targetContainer, nameof(targetContainer));
         TargetHeight = NormalizeOptionalPositiveInt(targetHeight, nameof(targetHeight));
         TargetFramesPerSecond = NormalizeOptionalPositiveDouble(targetFramesPerSecond, nameof(targetFramesPerSecond));
-        Downscale = NormalizeOptionalDownscale(downscale, TargetHeight);
+        VideoSettings = NormalizeOptionalVideoSettings(videoSettings, TargetHeight);
         CopyVideo = copyVideo;
         CopyAudio = copyAudio;
         FixTimestamps = fixTimestamps;
@@ -143,9 +143,9 @@ public sealed record TranscodePlan
     public bool UseFrameInterpolation { get; }
 
     /// <summary>
-    /// Gets reusable downscale intent when the plan changes resolution.
+    /// Gets reusable video-settings directives when the plan needs profile-driven output settings.
     /// </summary>
-    public DownscaleRequest? Downscale { get; }
+    public VideoSettingsRequest? VideoSettings { get; }
 
     /// <summary>
     /// Gets a value indicating whether the source video stream should be copied.
@@ -256,23 +256,23 @@ public sealed record TranscodePlan
             : throw new ArgumentOutOfRangeException(paramName, value.Value, "Value must be greater than zero.");
     }
 
-    private static DownscaleRequest? NormalizeOptionalDownscale(DownscaleRequest? downscale, int? targetHeight)
+    private static VideoSettingsRequest? NormalizeOptionalVideoSettings(VideoSettingsRequest? videoSettings, int? targetHeight)
     {
-        if (downscale is null)
+        if (videoSettings is null)
         {
             return null;
         }
 
-        if (targetHeight.HasValue && downscale.TargetHeight != targetHeight)
+        if (targetHeight.HasValue && videoSettings.TargetHeight != targetHeight)
         {
-            throw new ArgumentException("Downscale target must match target height when both are provided.", nameof(downscale));
+            throw new ArgumentException("Video settings target must match target height when both are provided.", nameof(videoSettings));
         }
 
-        if (!targetHeight.HasValue && downscale.TargetHeight.HasValue)
+        if (!targetHeight.HasValue && videoSettings.TargetHeight.HasValue)
         {
-            throw new ArgumentException("Downscale target requires target height in the transcode plan.", nameof(downscale));
+            throw new ArgumentException("Video settings target requires target height in the transcode plan.", nameof(videoSettings));
         }
 
-        return downscale.HasValue ? downscale : null;
+        return videoSettings.HasValue ? videoSettings : null;
     }
 }

@@ -1,5 +1,5 @@
 using FluentAssertions;
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Plans;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Plans;
@@ -53,7 +53,7 @@ public sealed class TranscodePlanTests
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: true,
-            downscale: null,
+            videoSettings: null,
             copyVideo: false,
             copyAudio: true,
             fixTimestamps: false,
@@ -74,7 +74,7 @@ public sealed class TranscodePlanTests
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
-            downscale: null,
+            videoSettings: null,
             copyVideo: false,
             copyAudio: true,
             fixTimestamps: false,
@@ -85,7 +85,7 @@ public sealed class TranscodePlanTests
     }
 
     [Fact]
-    public void Ctor_WhenDownscaleTargetDoesNotMatchTargetHeight_ThrowsArgumentException()
+    public void Ctor_WhenVideoSettingsTargetDoesNotMatchTargetHeight_ThrowsArgumentException()
     {
         Action action = () => new TranscodePlan(
             targetContainer: "mkv",
@@ -95,18 +95,18 @@ public sealed class TranscodePlanTests
             targetHeight: 720,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
-            downscale: new DownscaleRequest(targetHeight: 576),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576),
             copyVideo: false,
             copyAudio: true,
             fixTimestamps: false,
             keepSource: true);
 
         action.Should().Throw<ArgumentException>()
-            .WithMessage("*Downscale target must match target height*");
+            .WithMessage("*Video settings target must match target height*");
     }
 
     [Fact]
-    public void Ctor_WhenDownscaleTargetIsProvidedWithoutPlanTargetHeight_ThrowsArgumentException()
+    public void Ctor_WhenVideoSettingsTargetIsProvidedWithoutPlanTargetHeight_ThrowsArgumentException()
     {
         Action action = () => new TranscodePlan(
             targetContainer: "mkv",
@@ -116,14 +116,14 @@ public sealed class TranscodePlanTests
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
-            downscale: new DownscaleRequest(targetHeight: 576),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576),
             copyVideo: false,
             copyAudio: true,
             fixTimestamps: false,
             keepSource: true);
 
         action.Should().Throw<ArgumentException>()
-            .WithMessage("*Downscale target requires target height in the transcode plan*");
+            .WithMessage("*Video settings target requires target height in the transcode plan*");
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public sealed class TranscodePlanTests
             targetHeight: 576,
             targetFramesPerSecond: 23.976,
             useFrameInterpolation: false,
-            downscale: new DownscaleRequest(targetHeight: 576),
+            videoSettings: new VideoSettingsRequest(targetHeight: 576),
             copyVideo: false,
             copyAudio: true,
             fixTimestamps: false,
@@ -154,7 +154,7 @@ public sealed class TranscodePlanTests
     }
 
     [Fact]
-    public void Ctor_WhenDownscaleHasNoValue_DropsIt()
+    public void Ctor_WhenVideoSettingsHasNoValue_DropsIt()
     {
         var actual = new TranscodePlan(
             targetContainer: "mkv",
@@ -164,13 +164,13 @@ public sealed class TranscodePlanTests
             targetHeight: null,
             targetFramesPerSecond: null,
             useFrameInterpolation: false,
-            downscale: new DownscaleRequest(),
+            videoSettings: new VideoSettingsRequest(),
             copyVideo: false,
             copyAudio: true,
             fixTimestamps: false,
             keepSource: true);
 
-        actual.Downscale.Should().BeNull();
+        actual.VideoSettings.Should().BeNull();
     }
 
     private static TranscodePlan CreateCopyVideoPlan(
@@ -187,7 +187,7 @@ public sealed class TranscodePlanTests
             targetHeight: targetHeight,
             targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: useFrameInterpolation,
-            downscale: null,
+            videoSettings: null,
             copyVideo: true,
             copyAudio: true,
             fixTimestamps: false,

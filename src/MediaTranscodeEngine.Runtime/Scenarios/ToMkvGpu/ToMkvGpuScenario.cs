@@ -1,4 +1,4 @@
-using MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Videos;
 
@@ -25,22 +25,22 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
         ".asf"
     };
 
-    private readonly DownscaleProfiles _downscaleProfiles;
+    private readonly VideoSettingsProfiles _videoSettingsProfiles;
 
     /// <summary>
     /// Initializes a ToMkvGpu scenario with scenario-specific directives.
     /// </summary>
     /// <param name="request">Scenario-specific directives for the ToMkvGpu workflow.</param>
     public ToMkvGpuScenario(ToMkvGpuRequest? request = null)
-        : this(request, DownscaleProfiles.Default)
+        : this(request, VideoSettingsProfiles.Default)
     {
     }
 
-    internal ToMkvGpuScenario(ToMkvGpuRequest? request, DownscaleProfiles downscaleProfiles)
+    internal ToMkvGpuScenario(ToMkvGpuRequest? request, VideoSettingsProfiles videoSettingsProfiles)
         : base("tomkvgpu")
     {
         Request = request ?? new ToMkvGpuRequest();
-        _downscaleProfiles = downscaleProfiles ?? throw new ArgumentNullException(nameof(downscaleProfiles));
+        _videoSettingsProfiles = videoSettingsProfiles ?? throw new ArgumentNullException(nameof(videoSettingsProfiles));
     }
 
     /// <summary>
@@ -55,16 +55,11 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
     /// <returns>A tool-agnostic plan describing the required MKV conversion work.</returns>
     protected override TranscodePlan BuildPlanCore(SourceVideo video)
     {
-        if (Request.Downscale?.TargetHeight == 720)
-        {
-            throw new NotSupportedException("Downscale 720 is not implemented for ToMkvGpu.");
-        }
-
-        var applyDownscale = Request.Downscale?.TargetHeight.HasValue == true &&
-                             video.Height > Request.Downscale.TargetHeight.Value;
+        var applyDownscale = Request.VideoSettings?.TargetHeight.HasValue == true &&
+                             video.Height > Request.VideoSettings.TargetHeight.Value;
         ValidateDownscale(video, applyDownscale);
 
-        var effectiveDownscale = ResolveEffectiveDownscale(applyDownscale);
+        var effectiveVideoSettings = ResolveEffectiveVideoSettings(applyDownscale);
         var applyFrameRateCap = Request.MaxFramesPerSecond.HasValue &&
                                 video.FramesPerSecond > Request.MaxFramesPerSecond.Value;
         var requiresTimestampFix = TimestampSensitiveExtensions.Contains(video.FileExtension);
@@ -82,10 +77,10 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
             targetVideoCodec: copyVideo ? null : "h264",
             preferredBackend: copyVideo ? null : "gpu",
             videoCompatibilityProfile: copyVideo ? null : VideoCompatibilityProfile.H264High,
-            targetHeight: applyDownscale ? Request.Downscale!.TargetHeight : null,
+            targetHeight: applyDownscale ? Request.VideoSettings!.TargetHeight : null,
             targetFramesPerSecond: applyFrameRateCap ? Request.MaxFramesPerSecond : null,
             useFrameInterpolation: false,
-            downscale: effectiveDownscale,
+            videoSettings: effectiveVideoSettings,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
             fixTimestamps: requiresTimestampFix || Request.SynchronizeAudio,
@@ -98,7 +93,7 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
 
     private void ValidateDownscale(SourceVideo video, bool applyDownscale)
     {
-        var targetHeight = Request.Downscale?.TargetHeight;
+        var targetHeight = Request.VideoSettings?.TargetHeight;
         if (!targetHeight.HasValue)
         {
             return;
@@ -109,7 +104,7 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
             return;
         }
 
-        if (!_downscaleProfiles.TryGetProfile(targetHeight.Value, out var profile))
+        if (!_videoSettingsProfiles.TryGetProfile(targetHeight.Value, out var profile))
         {
             return;
         }
@@ -121,21 +116,21 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
         }
     }
 
-    private DownscaleRequest? ResolveEffectiveDownscale(bool applyDownscale)
+    private VideoSettingsRequest? ResolveEffectiveVideoSettings(bool applyDownscale)
     {
-        if (Request.Downscale is null)
+        if (Request.VideoSettings is null)
         {
             return null;
         }
 
         if (applyDownscale)
         {
-            return Request.Downscale;
+            return Request.VideoSettings;
         }
 
-        if (!Request.Downscale.TargetHeight.HasValue)
+        if (!Request.VideoSettings.TargetHeight.HasValue)
         {
-            return Request.Downscale;
+            return Request.VideoSettings;
         }
 
         return null;

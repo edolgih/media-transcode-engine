@@ -1,31 +1,29 @@
-namespace MediaTranscodeEngine.Runtime.Downscaling;
+namespace MediaTranscodeEngine.Runtime.VideoSettings;
 
 /*
-Это общая request-модель для downscale-намерения.
+Это общая request-модель для video settings.
 Она описывает целевую высоту и возможные overrides профиля без привязки к конкретному сценарию.
 */
 /// <summary>
-/// Captures reusable downscale directives independent from a specific scenario.
+/// Captures reusable video-settings directives independent from a specific scenario.
 /// </summary>
-public sealed class DownscaleRequest
+public sealed class VideoSettingsRequest
 {
     /// <summary>
-    /// Initializes reusable downscale directives.
+    /// Initializes reusable video-settings directives.
     /// </summary>
     /// <param name="targetHeight">Requested target height.</param>
-    /// <param name="contentProfile">Requested content profile for profile-driven downscale paths.</param>
-    /// <param name="qualityProfile">Requested quality profile for profile-driven downscale paths.</param>
-    /// <param name="noAutoSample">Whether autosample should be disabled.</param>
+    /// <param name="contentProfile">Requested content profile for profile-driven video settings.</param>
+    /// <param name="qualityProfile">Requested quality profile for profile-driven video settings.</param>
     /// <param name="autoSampleMode">Requested autosample mode.</param>
-    /// <param name="algorithm">Explicit downscale algorithm override.</param>
+    /// <param name="algorithm">Explicit scaling algorithm override.</param>
     /// <param name="cq">Explicit CQ override.</param>
     /// <param name="maxrate">Explicit maxrate override in Mbit/s.</param>
     /// <param name="bufsize">Explicit bufsize override in Mbit/s.</param>
-    public DownscaleRequest(
+    public VideoSettingsRequest(
         int? targetHeight = null,
         string? contentProfile = null,
         string? qualityProfile = null,
-        bool noAutoSample = false,
         string? autoSampleMode = null,
         string? algorithm = null,
         int? cq = null,
@@ -34,7 +32,7 @@ public sealed class DownscaleRequest
     {
         if (targetHeight.HasValue && targetHeight.Value <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(targetHeight), targetHeight.Value, "Downscale target must be greater than zero.");
+            throw new ArgumentOutOfRangeException(nameof(targetHeight), targetHeight.Value, "Target height must be greater than zero.");
         }
 
         if (cq.HasValue && cq.Value <= 0)
@@ -55,7 +53,6 @@ public sealed class DownscaleRequest
         TargetHeight = targetHeight;
         ContentProfile = NormalizeName(contentProfile);
         QualityProfile = NormalizeName(qualityProfile);
-        NoAutoSample = noAutoSample;
         AutoSampleMode = NormalizeName(autoSampleMode);
         Algorithm = NormalizeName(algorithm);
         Cq = cq;
@@ -79,17 +76,12 @@ public sealed class DownscaleRequest
     public string? QualityProfile { get; }
 
     /// <summary>
-    /// Gets a value indicating whether autosample should be disabled.
-    /// </summary>
-    public bool NoAutoSample { get; }
-
-    /// <summary>
     /// Gets the requested autosample mode.
     /// </summary>
     public string? AutoSampleMode { get; }
 
     /// <summary>
-    /// Gets the explicit downscale algorithm override.
+    /// Gets the explicit scaling algorithm override.
     /// </summary>
     public string? Algorithm { get; }
 
@@ -109,13 +101,12 @@ public sealed class DownscaleRequest
     public decimal? Bufsize { get; }
 
     /// <summary>
-    /// Gets a value indicating whether any downscale directive is actually present.
+    /// Gets a value indicating whether any video-settings directive is actually present.
     /// </summary>
     public bool HasValue =>
         TargetHeight.HasValue ||
         !string.IsNullOrWhiteSpace(ContentProfile) ||
         !string.IsNullOrWhiteSpace(QualityProfile) ||
-        NoAutoSample ||
         !string.IsNullOrWhiteSpace(AutoSampleMode) ||
         !string.IsNullOrWhiteSpace(Algorithm) ||
         Cq.HasValue ||

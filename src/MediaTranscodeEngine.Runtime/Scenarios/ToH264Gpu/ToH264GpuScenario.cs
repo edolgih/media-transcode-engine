@@ -1,3 +1,4 @@
+using MediaTranscodeEngine.Runtime.VideoSettings;
 using MediaTranscodeEngine.Runtime.Plans;
 using MediaTranscodeEngine.Runtime.Videos;
 
@@ -18,7 +19,7 @@ public sealed class ToH264GpuScenario : TranscodeScenario
     private const int DefaultAudioBitrateKbps = 192;
     private const int MinAudioBitrateKbps = 48;
     private const int MaxAudioBitrateKbps = 320;
-    private const int DefaultCq = 19;
+    private static readonly ProfileDrivenVideoSettingsResolver VideoSettingsResolver = new(VideoSettingsProfiles.Default);
 
     /// <summary>
     /// Initializes a ToH264Gpu scenario with scenario-specific directives.
@@ -44,10 +45,13 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         var copyVideo = !synchronizeAudio && videoCopyCompatible && CanCopyAudio(video) ||
                         synchronizeAudio && videoCopyCompatible;
         var copyAudio = !synchronizeAudio && CanCopyAudio(video);
+        var videoSettingsRequest = copyVideo
+            ? null
+            : Request.BuildVideoSettingsRequest(includeTargetHeight: useDownscale);
         var targetFramesPerSecond = copyVideo
             ? (double?)null
             : ResolveTargetFramesPerSecond(video, useDownscale);
-        var ffmpegOptions = BuildFfmpegOptions(video, copyVideo, copyAudio, useDownscale, targetContainer);
+        var ffmpegOptions = BuildFfmpegOptions(video, copyVideo, copyAudio, useDownscale, targetContainer, videoSettingsRequest);
 
         return new TranscodePlan(
             targetContainer: targetContainer,
@@ -57,7 +61,7 @@ public sealed class ToH264GpuScenario : TranscodeScenario
             targetHeight: useDownscale ? Request.DownscaleTargetHeight : null,
             targetFramesPerSecond: targetFramesPerSecond,
             useFrameInterpolation: false,
-            downscale: useDownscale ? Request.BuildDownscaleRequest() : null,
+            videoSettings: videoSettingsRequest,
             copyVideo: copyVideo,
             copyAudio: copyAudio,
             fixTimestamps: synchronizeAudio,
@@ -134,10 +138,13 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         bool copyVideo,
         bool copyAudio,
         bool useDownscale,
-        string targetContainer)
+        string targetContainer,
+        VideoSettingsRequest? videoSettingsRequest)
     {
         var audioBitrateKbps = ResolveAudioBitrateKbps(video);
-        var rateControl = ResolveVideoRateControl(video, audioBitrateKbps, useDownscale);
+        var videoSettings = copyVideo
+            ? null
+            : ResolveVideoSettings(video, useDownscale, videoSettingsRequest);
         var usesAmrAudio = IsAmrNb(video.PrimaryAudioCodec);
 
         return new FfmpegOptions(
@@ -147,10 +154,9 @@ public sealed class ToH264GpuScenario : TranscodeScenario
             enableAdaptiveQuantization: copyVideo ? null : true,
             aqStrength: null,
             rcLookahead: copyVideo ? null : 32,
-            videoBitrateKbps: copyVideo ? null : rateControl.VideoBitrateKbps,
-            videoMaxrateKbps: copyVideo ? null : rateControl.VideoMaxrateKbps,
-            videoBufferSizeKbps: copyVideo ? null : rateControl.VideoBufferSizeKbps,
-            videoCq: copyVideo ? null : rateControl.VideoCq,
+            videoMaxrateKbps: copyVideo || videoSettings is null ? null : (int)Math.Round(videoSettings.Maxrate * 1000m, MidpointRounding.AwayFromZero),
+            videoBufferSizeKbps: copyVideo || videoSettings is null ? null : (int)Math.Round(videoSettings.Bufsize * 1000m, MidpointRounding.AwayFromZero),
+            videoCq: copyVideo || videoSettings is null ? null : videoSettings.Cq,
             videoFilter: copyVideo || useDownscale || !Request.Denoise ? null : "hqdn3d=1.2:1.2:6:6",
             pixelFormat: copyVideo || useDownscale ? null : "yuv420p",
             audioBitrateKbps: copyAudio ? null : audioBitrateKbps,
@@ -159,66 +165,26 @@ public sealed class ToH264GpuScenario : TranscodeScenario
             audioFilter: usesAmrAudio ? "aresample=48000:async=1:first_pts=0" : null);
     }
 
-    private VideoRateControl ResolveVideoRateControl(SourceVideo video, int audioBitrateKbps, bool useDownscale)
+    private static VideoSettingsDefaults ResolveVideoSettings(SourceVideo video, bool useDownscale, VideoSettingsRequest? request)
     {
-        if (Request.Cq.HasValue)
-        {
-            if (!useDownscale)
-            {
-                return new VideoRateControl(videoCq: Request.Cq.Value);
-            }
-
-            var maxCap = Request.DownscaleTargetHeight == 720 ? 4500 : 3000;
-            return new VideoRateControl(
-                videoCq: Request.Cq.Value,
-                videoMaxrateKbps: maxCap,
-                videoBufferSizeKbps: maxCap * 2);
-        }
-
         if (useDownscale)
         {
-            var maxCap = Request.DownscaleTargetHeight == 720 ? 4500 : 3000;
-            var sourceVideoBitrateKbps = TryResolveSourceVideoBitrateKbps(video, audioBitrateKbps);
-            if (!sourceVideoBitrateKbps.HasValue || video.Height <= 0)
-            {
-                return new VideoRateControl(
-                    videoCq: DefaultCq,
-                    videoMaxrateKbps: maxCap,
-                    videoBufferSizeKbps: maxCap * 2);
-            }
-
-            var areaRatio = Math.Pow(Request.DownscaleTargetHeight!.Value / (double)video.Height, 2);
-            var logBoost = 1.0 + (0.35 * Math.Log10(Math.Max(1.0, sourceVideoBitrateKbps.Value / 1000.0)));
-            var scaledRatio = Math.Min(1.0, areaRatio * logBoost);
-            var targetBitrate = (int)Math.Round(sourceVideoBitrateKbps.Value * scaledRatio * 0.90, MidpointRounding.AwayFromZero);
-            if (targetBitrate <= 0)
-            {
-                return new VideoRateControl(
-                    videoCq: DefaultCq,
-                    videoMaxrateKbps: maxCap,
-                    videoBufferSizeKbps: maxCap * 2);
-            }
-
-            targetBitrate = Math.Min(targetBitrate, maxCap);
-            return new VideoRateControl(
-                videoBitrateKbps: targetBitrate,
-                videoMaxrateKbps: maxCap,
-                videoBufferSizeKbps: maxCap * 2);
+            return VideoSettingsResolver.ResolveForDownscale(
+                request ?? throw new InvalidOperationException("Downscale request is required when downscale mode is active."),
+                sourceHeight: video.Height,
+                duration: video.Duration,
+                sourceBitrate: ResolveSourceBitrate(video),
+                hasAudio: video.HasAudio,
+                defaultAutoSampleMode: "hybrid").Settings;
         }
 
-        var totalBitrateKbps = TryResolveTotalBitrateKbps(video);
-        if (totalBitrateKbps.HasValue)
-        {
-            var targetBitrate = Math.Max(300, totalBitrateKbps.Value - audioBitrateKbps - 64);
-            var maxrate = Math.Max(400, (int)Math.Round(targetBitrate * 1.30, MidpointRounding.AwayFromZero));
-            var bufsize = Math.Max(800, maxrate * 2);
-            return new VideoRateControl(
-                videoBitrateKbps: targetBitrate,
-                videoMaxrateKbps: maxrate,
-                videoBufferSizeKbps: bufsize);
-        }
-
-        return new VideoRateControl(videoCq: DefaultCq);
+        return VideoSettingsResolver.ResolveForEncode(
+            request: request,
+            outputHeight: Math.Max(1, video.Height),
+            duration: video.Duration,
+            sourceBitrate: ResolveSourceBitrate(video),
+            hasAudio: video.HasAudio,
+            defaultAutoSampleMode: "fast").Settings;
     }
 
     private static int ResolveAudioBitrateKbps(SourceVideo video)
@@ -232,16 +198,13 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         return Math.Min(MaxAudioBitrateKbps, Math.Max(MinAudioBitrateKbps, audioBitrateKbps));
     }
 
-    private static int? TryResolveSourceVideoBitrateKbps(SourceVideo video, int audioBitrateKbps)
+    private static long? ResolveSourceBitrate(SourceVideo video)
     {
-        var totalBitrateKbps = TryResolveTotalBitrateKbps(video);
-        return totalBitrateKbps.HasValue
-            ? Math.Max(0, totalBitrateKbps.Value - audioBitrateKbps - 64)
-            : null;
-    }
+        if (video.Bitrate.HasValue)
+        {
+            return video.Bitrate.Value;
+        }
 
-    private static int? TryResolveTotalBitrateKbps(SourceVideo video)
-    {
         if (video.Duration <= TimeSpan.FromSeconds(0.1) ||
             string.IsNullOrWhiteSpace(video.FilePath) ||
             !File.Exists(video.FilePath))
@@ -249,15 +212,15 @@ public sealed class ToH264GpuScenario : TranscodeScenario
             return null;
         }
 
-        var fileSizeBytes = new FileInfo(video.FilePath).Length;
-        if (fileSizeBytes <= 0)
+        var fileSizeBits = new FileInfo(video.FilePath).Length * 8m;
+        if (fileSizeBits <= 0m)
         {
             return null;
         }
 
-        var totalBitrate = Math.Round((fileSizeBytes * 8.0 / 1000.0) / video.Duration.TotalSeconds, MidpointRounding.AwayFromZero);
-        return totalBitrate > 0
-            ? (int)totalBitrate
+        var totalBitrate = Math.Round(fileSizeBits / (decimal)video.Duration.TotalSeconds, MidpointRounding.AwayFromZero);
+        return totalBitrate > 0m && totalBitrate <= long.MaxValue
+            ? (long)totalBitrate
             : null;
     }
 
@@ -323,26 +286,4 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         return Path.Combine(directory, $"{video.FileNameWithoutExtension}_out.{targetContainer}");
     }
 
-    private sealed class VideoRateControl
-    {
-        public VideoRateControl(
-            int? videoBitrateKbps = null,
-            int? videoMaxrateKbps = null,
-            int? videoBufferSizeKbps = null,
-            int? videoCq = null)
-        {
-            VideoBitrateKbps = videoBitrateKbps;
-            VideoMaxrateKbps = videoMaxrateKbps;
-            VideoBufferSizeKbps = videoBufferSizeKbps;
-            VideoCq = videoCq;
-        }
-
-        public int? VideoBitrateKbps { get; }
-
-        public int? VideoMaxrateKbps { get; }
-
-        public int? VideoBufferSizeKbps { get; }
-
-        public int? VideoCq { get; }
-    }
 }

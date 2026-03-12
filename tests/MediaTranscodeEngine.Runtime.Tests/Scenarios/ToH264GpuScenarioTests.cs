@@ -162,7 +162,7 @@ public sealed class ToH264GpuScenarioTests
     }
 
     [Fact]
-    public void BuildPlan_WhenDurationIsMissing_UsesCqFallback()
+    public void BuildPlan_WhenOrdinaryEncodeHasNoBitrateHint_UsesProfileDefaults()
     {
         var sut = CreateSut();
         var video = CreateVideo(
@@ -171,19 +171,21 @@ public sealed class ToH264GpuScenarioTests
             formatName: "matroska,webm",
             videoCodec: "av1",
             audioCodecs: ["ac3"],
-            duration: TimeSpan.Zero);
+            duration: TimeSpan.Zero,
+            bitrate: null);
 
         var actual = sut.BuildPlan(video);
 
         actual.CopyVideo.Should().BeFalse();
-        actual.FfmpegOptions!.VideoCq.Should().Be(19);
-        actual.FfmpegOptions.VideoBitrateKbps.Should().BeNull();
+        actual.FfmpegOptions!.VideoCq.Should().Be(21);
+        actual.FfmpegOptions.VideoMaxrateKbps.Should().Be(5200);
+        actual.FfmpegOptions.VideoBufferSizeKbps.Should().Be(10400);
     }
 
     [Fact]
     public void BuildPlan_WhenCqIsSpecified_UsesCqOverride()
     {
-        var sut = CreateSut(new ToH264GpuRequest(cq: 21));
+        var sut = CreateSut(new ToH264GpuRequest(cq: 19));
         var video = CreateVideo(
             filePath: @"C:\video\input.mkv",
             container: "mkv",
@@ -193,8 +195,29 @@ public sealed class ToH264GpuScenarioTests
 
         var actual = sut.BuildPlan(video);
 
-        actual.FfmpegOptions!.VideoCq.Should().Be(21);
-        actual.FfmpegOptions.VideoBitrateKbps.Should().BeNull();
+        actual.FfmpegOptions!.VideoCq.Should().Be(19);
+        actual.FfmpegOptions.VideoMaxrateKbps.Should().Be(6000);
+        actual.FfmpegOptions.VideoBufferSizeKbps.Should().Be(12000);
+    }
+
+    [Fact]
+    public void BuildPlan_WhenOrdinaryEncodeUsesProfileOnlyRequest_UsesFastAutosampleDefaults()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(
+            contentProfile: "anime",
+            qualityProfile: "default"));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"]);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.FfmpegOptions!.VideoCq.Should().Be(23);
+        actual.FfmpegOptions.VideoMaxrateKbps.Should().Be(2600);
+        actual.FfmpegOptions.VideoBufferSizeKbps.Should().Be(5200);
     }
 
     [Fact]
@@ -262,7 +285,7 @@ public sealed class ToH264GpuScenarioTests
         var actual = sut.BuildPlan(video);
 
         actual.TargetHeight.Should().BeNull();
-        actual.Downscale.Should().BeNull();
+        actual.VideoSettings.Should().BeNull();
         actual.CopyVideo.Should().BeTrue();
     }
 
@@ -302,7 +325,76 @@ public sealed class ToH264GpuScenarioTests
 
         actual.TargetHeight.Should().Be(576);
         actual.TargetFramesPerSecond.Should().BeApproximately(30000d / 1001d, 0.0001);
-        actual.Downscale.Should().NotBeNull();
+        actual.VideoSettings.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenDownscaleUsesProfileOnlyRequest_UsesProfileDefaults()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(
+            downscaleTargetHeight: 576,
+            contentProfile: "anime",
+            qualityProfile: "default"));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            height: 1080);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.TargetHeight.Should().Be(576);
+        actual.FfmpegOptions!.VideoCq.Should().Be(23);
+        actual.FfmpegOptions.VideoMaxrateKbps.Should().Be(2400);
+        actual.FfmpegOptions.VideoBufferSizeKbps.Should().Be(4800);
+    }
+
+    [Fact]
+    public void BuildPlan_WhenDownscale480UsesProfileOnlyRequest_UsesProfileDefaults()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(
+            downscaleTargetHeight: 480,
+            contentProfile: "film",
+            qualityProfile: "default"));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            height: 1080);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.TargetHeight.Should().Be(480);
+        actual.FfmpegOptions!.VideoCq.Should().Be(27);
+        actual.FfmpegOptions.VideoMaxrateKbps.Should().Be(2600);
+        actual.FfmpegOptions.VideoBufferSizeKbps.Should().Be(5200);
+    }
+
+    [Fact]
+    public void BuildPlan_WhenDownscale424UsesProfileOnlyRequest_UsesFastAutosampleDefaults()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(
+            downscaleTargetHeight: 424,
+            contentProfile: "film",
+            qualityProfile: "default"));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mkv",
+            container: "mkv",
+            formatName: "matroska,webm",
+            videoCodec: "av1",
+            audioCodecs: ["ac3"],
+            height: 1080);
+
+        var actual = sut.BuildPlan(video);
+
+        actual.TargetHeight.Should().Be(424);
+        actual.FfmpegOptions!.VideoCq.Should().Be(26);
+        actual.FfmpegOptions.VideoMaxrateKbps.Should().Be(2900);
+        actual.FfmpegOptions.VideoBufferSizeKbps.Should().Be(5800);
     }
 
     [Fact]

@@ -1,259 +1,74 @@
-namespace MediaTranscodeEngine.Runtime.Downscaling;
+using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
+
+namespace MediaTranscodeEngine.Runtime.VideoSettings;
 
 /*
-Это реестр типизированных downscale-профилей runtime.
+Это реестр типизированных video-settings профилей runtime.
 Он хранит профили по целевой высоте и позволяет сценариям и tool-адаптерам брать их как данные.
 */
 /// <summary>
-/// Provides typed downscale profiles used by Runtime.
+/// Provides typed video-settings profiles used by Runtime.
 /// </summary>
-internal sealed class DownscaleProfiles
+internal sealed class VideoSettingsProfiles
 {
-    private readonly IReadOnlyDictionary<int, DownscaleProfile> _profilesByTargetHeight;
+    private readonly IReadOnlyDictionary<int, VideoSettingsProfile> _profilesByTargetHeight;
 
-    internal DownscaleProfiles(IReadOnlyDictionary<int, DownscaleProfile> profilesByTargetHeight)
+    internal VideoSettingsProfiles(IReadOnlyDictionary<int, VideoSettingsProfile> profilesByTargetHeight)
     {
         _profilesByTargetHeight = profilesByTargetHeight;
     }
 
-    public static DownscaleProfiles Default { get; } = CreateDefault();
+    public static VideoSettingsProfiles Default { get; } = CreateDefault();
 
-    public DownscaleProfile GetRequiredProfile(int targetHeight)
+    public VideoSettingsProfile GetRequiredProfile(int targetHeight)
     {
         if (_profilesByTargetHeight.TryGetValue(targetHeight, out var profile))
         {
             return profile;
         }
 
-        throw new InvalidOperationException($"Downscale profile '{targetHeight}' is not configured.");
+        throw new InvalidOperationException($"Video settings profile '{targetHeight}' is not configured.");
     }
 
-    public bool TryGetProfile(int targetHeight, out DownscaleProfile profile)
+    public bool TryGetProfile(int targetHeight, out VideoSettingsProfile profile)
     {
         return _profilesByTargetHeight.TryGetValue(targetHeight, out profile!);
     }
 
-    internal static DownscaleProfiles Create(params DownscaleProfile[] profiles)
+    public VideoSettingsProfile ResolveOutputProfile(int outputHeight)
     {
-        return new DownscaleProfiles(profiles.ToDictionary(static profile => profile.TargetHeight));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(outputHeight);
+
+        return _profilesByTargetHeight.Values
+            .OrderBy(profile => Math.Abs(profile.TargetHeight - outputHeight))
+            .ThenByDescending(profile => profile.TargetHeight)
+            .First();
     }
 
-    private static DownscaleProfiles CreateDefault()
+    internal static VideoSettingsProfiles Create(params VideoSettingsProfile[] profiles)
+    {
+        return new VideoSettingsProfiles(profiles.ToDictionary(static profile => profile.TargetHeight));
+    }
+
+    private static VideoSettingsProfiles CreateDefault()
     {
         return Create(
-            Downscale424Profile.Create(),
-            Downscale480Profile.Create(),
-            Downscale576Profile.Create());
+            VideoSettings1080Profile.Create(),
+            VideoSettings720Profile.Create(),
+            VideoSettings424Profile.Create(),
+            VideoSettings480Profile.Create(),
+            VideoSettings576Profile.Create());
     }
 }
 
 /*
-Это один профиль downscale для конкретной целевой высоты.
-Он хранит defaults, autosample-правила и source-height buckets.
-*/
-/// <summary>
-/// Represents one typed downscale profile keyed by target height.
-/// </summary>
-internal sealed class DownscaleProfile
-{
-    private readonly IReadOnlyDictionary<string, DownscaleDefaults> _defaultsByProfile;
-    private readonly IReadOnlyDictionary<string, DownscaleRange> _globalContentRangesByProfile;
-    private readonly IReadOnlyDictionary<string, DownscaleQualityRange> _globalQualityRangesByProfile;
-    private readonly string[] _supportedContentProfiles;
-    private readonly string[] _supportedQualityProfiles;
-
-    public DownscaleProfile(
-        int targetHeight,
-        string defaultContentProfile,
-        string defaultQualityProfile,
-        DownscaleRateModel rateModel,
-        DownscaleAutoSampling autoSampling,
-        IReadOnlyList<SourceHeightBucket> sourceBuckets,
-        IReadOnlyList<DownscaleDefaults> defaults,
-        IReadOnlyList<DownscaleRange>? globalContentRanges = null,
-        IReadOnlyList<DownscaleQualityRange>? globalQualityRanges = null)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetHeight);
-        ArgumentException.ThrowIfNullOrWhiteSpace(defaultContentProfile);
-        ArgumentException.ThrowIfNullOrWhiteSpace(defaultQualityProfile);
-        ArgumentNullException.ThrowIfNull(rateModel);
-        ArgumentNullException.ThrowIfNull(autoSampling);
-
-        TargetHeight = targetHeight;
-        DefaultContentProfile = defaultContentProfile.Trim().ToLowerInvariant();
-        DefaultQualityProfile = defaultQualityProfile.Trim().ToLowerInvariant();
-        RateModel = rateModel;
-        AutoSampling = autoSampling;
-        SourceBuckets = sourceBuckets;
-        Defaults = defaults;
-        GlobalContentRanges = globalContentRanges ?? Array.Empty<DownscaleRange>();
-        GlobalQualityRanges = globalQualityRanges ?? Array.Empty<DownscaleQualityRange>();
-        _defaultsByProfile = defaults.ToDictionary(
-            static entry => BuildDefaultsKey(entry.ContentProfile, entry.QualityProfile),
-            StringComparer.OrdinalIgnoreCase);
-        _globalContentRangesByProfile = GlobalContentRanges.ToDictionary(
-            static entry => BuildDefaultsKey(entry.ContentProfile, entry.QualityProfile),
-            StringComparer.OrdinalIgnoreCase);
-        _globalQualityRangesByProfile = GlobalQualityRanges.ToDictionary(
-            static entry => entry.QualityProfile,
-            StringComparer.OrdinalIgnoreCase);
-        _supportedContentProfiles = defaults.Select(static entry => entry.ContentProfile).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        _supportedQualityProfiles = defaults.Select(static entry => entry.QualityProfile).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-    }
-
-    public int TargetHeight { get; }
-
-    public string DefaultContentProfile { get; }
-
-    public string DefaultQualityProfile { get; }
-
-    public DownscaleRateModel RateModel { get; }
-
-    public DownscaleAutoSampling AutoSampling { get; }
-
-    public IReadOnlyList<SourceHeightBucket> SourceBuckets { get; }
-
-    public IReadOnlyList<DownscaleDefaults> Defaults { get; }
-
-    public IReadOnlyList<DownscaleRange> GlobalContentRanges { get; }
-
-    public IReadOnlyList<DownscaleQualityRange> GlobalQualityRanges { get; }
-
-    public string? ResolveSourceBucket(int? sourceHeight)
-    {
-        return ResolveSourceBucketDefinition(sourceHeight)?.Name;
-    }
-
-    public string? ResolveSourceBucketIssue(int? sourceHeight)
-    {
-        if (!sourceHeight.HasValue)
-        {
-            var fallbackBucket = ResolveSourceBucketDefinition(sourceHeight);
-            if (fallbackBucket is null)
-            {
-                return $"{TargetHeight} source bucket missing: height is unknown; add SourceBuckets";
-            }
-
-            var fallbackIssue = fallbackBucket.ResolveMissingRange(_supportedContentProfiles, _supportedQualityProfiles);
-            if (fallbackIssue is not null)
-            {
-                return $"{TargetHeight} source bucket invalid: missing corridor '{fallbackIssue}'";
-            }
-
-            return null;
-        }
-
-        var bucket = ResolveSourceBucketDefinition(sourceHeight);
-        if (bucket is null)
-        {
-            return $"{TargetHeight} source bucket missing: height {sourceHeight.Value}; add SourceBuckets";
-        }
-
-        var missingRange = bucket.ResolveMissingRange(_supportedContentProfiles, _supportedQualityProfiles);
-        if (missingRange is not null)
-        {
-            return $"{TargetHeight} source bucket invalid: missing corridor '{missingRange}'";
-        }
-
-        return null;
-    }
-
-    public DownscaleDefaults ResolveDefaults(string? contentProfile, string? qualityProfile)
-    {
-        return ResolveDefaults(sourceHeight: null, contentProfile, qualityProfile);
-    }
-
-    public DownscaleDefaults ResolveDefaults(int? sourceHeight, string? contentProfile, string? qualityProfile)
-    {
-        var effectiveContentProfile = NormalizeProfileName(contentProfile) ?? DefaultContentProfile;
-        var effectiveQualityProfile = NormalizeProfileName(qualityProfile) ?? DefaultQualityProfile;
-        var key = BuildDefaultsKey(effectiveContentProfile, effectiveQualityProfile);
-        if (_defaultsByProfile.TryGetValue(key, out var defaults))
-        {
-            var boundsOverride = ResolveSourceBucketDefinition(sourceHeight)?.ResolveBoundsOverride(effectiveContentProfile, effectiveQualityProfile);
-            return boundsOverride is null
-                ? defaults
-                : defaults with
-                {
-                    CqMin = boundsOverride.CqMin ?? defaults.CqMin,
-                    CqMax = boundsOverride.CqMax ?? defaults.CqMax,
-                    MaxrateMin = boundsOverride.MaxrateMin ?? defaults.MaxrateMin,
-                    MaxrateMax = boundsOverride.MaxrateMax ?? defaults.MaxrateMax
-                };
-        }
-
-        throw new InvalidOperationException(
-            $"Downscale defaults are not configured for content '{effectiveContentProfile}' and quality '{effectiveQualityProfile}'.");
-    }
-
-    public IReadOnlyList<DownscaleSampleWindow> GetSampleWindows(TimeSpan duration)
-    {
-        return AutoSampling.GetSampleWindows(duration);
-    }
-
-    public DownscaleRange? ResolveRange(int? sourceHeight, string? contentProfile, string? qualityProfile)
-    {
-        var effectiveContentProfile = NormalizeProfileName(contentProfile) ?? DefaultContentProfile;
-        var effectiveQualityProfile = NormalizeProfileName(qualityProfile) ?? DefaultQualityProfile;
-        var bucket = ResolveSourceBucketDefinition(sourceHeight);
-        var bucketRange = bucket?.ResolveRange(effectiveContentProfile, effectiveQualityProfile);
-        if (bucketRange is not null)
-        {
-            return bucketRange;
-        }
-
-        var key = BuildDefaultsKey(effectiveContentProfile, effectiveQualityProfile);
-        if (_globalContentRangesByProfile.TryGetValue(key, out var globalContentRange))
-        {
-            return globalContentRange;
-        }
-
-        if (_globalQualityRangesByProfile.TryGetValue(effectiveQualityProfile, out var globalQualityRange))
-        {
-            return globalQualityRange.ToContentRange(effectiveContentProfile);
-        }
-
-        return null;
-    }
-
-    private SourceHeightBucket? ResolveSourceBucketDefinition(int? sourceHeight)
-    {
-        if (sourceHeight.HasValue)
-        {
-            var matched = SourceBuckets.FirstOrDefault(bucket => bucket.Matches(sourceHeight.Value));
-            if (matched is not null)
-            {
-                return matched;
-            }
-        }
-
-        return SourceBuckets.FirstOrDefault(static bucket => bucket.IsDefault);
-    }
-
-    private static string? NormalizeProfileName(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return value.Trim().ToLowerInvariant();
-    }
-
-    private static string BuildDefaultsKey(string contentProfile, string qualityProfile)
-    {
-        return $"{contentProfile.Trim().ToLowerInvariant()}::{qualityProfile.Trim().ToLowerInvariant()}";
-    }
-}
-
-/*
-Это одна запись default-настроек внутри downscale-профиля.
+Это одна запись default-настроек внутри video-settings профиля.
 Она описывает базовые CQ/maxrate/bufsize и алгоритм масштабирования.
 */
 /// <summary>
-/// Represents one default settings entry inside a typed downscale profile.
+/// Represents one default settings entry inside a typed video-settings profile.
 /// </summary>
-internal sealed record DownscaleDefaults(
+internal sealed record VideoSettingsDefaults(
     string ContentProfile,
     string QualityProfile,
     int Cq,
@@ -307,13 +122,13 @@ internal sealed record DownscaleDefaults(
 }
 
 /*
-Это коэффициенты rate model для профиля downscale.
+Это коэффициенты rate model для video-settings профиля.
 Они используются, когда пользователь переопределяет CQ и нужно пересчитать maxrate/bufsize.
 */
 /// <summary>
 /// Stores the shared rate-model constants used when CQ is overridden.
 /// </summary>
-internal sealed record DownscaleRateModel(decimal CqStepToMaxrateStep, decimal BufsizeMultiplier)
+internal sealed record VideoSettingsRateModel(decimal CqStepToMaxrateStep, decimal BufsizeMultiplier)
 {
     public decimal CqStepToMaxrateStep { get; init; } = CqStepToMaxrateStep > 0m
         ? CqStepToMaxrateStep
@@ -325,13 +140,13 @@ internal sealed record DownscaleRateModel(decimal CqStepToMaxrateStep, decimal B
 }
 
 /*
-Это autosample-настройки одного downscale-профиля.
+Это autosample-настройки одного video-settings профиля.
 Они определяют corridor, windowing и число итераций для fast/accurate/hybrid путей.
 */
 /// <summary>
-/// Stores autosample defaults and sample-window rules for one downscale profile.
+/// Stores autosample defaults and sample-window rules for one video-settings profile.
 /// </summary>
-internal sealed record DownscaleAutoSampling(
+internal sealed record VideoSettingsAutoSampling(
     bool EnabledByDefault,
     string ModeDefault,
     int MaxIterations,
@@ -391,7 +206,7 @@ internal sealed record DownscaleAutoSampling(
 
     public IReadOnlyList<double> ShortWindowAnchors { get; init; } = NormalizeAnchors(ShortWindowAnchors, nameof(ShortWindowAnchors));
 
-    public IReadOnlyList<DownscaleSampleWindow> GetSampleWindows(TimeSpan duration)
+    public IReadOnlyList<VideoSettingsSampleWindow> GetSampleWindows(TimeSpan duration)
     {
         if (duration <= TimeSpan.Zero)
         {
@@ -423,7 +238,7 @@ internal sealed record DownscaleAutoSampling(
             ShortWindowCount);
     }
 
-    private static IReadOnlyList<DownscaleSampleWindow> BuildWindows(
+    private static IReadOnlyList<VideoSettingsSampleWindow> BuildWindows(
         TimeSpan totalDuration,
         TimeSpan sampleDuration,
         IReadOnlyList<double> anchors,
@@ -441,7 +256,7 @@ internal sealed record DownscaleAutoSampling(
             return [];
         }
 
-        var result = new List<DownscaleSampleWindow>();
+        var result = new List<VideoSettingsSampleWindow>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var anchor in anchors.Take(count))
@@ -454,7 +269,7 @@ internal sealed record DownscaleAutoSampling(
             var key = $"{startSeconds}|{durationSeconds}";
             if (seen.Add(key))
             {
-                result.Add(new DownscaleSampleWindow(startSeconds, durationSeconds));
+                result.Add(new VideoSettingsSampleWindow(startSeconds, durationSeconds));
             }
         }
 
@@ -500,7 +315,7 @@ internal sealed record DownscaleAutoSampling(
 /// <summary>
 /// Represents one content+quality reduction corridor entry.
 /// </summary>
-internal sealed record DownscaleRange(
+internal sealed record VideoSettingsRange(
     string ContentProfile,
     string QualityProfile,
     decimal? MinExclusive = null,
@@ -577,7 +392,7 @@ internal sealed record DownscaleRange(
 /// <summary>
 /// Represents one quality-only fallback corridor.
 /// </summary>
-internal sealed record DownscaleQualityRange(
+internal sealed record VideoSettingsQualityRange(
     string QualityProfile,
     decimal? MinExclusive = null,
     decimal? MinInclusive = null,
@@ -599,9 +414,9 @@ internal sealed record DownscaleQualityRange(
         return QualityProfile.Equals(qualityProfile, StringComparison.OrdinalIgnoreCase);
     }
 
-    public DownscaleRange ToContentRange(string contentProfile)
+    public VideoSettingsRange ToContentRange(string contentProfile)
     {
-        return new DownscaleRange(
+        return new VideoSettingsRange(
             ContentProfile: contentProfile,
             QualityProfile: QualityProfile,
             MinExclusive: MinExclusive,
@@ -634,9 +449,9 @@ internal sealed record DownscaleQualityRange(
 Оно задаёт старт и длительность фрагмента, который будет измеряться через ffmpeg.
 */
 /// <summary>
-/// Represents one autosample window inside a downscale profile.
+/// Represents one autosample window inside a video-settings profile.
 /// </summary>
-internal sealed record DownscaleSampleWindow(
+internal sealed record VideoSettingsSampleWindow(
     int StartSeconds,
     int DurationSeconds)
 {
@@ -656,7 +471,7 @@ internal sealed record DownscaleSampleWindow(
 /// <summary>
 /// Represents one optional bounds override attached to a source-height bucket.
 /// </summary>
-internal sealed record DownscaleBoundsOverride(
+internal sealed record VideoSettingsBoundsOverride(
     string ContentProfile,
     string QualityProfile,
     int? CqMin = null,
@@ -714,19 +529,19 @@ internal sealed record DownscaleBoundsOverride(
 }
 
 /*
-Это bucket исходной высоты для профиля downscale.
+Это bucket исходной высоты для video-settings профиля.
 Через него профиль различает правила для разных source-size диапазонов.
 */
 /// <summary>
-/// Represents one source-height bucket used by downscale profiles.
+/// Represents one source-height bucket used by video-settings profiles.
 /// </summary>
 internal sealed record SourceHeightBucket(
     string Name,
     int MinHeight,
     int MaxHeight,
-    IReadOnlyList<DownscaleRange>? Ranges = null,
-    IReadOnlyList<DownscaleQualityRange>? QualityRanges = null,
-    IReadOnlyList<DownscaleBoundsOverride>? BoundsOverrides = null,
+    IReadOnlyList<VideoSettingsRange>? Ranges = null,
+    IReadOnlyList<VideoSettingsQualityRange>? QualityRanges = null,
+    IReadOnlyList<VideoSettingsBoundsOverride>? BoundsOverrides = null,
     bool IsDefault = false)
 {
     public string Name { get; init; } = NormalizeRequiredToken(Name, nameof(Name));
@@ -739,11 +554,11 @@ internal sealed record SourceHeightBucket(
         ? MaxHeight
         : throw new ArgumentOutOfRangeException(nameof(MaxHeight), MaxHeight, "Maximum height must be greater than or equal to minimum height.");
 
-    public IReadOnlyList<DownscaleRange> Ranges { get; init; } = Ranges ?? Array.Empty<DownscaleRange>();
+    public IReadOnlyList<VideoSettingsRange> Ranges { get; init; } = Ranges ?? Array.Empty<VideoSettingsRange>();
 
-    public IReadOnlyList<DownscaleQualityRange> QualityRanges { get; init; } = QualityRanges ?? Array.Empty<DownscaleQualityRange>();
+    public IReadOnlyList<VideoSettingsQualityRange> QualityRanges { get; init; } = QualityRanges ?? Array.Empty<VideoSettingsQualityRange>();
 
-    public IReadOnlyList<DownscaleBoundsOverride> BoundsOverrides { get; init; } = BoundsOverrides ?? Array.Empty<DownscaleBoundsOverride>();
+    public IReadOnlyList<VideoSettingsBoundsOverride> BoundsOverrides { get; init; } = BoundsOverrides ?? Array.Empty<VideoSettingsBoundsOverride>();
 
     public bool IsDefault { get; init; } = IsDefault;
 
@@ -752,7 +567,7 @@ internal sealed record SourceHeightBucket(
         return height >= MinHeight && height <= MaxHeight;
     }
 
-    public DownscaleRange? ResolveRange(string contentProfile, string qualityProfile)
+    public VideoSettingsRange? ResolveRange(string contentProfile, string qualityProfile)
     {
         var range = Ranges.FirstOrDefault(range => range.Matches(contentProfile, qualityProfile));
         if (range is not null)
@@ -764,7 +579,7 @@ internal sealed record SourceHeightBucket(
         return qualityRange?.ToContentRange(contentProfile);
     }
 
-    public DownscaleBoundsOverride? ResolveBoundsOverride(string contentProfile, string qualityProfile)
+    public VideoSettingsBoundsOverride? ResolveBoundsOverride(string contentProfile, string qualityProfile)
     {
         return BoundsOverrides.FirstOrDefault(overrideEntry => overrideEntry.Matches(contentProfile, qualityProfile));
     }
