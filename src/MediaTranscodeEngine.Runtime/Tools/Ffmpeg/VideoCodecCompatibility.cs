@@ -68,5 +68,12 @@ internal static class VideoCodecCompatibility
         return H264Levels[^1].Name;
     }
 
+    /*
+    Это локальное ограничение одного H.264 level.
+    По нему helper подбирает минимальный совместимый level по размеру кадра и macroblocks per second.
+    */
+    /// <summary>
+    /// Stores one H.264 level limit used to select a compatible output level.
+    /// </summary>
     private sealed record H264LevelLimit(string Name, int MaxFrameSizeInMacroblocks, double MaxMacroblocksPerSecond);
 }

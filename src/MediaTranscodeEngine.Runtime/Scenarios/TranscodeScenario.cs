@@ -3,6 +3,10 @@ using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Scenarios;
 
+/*
+Это базовая абстракция прикладного сценария transcoding.
+Она инкапсулирует domain-правила построения tool-agnostic плана и при необходимости дополнительного execution payload.
+*/
 /// <summary>
 /// Encapsulates domain rules that inspect a source video and produce a tool-agnostic transcode plan.
 /// </summary>

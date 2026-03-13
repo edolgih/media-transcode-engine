@@ -12,6 +12,13 @@ using Microsoft.Extensions.Logging;
 namespace MediaTranscodeEngine.Cli.Tests;
 
 [Collection("Console")]
+/*
+Это тесты верхнего уровня для Program.
+Они проверяют конфигурацию консоли, DI-сборку и поведение entry-point вокруг ошибок и логирования.
+*/
+/// <summary>
+/// Verifies top-level Program behavior such as console setup, DI wiring, and error handling.
+/// </summary>
 public sealed class ProgramTests
 {
     [Fact]
@@ -346,6 +353,13 @@ public sealed class ProgramTests
         }
     }
 
+    /*
+    Это test processor с фиксированным результатом.
+    Он позволяет изолировать Program-тесты от реальной orchestration-логики.
+    */
+    /// <summary>
+    /// Returns a predefined processor result for Program tests.
+    /// </summary>
     private sealed class StubProcessor : ITranscodeProcessor
     {
         private readonly string _line;
@@ -361,6 +375,13 @@ public sealed class ProgramTests
         }
     }
 
+    /*
+    Это probe-заглушка, которая всегда бросает исключение.
+    Через нее Program-тесты проверяют обработку ошибок при создании зависимостей.
+    */
+    /// <summary>
+    /// Throws a predefined exception when used by Program tests.
+    /// </summary>
     private sealed class ThrowingVideoProbe : IVideoProbe
     {
         private readonly Exception _exception;
@@ -376,6 +397,13 @@ public sealed class ProgramTests
         }
     }
 
+    /*
+    Это test tool с фиксированным успешным execution.
+    Он нужен, чтобы Program-тесты не зависели от реального ffmpeg-слоя.
+    */
+    /// <summary>
+    /// Returns a fixed execution result for Program tests.
+    /// </summary>
     private sealed class StubTool : ITranscodeTool
     {
         public string Name => "stub";

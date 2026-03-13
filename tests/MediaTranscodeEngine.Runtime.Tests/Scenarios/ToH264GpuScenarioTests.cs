@@ -6,6 +6,13 @@ using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Scenarios;
 
+/*
+Это тесты сценария toh264gpu.
+Они проверяют выбор между remux и NVENC-перекодированием и влияние scenario-specific опций.
+*/
+/// <summary>
+/// Verifies planning behavior of the ToH264Gpu scenario.
+/// </summary>
 public sealed class ToH264GpuScenarioTests
 {
     [Fact]

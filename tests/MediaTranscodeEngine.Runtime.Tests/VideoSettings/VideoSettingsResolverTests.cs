@@ -3,6 +3,13 @@ using MediaTranscodeEngine.Runtime.VideoSettings;
 
 namespace MediaTranscodeEngine.Runtime.Tests.VideoSettings;
 
+/*
+Это тесты resolver-а profile-driven video settings.
+Они покрывают выбор профиля, вычисление default-настроек и сочетание их с explicit overrides.
+*/
+/// <summary>
+/// Verifies profile resolution and override application in the video-settings resolver.
+/// </summary>
 public sealed class VideoSettingsResolverTests
 {
     [Fact]

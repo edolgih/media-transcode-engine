@@ -4,6 +4,13 @@ using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
 
 namespace MediaTranscodeEngine.Runtime.Tests.VideoSettings;
 
+/*
+Это тесты autosample-логики video settings.
+Они проверяют выбор режима, окон измерения и расчет итоговых ограничений по каталогу профилей.
+*/
+/// <summary>
+/// Verifies autosample mode selection and bitrate-resolution behavior for video settings.
+/// </summary>
 public sealed class VideoSettingsAutoSamplerTests
 {
     [Fact]

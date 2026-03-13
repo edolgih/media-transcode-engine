@@ -227,5 +227,12 @@ internal sealed class FfmpegSampleMeasurer
         return $"{value.ToString("0.###", CultureInfo.InvariantCulture)}M";
     }
 
+    /*
+    Это локальная запись одного измеренного sample-файла.
+    Она нужна measurer-у для расчета bitrate по временному артефакту без выноса детали наружу.
+    */
+    /// <summary>
+    /// Represents one temporary sample artifact measured to estimate bitrate.
+    /// </summary>
     private sealed record SourceSample(string Path, decimal SizeBytes);
 }

@@ -9,6 +9,9 @@ namespace MediaTranscodeEngine.Cli.Scenarios;
 Это scenario-local parser для tomkvgpu.
 Он знает raw CLI option names и переводит их в runtime-request без переноса argv-логики в Runtime.
 */
+/// <summary>
+/// Parses ToMkvGpu CLI tokens into a runtime request while keeping raw option names in the CLI layer.
+/// </summary>
 internal static class ToMkvGpuCliRequestParser
 {
     private const string DownscaleOptionName = "--downscale";

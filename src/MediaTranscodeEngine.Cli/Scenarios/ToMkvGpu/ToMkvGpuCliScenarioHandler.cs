@@ -182,6 +182,13 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
         return new HandledFailure(HandledFailureKind.UnexpectedFailure, "unexpected_failure", LogLevel.Warning);
     }
 
+    /*
+    Это локальная классификация ошибок, которые handler уже умеет превратить в стабильный CLI output.
+    Она не выходит за пределы transport-слоя и нужна только для внутреннего branching.
+    */
+    /// <summary>
+    /// Classifies failures that the handler can already map to stable CLI output paths.
+    /// </summary>
     private enum HandledFailureKind
     {
         UnknownDimensionsOverlay,
@@ -192,6 +199,13 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
         UnexpectedFailure
     }
 
+    /*
+    Это внутренний контейнер уже обработанной ошибки.
+    Он связывает классификацию ошибки с log token и уровнем логирования до финального вывода в CLI.
+    */
+    /// <summary>
+    /// Stores a failure that has already been classified for CLI logging and output.
+    /// </summary>
     private sealed class HandledFailure
     {
         public HandledFailure(HandledFailureKind kind, string logToken, LogLevel level)

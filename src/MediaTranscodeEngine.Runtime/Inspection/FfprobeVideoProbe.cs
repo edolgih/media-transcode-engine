@@ -339,6 +339,13 @@ public sealed class FfprobeVideoProbe : IVideoProbe
     }
 }
 
+/*
+Это внутренний снимок результата запуска ffprobe.
+Он отделяет сырые stdout/stderr и exit code процесса от последующего JSON-разбора.
+*/
+/// <summary>
+/// Captures the raw result of invoking the ffprobe process.
+/// </summary>
 internal sealed record FfprobeProcessResult(
     int ExitCode,
     string StandardOutput,

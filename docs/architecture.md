@@ -1,5 +1,7 @@
 # Architecture And Behavior Notes
 
+Russian version: [architecture.ru.md](architecture.ru.md)
+
 ## Runtime Flow
 
 Current runtime pipeline:
@@ -36,6 +38,22 @@ CLI flow at a high level:
 - ordinary encode and downscale now share the same profile-driven video-settings axis: output-height buckets, content/quality profiles, bucket bounds, and autosample/bitrate-hint adjustment all come from the shared video-settings profile catalog rather than scenario-local hardcoded fallbacks.
 - runtime request/value types no longer know raw `--option` spellings; the CLI layer is the transport adapter and runtime stays the domain source of truth.
 
+## Runtime-CLI Boundary
+
+Current boundary rules:
+
+- `Runtime` owns domain request objects, supported-value catalogs, normalization, validation, and scenario invariants.
+- `CLI` owns raw option names, argv token reading, required-value checks, parse diagnostics, and help rendering.
+- `CLI` may contain option-to-domain binding logic, because that is transport-adapter knowledge.
+- `CLI` must not carry its own domain supported-value lists when the same values already exist in `Runtime`.
+- `Runtime` must not contain `--option` literals, argv parsing, or CLI help formatting concerns.
+
+In practice:
+
+- scenario-local CLI parsers translate argv into runtime request objects;
+- runtime request/value types validate canonical domain values;
+- CLI help should format supported values from runtime-owned catalogs instead of duplicating those lists.
+
 ## Timing, FPS And Sync Notes
 
 - If the goal is only to adapt video while preserving source fps and source timeline, `-fps_mode:v cfr` and `-r` should not be added by default.
@@ -52,25 +70,6 @@ Current intent:
 - ordinary downscale/encode path stays minimal;
 - fps-cap path adds only the framing controls it really needs;
 - `--sync-audio` remains an explicit repair mode.
-
-## Current Behavior Covered By Tests
-
-The new implementation already fixes and verifies:
-
-- `ffprobe` boundary handling and `SourceVideo` normalization
-- `copy vs encode`
-- `keep-source`
-- `wmv/asf -> encode + timestamp normalization`
-- `OverlayBg`
-- `downscale 576` profile behavior
-- `downscale 480` profile behavior
-- ordinary encode profile resolution by output height
-- ordinary encode fast autosample path
-- `max-fps` cap behavior
-- legacy CLI contract:
-  - `chcp 65001`
-  - `REM ...` diagnostics
-  - single-line commands joined with `&&`
 
 ## Reference Data
 

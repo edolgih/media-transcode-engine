@@ -6,6 +6,9 @@ namespace MediaTranscodeEngine.Cli.Parsing;
 Это общий helper для scenario-specific CLI parsing.
 Он решает только transport-задачу чтения next token как string/int/decimal.
 */
+/// <summary>
+/// Reads typed option values from scenario-local CLI tokens without introducing domain validation.
+/// </summary>
 internal static class CliOptionReader
 {
     public static bool TryReadRequiredValue(

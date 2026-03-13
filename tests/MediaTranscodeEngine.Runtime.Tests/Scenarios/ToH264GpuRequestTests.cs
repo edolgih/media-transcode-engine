@@ -4,6 +4,13 @@ using MediaTranscodeEngine.Runtime.VideoSettings;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Scenarios;
 
+/*
+Это тесты self-validating request-модели toh264gpu.
+Они проверяют нормализацию значений и защиту сценарных инвариантов.
+*/
+/// <summary>
+/// Verifies normalization and invariants of the ToH264Gpu request model.
+/// </summary>
 public sealed class ToH264GpuRequestTests
 {
     [Fact]

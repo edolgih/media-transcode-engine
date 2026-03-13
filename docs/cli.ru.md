@@ -1,22 +1,22 @@
-# CLI Usage
+# Использование CLI
 
-Russian version: [cli.ru.md](cli.ru.md)
+English version: [cli.md](cli.md)
 
-## Show Help
+## Показать Справку
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --help
 ```
 
-## Generate Commands
+## Генерация Команд
 
-Command generation for `tomkvgpu`:
+Генерация команд для `tomkvgpu`:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv"
 ```
 
-Info-only output:
+Вывод только информации:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --info
@@ -28,7 +28,7 @@ dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 720
 ```
 
-Explicit `576` profile:
+Явный профиль `576`:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 576 --content-profile film --quality-profile default
@@ -40,58 +40,58 @@ dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 424
 ```
 
-Overlay with explicit repair mode:
+Overlay с явным repair mode:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --overlay-bg --sync-audio
 ```
 
-Frame-rate cap:
+Ограничение frame-rate:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --max-fps 30
 ```
 
-Command generation for `toh264gpu`:
+Генерация команд для `toh264gpu`:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.m4v"
 ```
 
-`toh264gpu` downscale to `576`:
+`toh264gpu` downscale до `576`:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --downscale 576
 ```
 
-`toh264gpu` with explicit quality-oriented profile selection:
+`toh264gpu` с явным выбором quality-oriented profile:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --content-profile film --quality-profile default --autosample-mode fast
 ```
 
-`toh264gpu` explicit audio-sync repair path:
+`toh264gpu` с явным audio-sync repair path:
 
 ```bash
 dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --sync-audio --keep-source
 ```
 
-Read paths from stdin:
+Чтение путей из stdin:
 
 ```powershell
 Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --info
 ```
 
-## Supported Options
+## Поддерживаемые Опции
 
 - `--help`, `-h`
-- `--input <path>`; repeatable
-- `--scenario <name>`; required, currently `tomkvgpu` or `toh264gpu`
+- `--input <path>`; можно указывать несколько раз
+- `--scenario <name>`; обязательно, сейчас поддерживаются `tomkvgpu` и `toh264gpu`
 - `--info`
 
-`tomkvgpu` options:
+Опции `tomkvgpu`:
 
-Quality-oriented video settings:
+Параметры quality-oriented video settings:
 
 - `--keep-source`
 - `--overlay-bg`
@@ -107,9 +107,9 @@ Quality-oriented video settings:
 - `--bufsize <number>`
 - `--nvenc-preset <preset>`
 
-`toh264gpu` options:
+Опции `toh264gpu`:
 
-Quality-oriented video settings:
+Параметры quality-oriented video settings:
 
 - `--keep-source`
 - `--downscale <720|576|480|424>`
@@ -124,16 +124,16 @@ Quality-oriented video settings:
 - `--nvenc-preset <p1..p7>`
 - `--denoise`
 - `--sync-audio`
-  Uses the explicit audio-sync repair path.
+  Использует явный audio-sync repair path.
 - `--mkv`
 
-## Requirements
+## Требования
 
 - `.NET SDK` `9.0.x`
-- `ffprobe` with JSON output
-- `ffmpeg` with required filters and encoders such as `h264_nvenc` and `scale_cuda`
+- `ffprobe` с JSON output
+- `ffmpeg` с нужными фильтрами и кодировщиками, например `h264_nvenc` и `scale_cuda`
 
-The CLI resolves binary paths from standard host configuration sources such as `appsettings.json` and environment variables. A minimal `appsettings.json` looks like this:
+CLI получает пути к бинарникам из стандартных источников host configuration, например `appsettings.json` и переменных окружения. Минимальный `appsettings.json` выглядит так:
 
 ```json
 {

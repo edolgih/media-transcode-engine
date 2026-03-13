@@ -4,6 +4,13 @@ using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
 
 namespace MediaTranscodeEngine.Runtime.Tests.VideoSettings;
 
+/*
+Это тесты runtime-каталога video settings профилей.
+Они проверяют bucket mapping и доступность типизированных profile data.
+*/
+/// <summary>
+/// Verifies profile catalog mapping and typed profile data exposed by Runtime.
+/// </summary>
 public sealed class VideoSettingsProfilesTests
 {
     [Theory]

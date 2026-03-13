@@ -43,5 +43,7 @@ dotnet test MediaTranscodeEngine.sln
 
 - [README.ru.md](README.ru.md) - Russian overview
 - [docs/cli.md](docs/cli.md) - CLI usage and option reference
+- [docs/cli.ru.md](docs/cli.ru.md) - Russian CLI usage and option reference
 - [docs/architecture.md](docs/architecture.md) - architecture and timing/sync notes
+- [docs/architecture.ru.md](docs/architecture.ru.md) - Russian architecture and timing/sync notes
 - [docs/reference](docs/reference) - legacy reference data

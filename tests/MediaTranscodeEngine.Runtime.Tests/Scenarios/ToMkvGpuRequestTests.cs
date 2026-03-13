@@ -4,6 +4,13 @@ using MediaTranscodeEngine.Runtime.VideoSettings;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Scenarios;
 
+/*
+Это тесты request-модели tomkvgpu.
+Они проверяют нормализацию supported values и сценарные инварианты этой legacy-модели.
+*/
+/// <summary>
+/// Verifies normalization and invariants of the ToMkvGpu request model.
+/// </summary>
 public sealed class ToMkvGpuRequestTests
 {
     [Fact]

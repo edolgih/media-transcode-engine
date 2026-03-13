@@ -8,6 +8,13 @@ using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Scenarios;
 
+/*
+Это тесты сценария tomkvgpu.
+Они покрывают принятие решений между remux, encode и explicit downscale путями.
+*/
+/// <summary>
+/// Verifies planning behavior of the ToMkvGpu scenario.
+/// </summary>
 public sealed class ToMkvGpuScenarioTests
 {
     [Theory]

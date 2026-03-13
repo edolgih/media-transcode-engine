@@ -2,6 +2,13 @@ using Microsoft.Extensions.Logging;
 
 namespace MediaTranscodeEngine.Cli.Tests.Logging;
 
+/*
+Это запись одного лог-события, собранного тестовым logger.
+Она фиксирует все полезные поля, чтобы тесты могли делать точные assertions по логированию.
+*/
+/// <summary>
+/// Captures one log entry collected by the CLI test logger.
+/// </summary>
 internal sealed record LogEntry(
     string Category,
     LogLevel Level,
@@ -9,6 +16,13 @@ internal sealed record LogEntry(
     IReadOnlyDictionary<string, object?> Properties,
     Exception? Exception);
 
+/*
+Это тестовый provider логирования для CLI-тестов.
+Он накапливает записи в памяти и выдает logger-экземпляры с общим списком событий.
+*/
+/// <summary>
+/// Provides in-memory loggers for CLI tests and keeps all collected log entries.
+/// </summary>
 internal sealed class ListLoggerProvider : ILoggerProvider
 {
     private readonly List<LogEntry> _entries = [];
@@ -24,6 +38,13 @@ internal sealed class ListLoggerProvider : ILoggerProvider
     {
     }
 
+    /*
+    Это внутренний logger, который пишет события в общий in-memory список provider-а.
+    Он нужен только тестам и не несет отдельной доменной ответственности.
+    */
+    /// <summary>
+    /// Writes CLI test log events into the shared in-memory entry list.
+    /// </summary>
     private sealed class ListLogger : ILogger
     {
         private readonly string _categoryName;
@@ -68,6 +89,13 @@ internal sealed class ListLoggerProvider : ILoggerProvider
         }
     }
 
+    /*
+    Это пустой scope для тестового logger-а.
+    Он закрывает контракт ILogger без дополнительного поведения.
+    */
+    /// <summary>
+    /// Represents a no-op logging scope used by the CLI test logger.
+    /// </summary>
     private sealed class NullScope : IDisposable
     {
         public static readonly NullScope Instance = new();

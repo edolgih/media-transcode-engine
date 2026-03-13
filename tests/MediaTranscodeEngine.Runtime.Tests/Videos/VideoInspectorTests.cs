@@ -5,6 +5,13 @@ using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Videos;
 
+/*
+Это тесты VideoInspector.
+Они проверяют перевод probe snapshot в SourceVideo и обработку некорректных входных данных.
+*/
+/// <summary>
+/// Verifies SourceVideo construction and validation performed by VideoInspector.
+/// </summary>
 public sealed class VideoInspectorTests
 {
     [Fact]
@@ -254,6 +261,13 @@ public sealed class VideoInspectorTests
             duration: TimeSpan.FromMinutes(10));
     }
 
+    /*
+    Это простая probe-заглушка на базе делегата.
+    Она позволяет тестам задавать probe-поведение точечно для каждого кейса.
+    */
+    /// <summary>
+    /// Delegates probe behavior to a supplied function for VideoInspector tests.
+    /// </summary>
     private sealed class FakeVideoProbe : IVideoProbe
     {
         private readonly Func<string, VideoProbeSnapshot> _probe;

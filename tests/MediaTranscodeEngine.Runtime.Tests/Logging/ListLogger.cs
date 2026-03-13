@@ -2,12 +2,26 @@ using Microsoft.Extensions.Logging;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Logging;
 
+/*
+Это запись одного лог-события для runtime-тестов.
+Она хранит уровень, текст, свойства и исключение для точных assertions.
+*/
+/// <summary>
+/// Captures one log entry collected by the runtime test logger.
+/// </summary>
 internal sealed record LogEntry(
     LogLevel Level,
     string Message,
     IReadOnlyDictionary<string, object?> Properties,
     Exception? Exception);
 
+/*
+Это in-memory logger для runtime-тестов.
+Он позволяет проверять диагностический вывод runtime-компонентов без внешней инфраструктуры.
+*/
+/// <summary>
+/// Collects runtime log events in memory for test assertions.
+/// </summary>
 internal sealed class ListLogger<T> : ILogger<T>
 {
     private readonly List<LogEntry> _entries = [];
@@ -45,6 +59,13 @@ internal sealed class ListLogger<T> : ILogger<T>
             Exception: exception));
     }
 
+    /*
+    Это пустой scope для тестового logger-а runtime.
+    Он нужен только для реализации интерфейса ILogger.
+    */
+    /// <summary>
+    /// Represents a no-op logging scope used by the runtime test logger.
+    /// </summary>
     private sealed class NullScope : IDisposable
     {
         public static readonly NullScope Instance = new();

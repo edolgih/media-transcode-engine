@@ -412,4 +412,11 @@ internal sealed record VideoSettingsAutoSampleResolution(
     }
 }
 
+/*
+Это локальный результат определения source bitrate для autosample.
+Он хранит и само значение, и причину, почему оно было получено или не было получено.
+*/
+/// <summary>
+/// Describes the source bitrate resolved for autosample together with the resolution reason.
+/// </summary>
 internal sealed record VideoSettingsSourceBitrateResolution(long? Bitrate, string Reason);

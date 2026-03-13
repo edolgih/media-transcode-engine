@@ -6,6 +6,13 @@ using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 
 namespace MediaTranscodeEngine.Cli.Tests.Parsing;
 
+/*
+Это тесты разбора CLI-аргументов.
+Они проверяют, что transport-слой сохраняет сценарные токены и правильно маппит их в runtime-request.
+*/
+/// <summary>
+/// Verifies CLI argument parsing and scenario-specific request binding behavior.
+/// </summary>
 public sealed class CliParsingTests
 {
     [Fact]

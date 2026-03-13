@@ -42,6 +42,8 @@ dotnet test MediaTranscodeEngine.sln
 ## Документация
 
 - [README.md](README.md) - English overview
-- [docs/cli.md](docs/cli.md) - использование CLI
-- [docs/architecture.md](docs/architecture.md) - архитектура и заметки по таймлайну/синхронизации
+- [docs/cli.md](docs/cli.md) - CLI usage and option reference
+- [docs/cli.ru.md](docs/cli.ru.md) - использование CLI
+- [docs/architecture.md](docs/architecture.md) - architecture and timing/sync notes
+- [docs/architecture.ru.md](docs/architecture.ru.md) - архитектура и заметки по таймлайну/синхронизации
 - [docs/reference](docs/reference) - reference-данные из legacy

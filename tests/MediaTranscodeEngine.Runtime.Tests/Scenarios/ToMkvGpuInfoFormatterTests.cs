@@ -7,6 +7,13 @@ using MediaTranscodeEngine.Runtime.Videos;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Scenarios;
 
+/*
+Это тесты formatter-а info-режима tomkvgpu.
+Они проверяют текстовую сводку плана и маркировку известных failure cases.
+*/
+/// <summary>
+/// Verifies summary formatting and failure markers produced by the ToMkvGpu info formatter.
+/// </summary>
 public sealed class ToMkvGpuInfoFormatterTests
 {
     [Fact]

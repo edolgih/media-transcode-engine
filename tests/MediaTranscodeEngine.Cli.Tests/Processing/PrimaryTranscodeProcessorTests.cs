@@ -13,6 +13,13 @@ using Microsoft.Extensions.Logging;
 
 namespace MediaTranscodeEngine.Cli.Tests.Processing;
 
+/*
+Это тесты главного CLI processor-а.
+Они покрывают orchestration между parsing, inspection, scenario selection и tool execution assembly.
+*/
+/// <summary>
+/// Verifies the primary CLI processor that orchestrates parsing, inspection, scenarios, and tools.
+/// </summary>
 public sealed class PrimaryTranscodeProcessorTests
 {
     [Fact]
@@ -409,6 +416,13 @@ public sealed class PrimaryTranscodeProcessorTests
         return new VideoInspector(new ThrowingVideoProbe(exception));
     }
 
+    /*
+    Это test double для video probe, который строит snapshot из заранее подготовленного SourceVideo.
+    Он нужен, чтобы тестировать processor без реального ffprobe.
+    */
+    /// <summary>
+    /// Supplies a deterministic probe snapshot derived from a prepared source video.
+    /// </summary>
     private sealed class StubVideoProbe : IVideoProbe
     {
         private readonly SourceVideo _video;
@@ -431,6 +445,13 @@ public sealed class PrimaryTranscodeProcessorTests
         }
     }
 
+    /*
+    Это test double для probe, который всегда бросает исключение.
+    Через него тесты проверяют error-path поведение processor-а.
+    */
+    /// <summary>
+    /// Throws a predefined exception when probing is requested.
+    /// </summary>
     private sealed class ThrowingVideoProbe : IVideoProbe
     {
         private readonly Exception _exception;
@@ -446,6 +467,13 @@ public sealed class PrimaryTranscodeProcessorTests
         }
     }
 
+    /*
+    Это probe-заглушка, возвращающая заранее подготовленный snapshot как есть.
+    Она позволяет изолировать тесты от логики преобразования SourceVideo в probe-данные.
+    */
+    /// <summary>
+    /// Returns a prepared probe snapshot without additional transformation.
+    /// </summary>
     private sealed class SnapshotVideoProbe : IVideoProbe
     {
         private readonly VideoProbeSnapshot _snapshot;
@@ -461,6 +489,13 @@ public sealed class PrimaryTranscodeProcessorTests
         }
     }
 
+    /*
+    Это test tool, который всегда может обработать план и возвращает фиксированное выполнение.
+    Он нужен для happy-path проверок processor-а.
+    */
+    /// <summary>
+    /// Represents a tool double that always handles the plan and returns a fixed execution.
+    /// </summary>
     private sealed class StubTool : ITranscodeTool
     {
         public string Name => "stub";
@@ -476,6 +511,13 @@ public sealed class PrimaryTranscodeProcessorTests
         }
     }
 
+    /*
+    Это test tool, который имитирует сбой на стадии построения execution.
+    Он используется для проверки обработки исключений от инструмента.
+    */
+    /// <summary>
+    /// Represents a tool double that fails while building the execution.
+    /// </summary>
     private sealed class ThrowingTool : ITranscodeTool
     {
         private readonly Exception _exception;
@@ -498,6 +540,13 @@ public sealed class PrimaryTranscodeProcessorTests
         }
     }
 
+    /*
+    Это test tool, который никогда не принимает план.
+    Он нужен для проверки ветки, где processor не находит подходящий инструмент.
+    */
+    /// <summary>
+    /// Represents a tool double that always rejects the supplied plan.
+    /// </summary>
     private sealed class RejectingTool : ITranscodeTool
     {
         public string Name => "rejecting";

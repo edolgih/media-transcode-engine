@@ -4,6 +4,13 @@ using MediaTranscodeEngine.Runtime.Plans;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Plans;
 
+/*
+Это тесты инвариантов TranscodePlan.
+Они проверяют допустимые комбинации copy/encode intent и связанных video settings.
+*/
+/// <summary>
+/// Verifies TranscodePlan invariants and invalid plan combinations.
+/// </summary>
 public sealed class TranscodePlanTests
 {
     [Fact]

@@ -95,6 +95,10 @@ public static class RuntimeFailures
     }
 }
 
+/*
+Это перечисление структурированных кодов ошибок runtime.
+По нему CLI и formatter-ы могут различать probe-проблемы и сценарные нарушения без парсинга текста сообщения.
+*/
 /// <summary>
 /// Enumerates structured runtime failure kinds exposed by probe and scenario layers.
 /// </summary>
@@ -115,6 +119,10 @@ public enum RuntimeFailureCode
     DownscaleSourceBucketIssue
 }
 
+/*
+Это helper-классификатор для кодов ошибок runtime.
+Он инкапсулирует группировку кодов по смысловым категориям и не размазывает такие проверки по вызывающему коду.
+*/
 /// <summary>
 /// Provides helper classification rules for structured runtime failures.
 /// </summary>

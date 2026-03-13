@@ -9,8 +9,9 @@
 # Docs tracked selectively
 docs/*
 !docs/architecture.md
+!docs/architecture.ru.md
 !docs/cli.md
-!docs/runtime-cli-boundary-plan.md
+!docs/cli.ru.md
 !docs/reference/
 docs/reference/*
 !docs/reference/legacy-fe62f0c/

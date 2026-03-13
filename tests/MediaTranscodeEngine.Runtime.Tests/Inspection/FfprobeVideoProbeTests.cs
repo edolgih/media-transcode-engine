@@ -4,6 +4,13 @@ using MediaTranscodeEngine.Runtime.Inspection;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Inspection;
 
+/*
+Это тесты ffprobe-based реализации IVideoProbe.
+Они проверяют разбор JSON и классификацию структурированных ошибок probe-слоя.
+*/
+/// <summary>
+/// Verifies ffprobe process result handling and snapshot mapping behavior.
+/// </summary>
 public sealed class FfprobeVideoProbeTests
 {
     [Fact]

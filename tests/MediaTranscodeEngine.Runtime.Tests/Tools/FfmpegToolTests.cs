@@ -9,6 +9,13 @@ using MediaTranscodeEngine.Runtime.VideoSettings.Profiles;
 
 namespace MediaTranscodeEngine.Runtime.Tests.Tools;
 
+/*
+Это тесты ffmpeg-based tool-строителей.
+Они проверяют, что из плана и сценарного execution spec собираются корректные команды.
+*/
+/// <summary>
+/// Verifies ffmpeg execution building from plans and scenario-specific execution specs.
+/// </summary>
 public sealed class FfmpegToolTests
 {
     [Fact]

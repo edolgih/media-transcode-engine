@@ -438,6 +438,13 @@ public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
         return $"[0:v]scale={outputWidth}:-1,crop={outputWidth}:{outputHeight}[bg];[0:v]scale=-1:{outputHeight}[fg];[bg][fg]overlay=(W-w)/2:0[v]";
     }
 
+    /*
+    Это локальный результат выбора source bitrate для tomkvgpu.
+    Он хранит не только число, но и происхождение значения, чтобы tool мог логировать и объяснять выбранный путь.
+    */
+    /// <summary>
+    /// Stores the source bitrate selected for ToMkvGpu along with its origin for diagnostics.
+    /// </summary>
     private sealed record ResolvedSourceBitrate(long? Bitrate, string Origin);
 
     private static string FormatRange(VideoSettingsRange? range)
