@@ -48,6 +48,43 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void CanHandle_WhenVideoEncodeSpecIsMissingVideoPayload_ReturnsFalse()
+    {
+        var sut = CreateToH264GpuSut();
+        var plan = CreatePlan(
+            copyVideo: false,
+            copyAudio: true,
+            targetVideoCodec: "h264",
+            preferredBackend: "gpu",
+            targetContainer: "mp4",
+            outputPath: @"C:\video\input.mp4");
+        var spec = new ToH264GpuExecutionSpec(
+            new ToH264GpuExecutionSpec.MuxExecution(optimizeForFastStart: true));
+
+        var actual = sut.CanHandle(plan, spec);
+
+        actual.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanHandle_WhenAudioEncodeSpecIsMissingAudioPayload_ReturnsFalse()
+    {
+        var sut = CreateToH264GpuSut();
+        var plan = CreatePlan(
+            copyVideo: true,
+            copyAudio: false,
+            synchronizeAudio: true,
+            targetContainer: "mp4",
+            outputPath: @"C:\video\input.mp4");
+        var spec = new ToH264GpuExecutionSpec(
+            new ToH264GpuExecutionSpec.MuxExecution(optimizeForFastStart: true));
+
+        var actual = sut.CanHandle(plan, spec);
+
+        actual.Should().BeFalse();
+    }
+
+    [Fact]
     public void BuildExecution_WhenContainerChangesWithCopyStreams_BuildsCopyCommandAndDeleteStep()
     {
         var sut = CreateSut();
@@ -308,7 +345,11 @@ public sealed class FfmpegToolTests
             synchronizeAudio: true,
             outputPath: @"C:\video\input.mp4",
             targetContainer: "mp4");
-        var spec = CreateToH264GpuExecutionSpec(mapPrimaryAudioOnly: true);
+        var spec = CreateToH264GpuExecutionSpec(
+            mapPrimaryAudioOnly: true,
+            audioSampleRate: 48000,
+            audioChannels: 2,
+            audioFilter: "aresample=async=1:first_pts=0");
 
         var actual = sut.BuildExecution(video, plan, spec);
 
@@ -1463,23 +1504,62 @@ public sealed class FfmpegToolTests
         int? audioChannels = null,
         string? audioFilter = null)
     {
-        return new ToH264GpuExecutionSpec(
+        var mux = new ToH264GpuExecutionSpec.MuxExecution(
             optimizeForFastStart: optimizeForFastStart,
-            mapPrimaryAudioOnly: mapPrimaryAudioOnly,
-            useHardwareDecode: useHardwareDecode,
-            enableAdaptiveQuantization: enableAdaptiveQuantization,
-            aqStrength: aqStrength,
-            rcLookahead: rcLookahead,
-            videoBitrateKbps: videoBitrateKbps,
-            videoMaxrateKbps: videoMaxrateKbps,
-            videoBufferSizeKbps: videoBufferSizeKbps,
-            videoCq: videoCq,
-            videoFilter: videoFilter,
-            pixelFormat: pixelFormat,
-            audioBitrateKbps: audioBitrateKbps,
-            audioSampleRate: audioSampleRate,
-            audioChannels: audioChannels,
-            audioFilter: audioFilter);
+            mapPrimaryAudioOnly: mapPrimaryAudioOnly);
+        var video = new ToH264GpuExecutionSpec.VideoExecution(
+            useHardwareDecode: useHardwareDecode ?? false,
+            rateControl: CreateVideoRateControl(
+                videoBitrateKbps,
+                videoMaxrateKbps,
+                videoBufferSizeKbps,
+                videoCq),
+            adaptiveQuantization: enableAdaptiveQuantization == true
+                ? new ToH264GpuExecutionSpec.AdaptiveQuantizationExecution(
+                    rcLookahead: rcLookahead ?? 32,
+                    strength: aqStrength)
+                : null,
+            filter: videoFilter,
+            pixelFormat: pixelFormat);
+        var audio = new ToH264GpuExecutionSpec.AudioExecution(
+            bitrateKbps: audioBitrateKbps ?? 192,
+            sampleRate: audioSampleRate,
+            channels: audioChannels,
+            filter: audioFilter);
+
+        return new ToH264GpuExecutionSpec(
+            mux: mux,
+            video: video,
+            audio: audio);
+    }
+
+    private static ToH264GpuExecutionSpec.VideoRateControlExecution CreateVideoRateControl(
+        int? videoBitrateKbps,
+        int? videoMaxrateKbps,
+        int? videoBufferSizeKbps,
+        int? videoCq)
+    {
+        if (videoBitrateKbps.HasValue)
+        {
+            var maxrateKbps = videoMaxrateKbps ?? videoBitrateKbps.Value;
+            var bufferSizeKbps = videoBufferSizeKbps ?? (maxrateKbps * 2);
+            return new ToH264GpuExecutionSpec.VariableBitrateVideoRateControlExecution(
+                bitrateKbps: videoBitrateKbps.Value,
+                maxrateKbps: maxrateKbps,
+                bufferSizeKbps: bufferSizeKbps);
+        }
+
+        if (videoMaxrateKbps.HasValue || videoBufferSizeKbps.HasValue)
+        {
+            var maxrateKbps = videoMaxrateKbps ?? 3000;
+            var bufferSizeKbps = videoBufferSizeKbps ?? (maxrateKbps * 2);
+            return new ToH264GpuExecutionSpec.ConstantQualityVideoRateControlExecution(
+                cq: videoCq ?? 19,
+                maxrateKbps: maxrateKbps,
+                bufferSizeKbps: bufferSizeKbps);
+        }
+
+        return new ToH264GpuExecutionSpec.ConstantQualityVideoRateControlExecution(cq: videoCq ?? 19);
     }
 
     private static VideoCompatibilityProfile? ResolveDefaultCompatibilityProfile(bool copyVideo, string? targetVideoCodec)

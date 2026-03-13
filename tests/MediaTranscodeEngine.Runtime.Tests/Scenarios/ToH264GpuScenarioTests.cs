@@ -36,6 +36,8 @@ public sealed class ToH264GpuScenarioTests
         actual.OutputPath.Should().Be(@"C:\video\input.mp4");
         spec.OptimizeForFastStart.Should().BeTrue();
         spec.MapPrimaryAudioOnly.Should().BeTrue();
+        spec.Video.Should().BeNull();
+        spec.Audio.Should().BeNull();
     }
 
     [Fact]
@@ -75,6 +77,30 @@ public sealed class ToH264GpuScenarioTests
         actual.SynchronizeAudio.Should().BeTrue();
         actual.CopyVideo.Should().BeTrue();
         actual.CopyAudio.Should().BeFalse();
+    }
+
+    [Fact]
+    public void BuildPlan_WhenSynchronizeAudioIsRequested_PopulatesRepairAudioExecutionPayload()
+    {
+        var sut = CreateSut(new ToH264GpuRequest(synchronizeAudio: true));
+        var video = CreateVideo(
+            filePath: @"C:\video\input.mp4",
+            container: "mp4",
+            formatName: "mov,mp4,m4a,3gp,3g2,mj2",
+            videoCodec: "h264",
+            audioCodecs: ["aac"]);
+
+        var actual = sut.BuildPlan(video);
+        var spec = BuildExecutionSpec(sut, video, actual);
+
+        actual.CopyVideo.Should().BeTrue();
+        actual.CopyAudio.Should().BeFalse();
+        spec.Video.Should().BeNull();
+        spec.Audio.Should().NotBeNull();
+        spec.AudioBitrateKbps.Should().Be(128);
+        spec.AudioSampleRate.Should().Be(48000);
+        spec.AudioChannels.Should().Be(2);
+        spec.AudioFilter.Should().Be("aresample=async=1:first_pts=0");
     }
 
     [Theory]
@@ -151,6 +177,8 @@ public sealed class ToH264GpuScenarioTests
 
         actual.CopyVideo.Should().BeFalse();
         actual.CopyAudio.Should().BeFalse();
+        spec.Video.Should().NotBeNull();
+        spec.Audio.Should().NotBeNull();
         spec.AudioBitrateKbps.Should().Be(192);
     }
 

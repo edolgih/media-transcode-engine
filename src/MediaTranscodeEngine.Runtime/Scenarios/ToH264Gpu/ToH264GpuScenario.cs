@@ -161,28 +161,62 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         var targetContainer = plan.TargetContainer;
         var downscaleRequest = encodeVideo?.Downscale;
         var videoSettingsRequest = encodeVideo?.VideoSettings;
-        var audioBitrateKbps = ResolveAudioBitrateKbps(video);
         var videoSettings = copyVideo
             ? null
             : ResolveVideoSettings(video, useDownscale, downscaleRequest, videoSettingsRequest);
-        var usesAmrAudio = IsAmrNb(video.PrimaryAudioCodec);
+        var mux = new ToH264GpuExecutionSpec.MuxExecution(
+            optimizeForFastStart: targetContainer.Equals("mp4", StringComparison.OrdinalIgnoreCase),
+            mapPrimaryAudioOnly: true);
+        var videoExecution = copyVideo || videoSettings is null
+            ? null
+            : BuildVideoExecution(videoSettings, useDownscale);
+        var audioExecution = copyAudio
+            ? null
+            : BuildAudioExecution(video, plan.Audio);
 
         return new ToH264GpuExecutionSpec(
-            optimizeForFastStart: targetContainer.Equals("mp4", StringComparison.OrdinalIgnoreCase),
-            mapPrimaryAudioOnly: true,
-            useHardwareDecode: copyVideo ? null : useDownscale,
-            enableAdaptiveQuantization: copyVideo ? null : true,
-            aqStrength: null,
-            rcLookahead: copyVideo ? null : 32,
-            videoMaxrateKbps: copyVideo || videoSettings is null ? null : (int)Math.Round(videoSettings.Maxrate * 1000m, MidpointRounding.AwayFromZero),
-            videoBufferSizeKbps: copyVideo || videoSettings is null ? null : (int)Math.Round(videoSettings.Bufsize * 1000m, MidpointRounding.AwayFromZero),
-            videoCq: copyVideo || videoSettings is null ? null : videoSettings.Cq,
-            videoFilter: copyVideo || useDownscale || !Request.Denoise ? null : "hqdn3d=1.2:1.2:6:6",
-            pixelFormat: copyVideo || useDownscale ? null : "yuv420p",
-            audioBitrateKbps: copyAudio ? null : audioBitrateKbps,
-            audioSampleRate: usesAmrAudio ? 48000 : null,
-            audioChannels: usesAmrAudio ? 1 : null,
-            audioFilter: usesAmrAudio ? "aresample=48000:async=1:first_pts=0" : null);
+            mux: mux,
+            video: videoExecution,
+            audio: audioExecution);
+    }
+
+    private ToH264GpuExecutionSpec.VideoExecution BuildVideoExecution(VideoSettingsDefaults videoSettings, bool useDownscale)
+    {
+        return new ToH264GpuExecutionSpec.VideoExecution(
+            useHardwareDecode: useDownscale,
+            rateControl: new ToH264GpuExecutionSpec.ConstantQualityVideoRateControlExecution(
+                cq: videoSettings.Cq,
+                maxrateKbps: ToKbps(videoSettings.Maxrate),
+                bufferSizeKbps: ToKbps(videoSettings.Bufsize)),
+            adaptiveQuantization: new ToH264GpuExecutionSpec.AdaptiveQuantizationExecution(rcLookahead: 32),
+            filter: useDownscale || !Request.Denoise
+                ? null
+                : "hqdn3d=1.2:1.2:6:6",
+            pixelFormat: useDownscale ? null : "yuv420p");
+    }
+
+    private static ToH264GpuExecutionSpec.AudioExecution BuildAudioExecution(SourceVideo video, AudioPlan audioPlan)
+    {
+        var usesAmrAudio = IsAmrNb(video.PrimaryAudioCodec);
+        var requiresRepair = audioPlan is SynchronizeAudioPlan or RepairAudioPlan;
+
+        return new ToH264GpuExecutionSpec.AudioExecution(
+            bitrateKbps: ResolveAudioBitrateKbps(video),
+            sampleRate: usesAmrAudio || requiresRepair ? 48000 : null,
+            channels: usesAmrAudio ? 1 : requiresRepair ? 2 : null,
+            filter: BuildAudioFilter(usesAmrAudio, requiresRepair));
+    }
+
+    private static string? BuildAudioFilter(bool usesAmrAudio, bool requiresRepair)
+    {
+        if (usesAmrAudio)
+        {
+            return "aresample=48000:async=1:first_pts=0";
+        }
+
+        return requiresRepair
+            ? "aresample=async=1:first_pts=0"
+            : null;
     }
 
     private static VideoSettingsDefaults ResolveVideoSettings(SourceVideo video, bool useDownscale, DownscaleRequest? downscaleRequest, VideoSettingsRequest? request)
@@ -217,6 +251,11 @@ public sealed class ToH264GpuScenario : TranscodeScenario
 
         var audioBitrateKbps = (int)Math.Round(video.PrimaryAudioBitrate.Value / 1000.0, MidpointRounding.AwayFromZero);
         return Math.Min(MaxAudioBitrateKbps, Math.Max(MinAudioBitrateKbps, audioBitrateKbps));
+    }
+
+    private static int ToKbps(decimal value)
+    {
+        return (int)Math.Round(value * 1000m, MidpointRounding.AwayFromZero);
     }
 
     private static long? ResolveSourceBitrate(SourceVideo video)
