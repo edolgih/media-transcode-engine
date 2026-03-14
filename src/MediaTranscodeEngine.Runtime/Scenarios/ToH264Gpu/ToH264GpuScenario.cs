@@ -80,7 +80,7 @@ public sealed class ToH264GpuScenario : TranscodeScenario
                 UseFrameInterpolation: false,
                 VideoSettings: videoSettingsRequest,
                 Downscale: resolvedDownscale,
-                EncoderPreset: Request.NvencPreset ?? "p6");
+                EncoderPreset: Request.NvencPreset);
 
         return new TranscodePlan(
             targetContainer: targetContainer,

@@ -60,6 +60,14 @@ public sealed class ToH264GpuRequestTests
     }
 
     [Fact]
+    public void Constructor_WhenNvencPresetIsOmitted_UsesP6Preset()
+    {
+        var request = new ToH264GpuRequest();
+
+        request.NvencPreset.Should().Be("p6");
+    }
+
+    [Fact]
     public void Constructor_WhenCqIsAboveH264Limit_Throws()
     {
         Action action = static () => _ = new ToH264GpuRequest(

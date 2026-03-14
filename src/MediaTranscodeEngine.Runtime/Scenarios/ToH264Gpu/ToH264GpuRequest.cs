@@ -43,7 +43,7 @@ public sealed class ToH264GpuRequest
         Downscale = downscale;
         KeepFramesPerSecond = keepFramesPerSecond;
         VideoSettings = videoSettings;
-        NvencPreset = normalizedNvencPreset;
+        NvencPreset = normalizedNvencPreset ?? "p6";
         Denoise = denoise;
         SynchronizeAudio = synchronizeAudio;
         OutputMkv = outputMkv;
@@ -70,9 +70,9 @@ public sealed class ToH264GpuRequest
     public VideoSettingsRequest? VideoSettings { get; }
 
     /// <summary>
-    /// Gets the explicit NVENC preset override.
+    /// Gets the normalized NVENC preset used by the scenario.
     /// </summary>
-    public string? NvencPreset { get; }
+    public string NvencPreset { get; }
 
     /// <summary>
     /// Gets a value indicating whether denoise should be enabled when normal encoding is used.
