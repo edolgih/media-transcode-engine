@@ -334,11 +334,8 @@ public sealed class VideoSettingsProfilesTests
     {
         var sut = VideoSettingsProfiles.Default.GetRequiredProfile(576);
 
-        sut.AutoSampling.EnabledByDefault.Should().BeTrue();
         sut.AutoSampling.ModeDefault.Should().Be("accurate");
         sut.AutoSampling.MaxIterations.Should().Be(8);
-        sut.AutoSampling.HybridAccurateIterations.Should().Be(2);
-        sut.AutoSampling.AudioBitrateEstimateMbps.Should().Be(0.192m);
         sut.AutoSampling.SampleWindowDuration.Should().Be(TimeSpan.FromSeconds(30));
         sut.AutoSampling.LongWindowAnchors.Should().Equal(0.20, 0.50, 0.80);
         sut.AutoSampling.MediumWindowAnchors.Should().Equal(0.35, 0.65);
@@ -384,11 +381,8 @@ public sealed class VideoSettingsProfilesTests
     public void GetSampleWindows_WhenCustomAnchorsAndSharedDurationAreConfigured_UsesThoseValues()
     {
         var sut = new VideoSettingsAutoSampling(
-            EnabledByDefault: true,
             ModeDefault: "accurate",
             MaxIterations: 8,
-            HybridAccurateIterations: 2,
-            AudioBitrateEstimateMbps: 0.192m,
             LongMinDuration: TimeSpan.FromMinutes(8),
             LongWindowCount: 2,
             LongWindowAnchors: [0.20, 0.80],
@@ -565,11 +559,8 @@ public sealed class VideoSettingsProfilesTests
             defaultQualityProfile: "default",
             rateModel: new VideoSettingsRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
             autoSampling: new VideoSettingsAutoSampling(
-                EnabledByDefault: true,
                 ModeDefault: "accurate",
                 MaxIterations: 8,
-                HybridAccurateIterations: 2,
-                AudioBitrateEstimateMbps: 0.192m,
                 LongMinDuration: TimeSpan.FromMinutes(8),
                 LongWindowCount: 3,
                 LongWindowAnchors: [0.20, 0.50, 0.80],

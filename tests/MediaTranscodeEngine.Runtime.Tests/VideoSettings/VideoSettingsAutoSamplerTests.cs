@@ -136,7 +136,7 @@ public sealed class VideoSettingsAutoSamplerTests
                 defaultContentProfile: "anime",
                 defaultQualityProfile: "default",
                 rateModel: new VideoSettingsRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
-                autoSampling: CreateAutoSampling(maxIterations: 8, hybridAccurateIterations: 2),
+                autoSampling: CreateAutoSampling(maxIterations: 8),
                 sourceBuckets:
                 [
                     new SourceHeightBucket(
@@ -185,7 +185,7 @@ public sealed class VideoSettingsAutoSamplerTests
                 defaultContentProfile: "anime",
                 defaultQualityProfile: "default",
                 rateModel: new VideoSettingsRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
-                autoSampling: CreateAutoSampling(maxIterations: 1, hybridAccurateIterations: 1),
+                autoSampling: CreateAutoSampling(maxIterations: 1),
                 sourceBuckets:
                 [
                     new SourceHeightBucket(
@@ -231,7 +231,7 @@ public sealed class VideoSettingsAutoSamplerTests
     [Fact]
     public void Resolve_WhenModeHybridAndFastEstimateIsWithinCorridor_SkipsAccurate()
     {
-        var profiles = CreateProfiles(maxIterations: 1, hybridAccurateIterations: 1);
+        var profiles = CreateProfiles(maxIterations: 1);
         var sut = new VideoSettingsAutoSampler(profiles);
         var profile = profiles.GetRequiredProfile(576);
         var request = CreateRequest(autoSampleMode: "hybrid");
@@ -261,7 +261,7 @@ public sealed class VideoSettingsAutoSamplerTests
     [Fact]
     public void Resolve_WhenModeHybridAndFastEstimateIsOutsideCorridor_RunsAccurateFromFastSeed()
     {
-        var profiles = CreateProfiles(maxIterations: 1, hybridAccurateIterations: 1);
+        var profiles = CreateProfiles(maxIterations: 1);
         var sut = new VideoSettingsAutoSampler(profiles);
         var profile = profiles.GetRequiredProfile(576);
         var request = CreateRequest(autoSampleMode: "hybrid");
@@ -314,7 +314,7 @@ public sealed class VideoSettingsAutoSamplerTests
         return VideoSettingsProfiles.Default.GetRequiredProfile(576).ResolveDefaults(CreateSelection());
     }
 
-    private static VideoSettingsProfiles CreateProfiles(int maxIterations, int hybridAccurateIterations = 2)
+    private static VideoSettingsProfiles CreateProfiles(int maxIterations)
     {
         var profile = VideoSettings576Profile.Create();
         return VideoSettingsProfiles.Create(
@@ -325,8 +325,7 @@ public sealed class VideoSettingsAutoSamplerTests
                 rateModel: profile.RateModel,
                 autoSampling: profile.AutoSampling with
                 {
-                    MaxIterations = maxIterations,
-                    HybridAccurateIterations = hybridAccurateIterations
+                    MaxIterations = maxIterations
                 },
                 sourceBuckets: profile.SourceBuckets,
                 defaults: profile.Defaults,
@@ -334,14 +333,11 @@ public sealed class VideoSettingsAutoSamplerTests
                 globalQualityRanges: profile.GlobalQualityRanges));
     }
 
-    private static VideoSettingsAutoSampling CreateAutoSampling(int maxIterations, int hybridAccurateIterations)
+    private static VideoSettingsAutoSampling CreateAutoSampling(int maxIterations)
     {
         return new VideoSettingsAutoSampling(
-            EnabledByDefault: true,
             ModeDefault: "accurate",
             MaxIterations: maxIterations,
-            HybridAccurateIterations: hybridAccurateIterations,
-            AudioBitrateEstimateMbps: 0.192m,
             LongMinDuration: TimeSpan.FromMinutes(8),
             LongWindowCount: 3,
             LongWindowAnchors: [0.20, 0.50, 0.80],

@@ -475,11 +475,8 @@ public sealed class ToMkvGpuScenarioTests
     private static VideoSettingsAutoSampling CreateAutoSampling()
     {
         return new VideoSettingsAutoSampling(
-            EnabledByDefault: true,
             ModeDefault: "accurate",
             MaxIterations: 8,
-            HybridAccurateIterations: 2,
-            AudioBitrateEstimateMbps: 0.192m,
             LongMinDuration: TimeSpan.FromMinutes(8),
             LongWindowCount: 3,
             LongWindowAnchors: [0.20, 0.50, 0.80],

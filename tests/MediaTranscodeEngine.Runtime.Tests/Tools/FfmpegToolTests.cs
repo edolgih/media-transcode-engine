@@ -1027,7 +1027,7 @@ public sealed class FfmpegToolTests
     {
         var providerCalls = 0;
         var sut = CreateSut(
-            videoSettingsProfiles: CreateVideoSettingsProfiles(maxIterations: 1, hybridAccurateIterations: 1),
+            videoSettingsProfiles: CreateVideoSettingsProfiles(maxIterations: 1),
             sampleReductionProvider: (_, _, _, _) =>
             {
                 providerCalls++;
@@ -1061,7 +1061,7 @@ public sealed class FfmpegToolTests
     {
         VideoSettingsDefaults? actualStart = null;
         var sut = CreateSut(
-            videoSettingsProfiles: CreateVideoSettingsProfiles(maxIterations: 1, hybridAccurateIterations: 1),
+            videoSettingsProfiles: CreateVideoSettingsProfiles(maxIterations: 1),
             sampleReductionProvider: (_, _, settings, _) =>
             {
                 actualStart ??= settings;
@@ -1418,7 +1418,7 @@ public sealed class FfmpegToolTests
         return new ListLogger<T>();
     }
 
-    private static VideoSettingsProfiles CreateVideoSettingsProfiles(int maxIterations, int hybridAccurateIterations)
+    private static VideoSettingsProfiles CreateVideoSettingsProfiles(int maxIterations)
     {
         var profile = VideoSettings576Profile.Create();
         return VideoSettingsProfiles.Create(
@@ -1429,8 +1429,7 @@ public sealed class FfmpegToolTests
                 rateModel: profile.RateModel,
                 autoSampling: profile.AutoSampling with
                 {
-                    MaxIterations = maxIterations,
-                    HybridAccurateIterations = hybridAccurateIterations
+                    MaxIterations = maxIterations
                 },
                 sourceBuckets: profile.SourceBuckets,
                 defaults: profile.Defaults,

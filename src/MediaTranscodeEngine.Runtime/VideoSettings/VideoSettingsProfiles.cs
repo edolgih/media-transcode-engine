@@ -183,14 +183,11 @@ internal sealed record VideoSettingsRateModel(decimal CqStepToMaxrateStep, decim
 Они определяют corridor, windowing и число итераций для fast/accurate/hybrid путей.
 */
 /// <summary>
-/// Stores autosample defaults and sample-window rules for one video-settings profile.
+/// Stores autosample mode defaults, iteration budget, and sample-window rules for one video-settings profile.
 /// </summary>
 internal sealed record VideoSettingsAutoSampling(
-    bool EnabledByDefault,
     string ModeDefault,
     int MaxIterations,
-    int HybridAccurateIterations,
-    decimal AudioBitrateEstimateMbps,
     TimeSpan LongMinDuration,
     int LongWindowCount,
     IReadOnlyList<double> LongWindowAnchors,
@@ -206,14 +203,6 @@ internal sealed record VideoSettingsAutoSampling(
     public int MaxIterations { get; init; } = MaxIterations > 0
         ? MaxIterations
         : throw new ArgumentOutOfRangeException(nameof(MaxIterations), MaxIterations, "MaxIterations must be greater than zero.");
-
-    public int HybridAccurateIterations { get; init; } = HybridAccurateIterations >= 0
-        ? HybridAccurateIterations
-        : throw new ArgumentOutOfRangeException(nameof(HybridAccurateIterations), HybridAccurateIterations, "HybridAccurateIterations must not be negative.");
-
-    public decimal AudioBitrateEstimateMbps { get; init; } = AudioBitrateEstimateMbps >= 0m
-        ? AudioBitrateEstimateMbps
-        : throw new ArgumentOutOfRangeException(nameof(AudioBitrateEstimateMbps), AudioBitrateEstimateMbps, "AudioBitrateEstimateMbps must not be negative.");
 
     public TimeSpan LongMinDuration { get; init; } = LongMinDuration > TimeSpan.Zero
         ? LongMinDuration
