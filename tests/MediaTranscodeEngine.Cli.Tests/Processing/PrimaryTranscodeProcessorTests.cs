@@ -1,10 +1,13 @@
 using FluentAssertions;
 using System.Text.Json;
+using MediaTranscodeEngine.Cli.Parsing;
 using MediaTranscodeEngine.Cli.Processing;
 using MediaTranscodeEngine.Cli.Scenarios;
 using MediaTranscodeEngine.Cli.Tests.Logging;
 using MediaTranscodeEngine.Runtime.Failures;
 using MediaTranscodeEngine.Runtime.Inspection;
+using MediaTranscodeEngine.Runtime.Plans;
+using MediaTranscodeEngine.Runtime.Scenarios;
 using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Tools;
@@ -269,6 +272,23 @@ public sealed class PrimaryTranscodeProcessorTests
         var actual = sut.Process(CreateRequest(@"C:\video\a.mp4", true));
 
         actual.Should().Be("a.mp4: [ffprobe failed]");
+    }
+
+    [Fact]
+    public void Process_WhenInfoModeIsRequested_DoesNotBuildExecutionSpec()
+    {
+        var scenarioHandler = new InfoOnlyScenarioHandler();
+        var sut = new PrimaryTranscodeProcessor(
+            CreateInspector(CreateVideo(filePath: @"C:\video\a.mp4", container: "mp4", videoCodec: "h264")),
+            [new StubTool()],
+            new CliScenarioRegistry([scenarioHandler]),
+            CreateLogger<PrimaryTranscodeProcessor>());
+
+        var actual = sut.Process(CreateRequest(@"C:\video\a.mp4", "info-only", true));
+
+        actual.Should().Be("info-only");
+        scenarioHandler.CreatedScenario.Should().NotBeNull();
+        scenarioHandler.CreatedScenario!.BuildExecutionSpecCallCount.Should().Be(0);
     }
 
     [Fact]
@@ -559,6 +579,70 @@ public sealed class PrimaryTranscodeProcessorTests
         public ToolExecution BuildExecution(SourceVideo video, Runtime.Plans.TranscodePlan plan, MediaTranscodeEngine.Runtime.Scenarios.TranscodeExecutionSpec? executionSpec)
         {
             throw new InvalidOperationException("Rejecting tool must not be called.");
+        }
+    }
+
+    private sealed class InfoOnlyScenarioHandler : ICliScenarioHandler
+    {
+        public string Name => "info-only";
+
+        public IReadOnlyList<string> LegacyCommandTokens { get; } = [];
+
+        public IReadOnlyList<CliHelpOption> HelpOptions { get; } = [];
+
+        public InfoOnlyScenario? CreatedScenario { get; private set; }
+
+        public IReadOnlyList<string> GetHelpExamples(string exeName)
+        {
+            return [];
+        }
+
+        public bool TryValidate(IReadOnlyList<string> args, out string? errorText)
+        {
+            errorText = null;
+            return true;
+        }
+
+        public TranscodeScenario CreateScenario(CliTranscodeRequest request)
+        {
+            CreatedScenario = new InfoOnlyScenario();
+            return CreatedScenario;
+        }
+
+        public string FormatInfo(CliTranscodeRequest request, SourceVideo video, TranscodePlan plan)
+        {
+            return "info-only";
+        }
+
+        public CliScenarioFailure DescribeFailure(CliTranscodeRequest request, Exception exception)
+        {
+            throw new InvalidOperationException("Failure path is not expected in this test.");
+        }
+    }
+
+    private sealed class InfoOnlyScenario : TranscodeScenario
+    {
+        public InfoOnlyScenario()
+            : base("info-only")
+        {
+        }
+
+        public int BuildExecutionSpecCallCount { get; private set; }
+
+        protected override TranscodePlan BuildPlanCore(SourceVideo video)
+        {
+            return new TranscodePlan(
+                targetContainer: "mkv",
+                video: new CopyVideoPlan(),
+                audio: new CopyAudioPlan(),
+                keepSource: false,
+                outputPath: video.FilePath);
+        }
+
+        protected override TranscodeExecutionSpec? BuildExecutionSpecCore(SourceVideo video, TranscodePlan plan)
+        {
+            BuildExecutionSpecCallCount++;
+            throw new InvalidOperationException("Info mode must not build execution spec.");
         }
     }
 }

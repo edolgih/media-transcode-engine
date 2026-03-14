@@ -352,6 +352,51 @@ public sealed class ToMkvGpuScenarioTests
             .Which.Code.Should().Be(RuntimeFailureCode.DownscaleSourceBucketIssue);
     }
 
+    [Fact]
+    public void BuildExecutionSpec_WhenPlanCopiesVideo_ReturnsNull()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(videoCodec: "h264", audioCodecs: ["aac"], container: "mkv");
+        var plan = sut.BuildPlan(video);
+
+        var actual = sut.BuildExecutionSpec(video, plan);
+
+        actual.Should().BeNull();
+    }
+
+    [Fact]
+    public void BuildExecutionSpec_WhenEncodeIsRequired_ReturnsResolvedTomkvgpuPayload()
+    {
+        var sut = new ToMkvGpuScenario(
+            new ToMkvGpuRequest(videoSettings: new VideoSettingsRequest(contentProfile: "film", qualityProfile: "default")),
+            VideoSettingsProfiles.Default,
+            (_, _, _, _) => 42m);
+        var video = CreateVideo(container: "mp4", videoCodec: "av1", filePath: @"C:\video\input.mp4", bitrate: 10_000_000);
+        var plan = sut.BuildPlan(video);
+
+        var actual = sut.BuildExecutionSpec(video, plan).Should().BeOfType<ToMkvGpuExecutionSpec>().Subject;
+
+        actual.VideoResolution.Settings.ContentProfile.Should().Be("film");
+        actual.VideoResolution.Settings.QualityProfile.Should().Be("default");
+        actual.SourceBitrate.Origin.Should().Be("probe");
+    }
+
+    [Fact]
+    public void BuildExecutionSpec_WhenAccurateAutosampleIsRequested_UsesSampleBackedResolution()
+    {
+        var sut = new ToMkvGpuScenario(
+            new ToMkvGpuRequest(videoSettings: new VideoSettingsRequest(contentProfile: "film", qualityProfile: "default", autoSampleMode: "accurate")),
+            VideoSettingsProfiles.Default,
+            (_, _, _, _) => 42m);
+        var video = CreateVideo(container: "mp4", videoCodec: "av1", filePath: @"C:\video\input.mp4", bitrate: 10_000_000);
+        var plan = sut.BuildPlan(video);
+
+        var actual = sut.BuildExecutionSpec(video, plan).Should().BeOfType<ToMkvGpuExecutionSpec>().Subject;
+
+        actual.VideoResolution.AutoSample.Mode.Should().Be("accurate");
+        actual.VideoResolution.AutoSample.Path.Should().Be("sample");
+    }
+
     private static ToMkvGpuScenario CreateSut(
         bool overlayBackground = false,
         int? downscaleTarget = null,
@@ -379,7 +424,8 @@ public sealed class ToMkvGpuScenarioTests
         int width = 1920,
         int height = 1080,
         double framesPerSecond = 29.97,
-        string filePath = @"C:\video\input.mkv")
+        string filePath = @"C:\video\input.mkv",
+        long? bitrate = null)
     {
         return new SourceVideo(
             filePath: filePath,
@@ -389,7 +435,8 @@ public sealed class ToMkvGpuScenarioTests
             width: width,
             height: height,
             framesPerSecond: framesPerSecond,
-            duration: TimeSpan.FromMinutes(10));
+            duration: TimeSpan.FromMinutes(10),
+            bitrate: bitrate);
     }
 
     private static VideoSettingsDefaults[] CreateDefaults()

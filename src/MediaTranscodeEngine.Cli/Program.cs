@@ -5,6 +5,7 @@ using MediaTranscodeEngine.Runtime.Inspection;
 using MediaTranscodeEngine.Runtime.Scenarios.ToH264Gpu;
 using MediaTranscodeEngine.Runtime.Scenarios.ToMkvGpu;
 using MediaTranscodeEngine.Runtime.Tools;
+using MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 using MediaTranscodeEngine.Runtime.Videos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -81,7 +82,14 @@ public static class Program
             });
             builder.Services.AddSingleton<ToMkvGpuInfoFormatter>();
             builder.Services.AddSingleton<ToH264GpuInfoFormatter>();
-            builder.Services.AddSingleton<ICliScenarioHandler, ToMkvGpuCliScenarioHandler>();
+            builder.Services.AddSingleton<ICliScenarioHandler>(static services =>
+            {
+                var sampleMeasurer = new FfmpegSampleMeasurer(
+                    services.GetRequiredService<IOptions<RuntimeValues>>().Value.FfmpegPath!);
+                return new ToMkvGpuCliScenarioHandler(
+                    services.GetRequiredService<ToMkvGpuInfoFormatter>(),
+                    sampleMeasurer);
+            });
             builder.Services.AddSingleton<ICliScenarioHandler, ToH264GpuCliScenarioHandler>();
             builder.Services.AddSingleton(static services =>
                 new CliScenarioRegistry(services.GetServices<ICliScenarioHandler>()));

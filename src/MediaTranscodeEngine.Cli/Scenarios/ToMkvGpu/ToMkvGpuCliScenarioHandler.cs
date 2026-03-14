@@ -20,14 +20,28 @@ namespace MediaTranscodeEngine.Cli.Scenarios;
 internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
 {
     private readonly ToMkvGpuInfoFormatter _infoFormatter;
+    private readonly FfmpegSampleMeasurer? _sampleMeasurer;
 
     /// <summary>
     /// Initializes the CLI handler for the <c>tomkvgpu</c> scenario.
     /// </summary>
     /// <param name="infoFormatter">Formatter used for info-mode output.</param>
     public ToMkvGpuCliScenarioHandler(ToMkvGpuInfoFormatter infoFormatter)
+        : this(infoFormatter, sampleMeasurer: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes the CLI handler for the <c>tomkvgpu</c> scenario.
+    /// </summary>
+    /// <param name="infoFormatter">Formatter used for info-mode output.</param>
+    /// <param name="sampleMeasurer">Explicit sample measurer used for accurate autosample paths.</param>
+    internal ToMkvGpuCliScenarioHandler(
+        ToMkvGpuInfoFormatter infoFormatter,
+        FfmpegSampleMeasurer? sampleMeasurer)
     {
         _infoFormatter = infoFormatter ?? throw new ArgumentNullException(nameof(infoFormatter));
+        _sampleMeasurer = sampleMeasurer;
     }
 
     public string Name => "tomkvgpu";
@@ -90,7 +104,10 @@ internal sealed class ToMkvGpuCliScenarioHandler : ICliScenarioHandler
     /// <returns>Runtime scenario instance.</returns>
     public TranscodeScenario CreateScenario(CliTranscodeRequest request)
     {
-        return new ToMkvGpuScenario(GetRuntimeRequest(request));
+        var runtimeRequest = GetRuntimeRequest(request);
+        return _sampleMeasurer is null
+            ? new ToMkvGpuScenario(runtimeRequest)
+            : new ToMkvGpuScenario(runtimeRequest, _sampleMeasurer);
     }
 
     /// <summary>

@@ -64,7 +64,6 @@ internal sealed class PrimaryTranscodeProcessor : ITranscodeProcessor
             var video = _videoInspector.Load(request.InputPath);
             LogVideoInspected(video);
             var plan = scenario.BuildPlan(video);
-            var executionSpec = scenario.BuildExecutionSpec(video, plan);
             LogPlanBuilt(request, plan);
 
             if (request.Info)
@@ -73,6 +72,7 @@ internal sealed class PrimaryTranscodeProcessor : ITranscodeProcessor
                 return scenarioHandler.FormatInfo(request, video, plan);
             }
 
+            var executionSpec = scenario.BuildExecutionSpec(video, plan);
             var tool = ResolveTool(plan, executionSpec);
             var execution = tool.BuildExecution(video, plan, executionSpec);
             _logger.LogInformation(

@@ -11,17 +11,21 @@ namespace MediaTranscodeEngine.Runtime.Tools.Ffmpeg;
 /// <summary>
 /// Measures video-settings sample reduction by running temporary ffmpeg commands on source fragments.
 /// </summary>
-internal sealed class FfmpegSampleMeasurer
+public sealed class FfmpegSampleMeasurer
 {
     private readonly string _ffmpegPath;
 
+    /// <summary>
+    /// Initializes a sample measurer backed by the supplied <c>ffmpeg</c> executable path.
+    /// </summary>
+    /// <param name="ffmpegPath">Path to the <c>ffmpeg</c> executable used for sample measurement.</param>
     public FfmpegSampleMeasurer(string ffmpegPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ffmpegPath);
         _ffmpegPath = ffmpegPath.Trim();
     }
 
-    public decimal? MeasureAverageReduction(
+    internal decimal? MeasureAverageReduction(
         string inputPath,
         int targetHeight,
         VideoSettingsDefaults settings,
