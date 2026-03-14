@@ -58,6 +58,14 @@ public sealed class ToMkvGpuRequestTests
     }
 
     [Fact]
+    public void Constructor_WhenNvencPresetIsOmitted_UsesP6Preset()
+    {
+        var request = new ToMkvGpuRequest();
+
+        request.NvencPreset.Should().Be("p6");
+    }
+
+    [Fact]
     public void DownscaleRequest_WhenAlgorithmIsUnsupported_Throws()
     {
         Action action = static () => _ = new DownscaleRequest(576, "nearest");

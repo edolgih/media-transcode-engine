@@ -406,6 +406,27 @@ public sealed class FfmpegToolTests
     }
 
     [Fact]
+    public void BuildExecution_WhenToMkvGpuPresetIsMissing_ThrowsInvariantViolation()
+    {
+        var sut = CreateSut();
+        var video = CreateVideo(container: "mp4", videoCodec: "av1", filePath: @"C:\video\input.mp4");
+        var plan = new TranscodePlan(
+            targetContainer: "mkv",
+            video: new EncodeVideoPlan(
+                TargetVideoCodec: "h264",
+                PreferredBackend: "gpu",
+                CompatibilityProfile: VideoCompatibilityProfile.H264High),
+            audio: new EncodeAudioPlan(),
+            keepSource: false,
+            outputPath: @"C:\video\input.mkv");
+
+        Action action = () => BuildExecution(sut, video, plan);
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Encoder preset must be resolved before tool rendering.*");
+    }
+
+    [Fact]
     public void BuildExecution_WhenEncodeCqIsOverriddenWithoutDownscale_UsesRequestedCq()
     {
         var sut = CreateSut();
@@ -434,7 +455,8 @@ public sealed class FfmpegToolTests
             video: new EncodeVideoPlan(
                 TargetVideoCodec: "h264",
                 PreferredBackend: "gpu",
-                CompatibilityProfile: VideoCompatibilityProfile.H264Main),
+                CompatibilityProfile: VideoCompatibilityProfile.H264Main,
+                EncoderPreset: "p6"),
             audio: new EncodeAudioPlan(),
             keepSource: false,
             outputPath: @"C:\video\input.mkv");
@@ -474,7 +496,7 @@ public sealed class FfmpegToolTests
         var actual = BuildExecution(sut, video, plan);
 
         actual.Commands[0].Should().Contain("-hwaccel cuda -hwaccel_output_format cuda");
-        actual.Commands[0].Should().Contain("scale_cuda=-2:576:interp_algo=bilinear:format=nv12");
+        actual.Commands[0].Should().Contain("scale_cuda=-2:576:interp_algo=bicubic:format=nv12");
         actual.Commands[0].Should().Contain("-avoid_negative_ts make_zero");
         actual.Commands[0].Should().NotContain("+igndts");
         actual.Commands[0].Should().NotContain("-fps_mode:v cfr");
@@ -500,7 +522,7 @@ public sealed class FfmpegToolTests
 
         var actual = BuildExecution(sut, video, plan);
 
-        actual.Commands[0].Should().Contain("scale_cuda=-2:480:interp_algo=bilinear:format=nv12");
+        actual.Commands[0].Should().Contain("scale_cuda=-2:480:interp_algo=bicubic:format=nv12");
         actual.Commands[0].Should().Contain("-cq 27");
         actual.Commands[0].Should().Contain("-maxrate 2.6M -bufsize 5.2M");
     }
@@ -521,7 +543,7 @@ public sealed class FfmpegToolTests
 
         var actual = BuildExecution(sut, video, plan);
 
-        actual.Commands[0].Should().Contain("scale_cuda=-2:720:interp_algo=bilinear:format=nv12");
+        actual.Commands[0].Should().Contain("scale_cuda=-2:720:interp_algo=bicubic:format=nv12");
         actual.Commands[0].Should().Contain("-cq 23");
         actual.Commands[0].Should().Contain("-maxrate 4.5M -bufsize 9M");
     }
@@ -542,7 +564,7 @@ public sealed class FfmpegToolTests
 
         var actual = BuildExecution(sut, video, plan);
 
-        actual.Commands[0].Should().Contain("scale_cuda=-2:424:interp_algo=bilinear:format=nv12");
+        actual.Commands[0].Should().Contain("scale_cuda=-2:424:interp_algo=bicubic:format=nv12");
         actual.Commands[0].Should().Contain("-cq 28");
         actual.Commands[0].Should().Contain("-maxrate 2.1M -bufsize 4.2M");
     }
@@ -659,6 +681,30 @@ public sealed class FfmpegToolTests
 
         actual.Commands[0].Should().Contain("-profile:v high -level:v 4.0");
         actual.Commands[0].Should().NotContain(" -r ");
+    }
+
+    [Fact]
+    public void BuildExecution_WhenToH264GpuDownscaleAlgorithmIsMissing_ThrowsInvariantViolation()
+    {
+        var sut = CreateToH264GpuSut();
+        var video = CreateVideo(container: "mkv", videoCodec: "av1", filePath: @"C:\video\input.mkv");
+        var plan = new TranscodePlan(
+            targetContainer: "mp4",
+            video: new EncodeVideoPlan(
+                TargetVideoCodec: "h264",
+                PreferredBackend: "gpu",
+                CompatibilityProfile: VideoCompatibilityProfile.H264High,
+                Downscale: new DownscaleRequest(576),
+                EncoderPreset: "p6"),
+            audio: new EncodeAudioPlan(),
+            keepSource: false,
+            outputPath: @"C:\video\input.mp4");
+        var spec = CreateToH264GpuExecutionSpec(videoCq: 21);
+
+        Action action = () => sut.BuildExecution(video, plan, spec);
+
+        action.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Downscale algorithm must be resolved before tool rendering.*");
     }
 
     [Fact]
@@ -1183,7 +1229,7 @@ public sealed class FfmpegToolTests
 
         actual.Commands[0].Should().Contain("-filter_complex");
         actual.Commands[0].Should().Contain("overlay_cuda");
-        actual.Commands[0].Should().Contain("scale_cuda=1024:-2:interp_algo=bilinear:format=nv12");
+        actual.Commands[0].Should().Contain("scale_cuda=1024:-2:interp_algo=bicubic:format=nv12");
         actual.Commands[0].Should().Contain("crop=1024:576");
     }
 
@@ -1468,7 +1514,7 @@ public sealed class FfmpegToolTests
         bool synchronizeAudio = false,
         string targetContainer = "mkv")
     {
-        downscale ??= targetHeight.HasValue ? new DownscaleRequest(targetHeight.Value) : null;
+        downscale ??= targetHeight.HasValue ? new DownscaleRequest(targetHeight.Value, "bicubic") : null;
         VideoPlan videoPlan = copyVideo
             ? new CopyVideoPlan()
             : new EncodeVideoPlan(
@@ -1479,7 +1525,7 @@ public sealed class FfmpegToolTests
                 UseFrameInterpolation: useFrameInterpolation,
                 VideoSettings: videoSettings,
                 Downscale: downscale,
-                EncoderPreset: encoderPreset);
+                EncoderPreset: encoderPreset ?? "p6");
         AudioPlan audioPlan = copyAudio
             ? new CopyAudioPlan()
             : synchronizeAudio

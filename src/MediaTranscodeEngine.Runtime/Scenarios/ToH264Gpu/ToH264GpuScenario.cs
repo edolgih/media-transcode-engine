@@ -65,6 +65,11 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         var targetFramesPerSecond = copyVideo
             ? (double?)null
             : ResolveTargetFramesPerSecond(video, useDownscale);
+        var resolvedDownscale = useDownscale && downscaleRequest is not null
+            ? downscaleRequest.Algorithm is null
+                ? new DownscaleRequest(downscaleRequest.TargetHeight, "bicubic")
+                : downscaleRequest
+            : null;
         VideoPlan videoPlan = copyVideo
             ? new CopyVideoPlan()
             : new EncodeVideoPlan(
@@ -74,7 +79,7 @@ public sealed class ToH264GpuScenario : TranscodeScenario
                 TargetFramesPerSecond: targetFramesPerSecond,
                 UseFrameInterpolation: false,
                 VideoSettings: videoSettingsRequest,
-                Downscale: useDownscale ? downscaleRequest : null,
+                Downscale: resolvedDownscale,
                 EncoderPreset: Request.NvencPreset ?? "p6");
 
         return new TranscodePlan(

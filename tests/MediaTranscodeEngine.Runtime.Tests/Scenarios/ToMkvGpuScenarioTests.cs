@@ -86,6 +86,7 @@ public sealed class ToMkvGpuScenarioTests
         actual.CopyVideo.Should().BeFalse();
         encodeVideo.TargetVideoCodec.Should().Be("h264");
         encodeVideo.CompatibilityProfile.Should().Be(VideoCompatibilityProfile.H264High);
+        encodeVideo.EncoderPreset.Should().Be("p6");
         encodeVideo.PreferredBackend.Should().Be("gpu");
         actual.CopyAudio.Should().BeFalse();
         actual.FixTimestamps.Should().BeFalse();

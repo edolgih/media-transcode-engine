@@ -199,12 +199,14 @@ public sealed class ToH264GpuFfmpegTool : ITranscodeTool
             : $"-vf {FfmpegExecutionLayout.Quote(execution.Filter)} ";
         var compatibilityPart = ResolveVideoCompatibilityPart(video, plan);
         var gop = ResolveGop(video, plan);
-        var preset = encodeVideo.EncoderPreset ?? "p6";
+        var preset = encodeVideo.EncoderPreset
+                     ?? throw new InvalidOperationException("Encoder preset must be resolved before tool rendering.");
         var downscale = encodeVideo.Downscale;
 
         if (downscale is not null)
         {
-            var algorithm = downscale.Algorithm ?? "bicubic";
+            var algorithm = downscale.Algorithm
+                            ?? throw new InvalidOperationException("Downscale algorithm must be resolved before tool rendering.");
             return $"-map 0:v:0 {frameRatePart}-vf \"scale_cuda=-2:{downscale.TargetHeight}:interp_algo={algorithm}:format=nv12\" " +
                    $"-c:v h264_nvenc -preset {preset} {rateControlPart}{aqPart}" +
                    $"{compatibilityPart}-g {gop}";

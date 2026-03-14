@@ -60,7 +60,7 @@ public sealed class ToMkvGpuRequest
         KeepSource = keepSource;
         VideoSettings = videoSettings;
         Downscale = downscale;
-        NvencPreset = normalizedNvencPreset;
+        NvencPreset = normalizedNvencPreset ?? "p6";
         MaxFramesPerSecond = maxFramesPerSecond;
     }
 
@@ -90,9 +90,9 @@ public sealed class ToMkvGpuRequest
     public bool KeepSource { get; }
 
     /// <summary>
-    /// Gets the explicit NVENC preset override.
+    /// Gets the normalized NVENC preset used by the scenario.
     /// </summary>
-    public string? NvencPreset { get; }
+    public string NvencPreset { get; }
 
     /// <summary>
     /// Gets the optional frame-rate cap applied only when the source exceeds it.

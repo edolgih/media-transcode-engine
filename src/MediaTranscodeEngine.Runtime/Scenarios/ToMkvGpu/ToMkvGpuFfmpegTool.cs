@@ -182,7 +182,8 @@ public sealed class ToMkvGpuFfmpegTool : ITranscodeTool
         var fpsToken = ResolveFrameRateToken(video, plan);
         var gop = ResolveGop(video, plan);
         var compatibilityPart = ResolveVideoCompatibilityPart(video, plan);
-        var preset = encodeVideo.EncoderPreset ?? "p6";
+        var preset = encodeVideo.EncoderPreset
+                     ?? throw new InvalidOperationException("Encoder preset must be resolved before tool rendering.");
         var frameRatePart = encodeVideo.TargetFramesPerSecond.HasValue
             ? $"-fps_mode:v cfr -r {fpsToken} "
             : string.Empty;
