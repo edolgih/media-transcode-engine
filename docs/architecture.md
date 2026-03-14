@@ -54,6 +54,13 @@ In practice:
 - runtime request/value types validate canonical domain values;
 - CLI help should format supported values from runtime-owned catalogs instead of duplicating those lists.
 
+## Runtime Modeling Rules
+
+- `null` is used only for real semantics such as `unknown`, `not applicable`, or a true override that was not provided.
+- One semantic fact should be stored in one place.
+- Defaults should be resolved at the boundary of the layer that owns them.
+- Mutually exclusive modes should be expressed by types where practical, rather than by combinations of flags and nullable fields.
+
 ## Timing, FPS And Sync Notes
 
 - If the goal is only to adapt video while preserving source fps and source timeline, `-fps_mode:v cfr` and `-r` should not be added by default.

@@ -54,6 +54,13 @@ CLI wiring:
 - runtime request/value types валидируют canonical domain values;
 - CLI help должен форматировать supported values из runtime-owned catalogs, а не дублировать эти списки.
 
+## Правила Runtime-Модели
+
+- `null` используется только для реальной семантики, такой как `unknown`, `not applicable` или настоящий неуказанный override.
+- Один семантический факт должен храниться в одном месте.
+- Defaults должны разрешаться на границе слоя, который ими владеет.
+- Взаимоисключающие режимы по возможности должны выражаться типами, а не комбинациями флагов и nullable-полей.
+
 ## Timing, FPS And Sync Notes
 
 - Если цель только адаптировать видео, сохранив source fps и source timeline, `-fps_mode:v cfr` и `-r` не должны добавляться по умолчанию.
