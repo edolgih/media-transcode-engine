@@ -1,4 +1,4 @@
-namespace Transcode.Runtime.Plans;
+namespace Transcode.Runtime.MediaIntent;
 
 /*
 Это перечень совместимых video-profile вариантов, которые может выбрать сценарий.
@@ -7,7 +7,7 @@ namespace Transcode.Runtime.Plans;
 /// <summary>
 /// Enumerates scenario-selected compatibility profiles for video encoders.
 /// </summary>
-public enum VideoCompatibilityProfile
+public enum H264OutputProfile
 {
     /// <summary>
     /// Uses the H.264 Main profile.

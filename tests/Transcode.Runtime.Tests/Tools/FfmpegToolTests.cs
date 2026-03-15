@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Videos;
 using Transcode.Runtime.VideoSettings;
 using Transcode.Scenarios.ToH264Gpu.Runtime;
@@ -186,21 +186,21 @@ public sealed class FfmpegToolTests
         bool keepSource = false,
         string outputPath = @"C:\video\input.mp4")
     {
-        VideoPlan videoPlan = copyVideo
-            ? new CopyVideoPlan()
-            : new EncodeVideoPlan(
+        VideoIntent videoIntent = copyVideo
+            ? new CopyVideoIntent()
+            : new EncodeVideoIntent(
                 TargetVideoCodec: "h264",
                 PreferredBackend: "gpu",
-                CompatibilityProfile: VideoCompatibilityProfile.H264High,
+                CompatibilityProfile: H264OutputProfile.H264High,
                 EncoderPreset: "p6");
-        AudioPlan audioPlan = copyAudio
-            ? new CopyAudioPlan()
-            : new EncodeAudioPlan();
+        AudioIntent audioIntent = copyAudio
+            ? new CopyAudioIntent()
+            : new EncodeAudioIntent();
 
         return new ToH264GpuDecision(
             targetContainer: targetContainer,
-            videoPlan: videoPlan,
-            audioPlan: audioPlan,
+            videoIntent: videoIntent,
+            audioIntent: audioIntent,
             keepSource: keepSource,
             outputPath: outputPath,
             mux: new ToH264GpuDecision.MuxExecution(optimizeForFastStart: true, mapPrimaryAudioOnly: true));

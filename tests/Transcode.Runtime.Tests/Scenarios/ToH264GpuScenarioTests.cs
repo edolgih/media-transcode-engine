@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Videos;
 using Transcode.Runtime.VideoSettings;
 using Transcode.Scenarios.ToH264Gpu.Runtime;
@@ -32,7 +32,7 @@ public sealed class ToH264GpuScenarioTests
         actual.TargetContainer.Should().Be("mp4");
         actual.CopyVideo.Should().BeTrue();
         actual.CopyAudio.Should().BeTrue();
-        actual.Video.Should().BeOfType<CopyVideoPlan>();
+        actual.Video.Should().BeOfType<CopyVideoIntent>();
         actual.OutputPath.Should().Be(@"C:\video\input.mp4");
         spec.OptimizeForFastStart.Should().BeTrue();
         spec.MapPrimaryAudioOnly.Should().BeTrue();
@@ -329,7 +329,7 @@ public sealed class ToH264GpuScenarioTests
 
         var actual = sut.BuildDecision(video);
 
-        actual.Video.Should().BeOfType<CopyVideoPlan>();
+        actual.Video.Should().BeOfType<CopyVideoIntent>();
         actual.CopyVideo.Should().BeTrue();
     }
 
@@ -531,9 +531,9 @@ public sealed class ToH264GpuScenarioTests
             : new ToH264GpuScenario(request);
     }
 
-    private static EncodeVideoPlan GetRequiredEncodeVideo(ToH264GpuDecision decision)
+    private static EncodeVideoIntent GetRequiredEncodeVideo(ToH264GpuDecision decision)
     {
-        return decision.Video.Should().BeOfType<EncodeVideoPlan>().Subject;
+        return decision.Video.Should().BeOfType<EncodeVideoIntent>().Subject;
     }
 
     private static SourceVideo CreateVideo(

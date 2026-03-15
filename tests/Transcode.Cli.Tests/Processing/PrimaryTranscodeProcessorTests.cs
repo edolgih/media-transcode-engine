@@ -8,7 +8,6 @@ using Transcode.Cli.Core.Scenarios;
 using Transcode.Cli.Tests.Logging;
 using Transcode.Runtime.Failures;
 using Transcode.Runtime.Inspection;
-using Transcode.Runtime.Plans;
 using Transcode.Runtime.Scenarios;
 using Transcode.Runtime.Videos;
 using Transcode.Scenarios.ToH264Gpu.Cli;

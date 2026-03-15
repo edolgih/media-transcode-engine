@@ -1,6 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Scenarios;
 using Transcode.Runtime.Tools.Ffmpeg;
 using Transcode.Runtime.Videos;
@@ -43,7 +43,7 @@ public sealed class ToH264GpuFfmpegTool
     {
         ArgumentNullException.ThrowIfNull(decision);
 
-        if (decision.Video is EncodeVideoPlan { UseFrameInterpolation: true })
+        if (decision.Video is EncodeVideoIntent { UseFrameInterpolation: true })
         {
             return false;
         }
@@ -66,12 +66,12 @@ public sealed class ToH264GpuFfmpegTool
             return false;
         }
 
-        if (decision.Video is CopyVideoPlan)
+        if (decision.Video is CopyVideoIntent)
         {
             return true;
         }
 
-        return decision.Video is EncodeVideoPlan encodeVideo &&
+        return decision.Video is EncodeVideoIntent encodeVideo &&
                encodeVideo.PreferredBackend?.Equals("gpu", StringComparison.OrdinalIgnoreCase) == true &&
                encodeVideo.TargetVideoCodec.Equals("h264", StringComparison.OrdinalIgnoreCase);
     }
@@ -169,7 +169,7 @@ public sealed class ToH264GpuFfmpegTool
 
     private static string BuildVideoPart(SourceVideo video, ToH264GpuDecision decision)
     {
-        if (decision.Video is CopyVideoPlan)
+        if (decision.Video is CopyVideoIntent)
         {
             return UsesStrongSyncRemux(decision)
                 ? "-map 0:v:0 -c:v copy -copytb 1"
@@ -217,10 +217,10 @@ public sealed class ToH264GpuFfmpegTool
 
         return decision.Audio switch
         {
-            CopyAudioPlan => $"{mapPart} -c:a copy",
-            SynchronizeAudioPlan => BuildAudioEncodePart(mapPart, GetRequiredAudioExecution(decision)),
-            RepairAudioPlan => BuildAudioEncodePart(mapPart, GetRequiredAudioExecution(decision)),
-            EncodeAudioPlan => BuildAudioEncodePart(mapPart, GetRequiredAudioExecution(decision)),
+            CopyAudioIntent => $"{mapPart} -c:a copy",
+            SynchronizeAudioIntent => BuildAudioEncodePart(mapPart, GetRequiredAudioExecution(decision)),
+            RepairAudioIntent => BuildAudioEncodePart(mapPart, GetRequiredAudioExecution(decision)),
+            EncodeAudioIntent => BuildAudioEncodePart(mapPart, GetRequiredAudioExecution(decision)),
             _ => throw new InvalidOperationException("Unsupported audio plan type.")
         };
     }
@@ -255,8 +255,8 @@ public sealed class ToH264GpuFfmpegTool
 
     private static bool UsesStrongSyncRemux(ToH264GpuDecision decision)
     {
-        return decision.Video is CopyVideoPlan &&
-               decision.Audio is SynchronizeAudioPlan;
+        return decision.Video is CopyVideoIntent &&
+               decision.Audio is SynchronizeAudioIntent;
     }
 
     private static bool RequiresMuxRewrite(ToH264GpuDecision.MuxExecution options)
@@ -331,7 +331,7 @@ public sealed class ToH264GpuFfmpegTool
 
     private static (int Width, int Height) ResolveOutputDimensions(SourceVideo video, ToH264GpuDecision decision)
     {
-        var downscale = decision.Video is EncodeVideoPlan { Downscale: { } explicitDownscale }
+        var downscale = decision.Video is EncodeVideoIntent { Downscale: { } explicitDownscale }
             ? explicitDownscale
             : null;
         if (downscale is null)
@@ -360,9 +360,9 @@ public sealed class ToH264GpuFfmpegTool
             : value + 1;
     }
 
-    private static EncodeVideoPlan GetRequiredEncodeVideoPlan(ToH264GpuDecision decision)
+    private static EncodeVideoIntent GetRequiredEncodeVideoPlan(ToH264GpuDecision decision)
     {
-        return decision.Video as EncodeVideoPlan
+        return decision.Video as EncodeVideoIntent
             ?? throw new InvalidOperationException("Video encode plan is required for this operation.");
     }
 

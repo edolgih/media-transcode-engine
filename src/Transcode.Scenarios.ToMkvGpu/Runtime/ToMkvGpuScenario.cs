@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Transcode.Runtime.Failures;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Scenarios;
 using Transcode.Runtime.Tools.Ffmpeg;
 using Transcode.Runtime.Videos;
@@ -149,19 +149,19 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
         var copyAudio = !Request.SynchronizeAudio &&
                         copyVideo &&
                         AreAudioStreamsCopyCompatible(video.AudioCodecs);
-        AudioPlan audioPlan = copyAudio
-            ? new CopyAudioPlan()
+        AudioIntent audioIntent = copyAudio
+            ? new CopyAudioIntent()
             : Request.SynchronizeAudio
-                ? new SynchronizeAudioPlan()
+                ? new SynchronizeAudioIntent()
                 : requiresTimestampFix
-                    ? new RepairAudioPlan()
-                    : new EncodeAudioPlan();
-        VideoPlan videoPlan = copyVideo
-            ? new CopyVideoPlan()
-            : new EncodeVideoPlan(
+                    ? new RepairAudioIntent()
+                    : new EncodeAudioIntent();
+        VideoIntent videoIntent = copyVideo
+            ? new CopyVideoIntent()
+            : new EncodeVideoIntent(
                 TargetVideoCodec: "h264",
                 PreferredBackend: "gpu",
-                CompatibilityProfile: VideoCompatibilityProfile.H264High,
+                CompatibilityProfile: H264OutputProfile.H264High,
                 TargetFramesPerSecond: applyFrameRateCap ? Request.MaxFramesPerSecond : null,
                 UseFrameInterpolation: false,
                 VideoSettings: Request.VideoSettings,
@@ -170,9 +170,9 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
 
         ProfileDrivenVideoSettingsResolution? videoResolution = null;
         ToMkvGpuResolvedSourceBitrate? sourceBitrate = null;
-        if (videoPlan is EncodeVideoPlan encodeVideo)
+        if (videoIntent is EncodeVideoIntent encodeVideo)
         {
-            var outputHeight = ResolveOutputHeight(video, videoPlan, Request.OverlayBackground, encodeVideo.Downscale);
+            var outputHeight = ResolveOutputHeight(video, videoIntent, Request.OverlayBackground, encodeVideo.Downscale);
             var actualSampleHeight = encodeVideo.Downscale?.TargetHeight ?? outputHeight;
             sourceBitrate = ResolveSourceBitrate(video);
             Func<VideoSettingsDefaults, IReadOnlyList<VideoSettingsSampleWindow>, decimal?>? accurateReductionProvider = actualSampleHeight > 0
@@ -200,8 +200,8 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
 
         return new ToMkvGpuDecision(
             targetContainer: "mkv",
-            video: videoPlan,
-            audio: audioPlan,
+            video: videoIntent,
+            audio: audioIntent,
             keepSource: Request.KeepSource,
             outputPath: ResolveOutputPath(video, copyVideo, copyAudio),
             applyOverlayBackground: Request.OverlayBackground,
@@ -275,9 +275,9 @@ public sealed class ToMkvGpuScenario : TranscodeScenario
         return Path.Combine(directory, $"{video.FileNameWithoutExtension}_out.mkv");
     }
 
-    private static int ResolveOutputHeight(SourceVideo video, VideoPlan videoPlan, bool applyOverlayBackground, DownscaleRequest? downscale)
+    private static int ResolveOutputHeight(SourceVideo video, VideoIntent videoIntent, bool applyOverlayBackground, DownscaleRequest? downscale)
     {
-        var (_, height) = ToMkvGpuVideoGeometry.ResolveOutputDimensions(video, videoPlan, applyOverlayBackground);
+        var (_, height) = ToMkvGpuVideoGeometry.ResolveOutputDimensions(video, videoIntent, applyOverlayBackground);
         if (height > 0)
         {
             return height;

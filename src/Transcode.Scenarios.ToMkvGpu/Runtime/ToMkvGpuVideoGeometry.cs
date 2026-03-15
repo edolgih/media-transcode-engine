@@ -1,4 +1,4 @@
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Videos;
 
 namespace Transcode.Scenarios.ToMkvGpu.Runtime;
@@ -10,9 +10,9 @@ overlay/downscale output size rules.
 */
 internal static class ToMkvGpuVideoGeometry
 {
-    public static (int Width, int Height) ResolveOutputDimensions(SourceVideo video, VideoPlan videoPlan, bool applyOverlayBackground)
+    public static (int Width, int Height) ResolveOutputDimensions(SourceVideo video, VideoIntent videoIntent, bool applyOverlayBackground)
     {
-        var downscale = videoPlan is EncodeVideoPlan { Downscale: { } explicitDownscale }
+        var downscale = videoIntent is EncodeVideoIntent { Downscale: { } explicitDownscale }
             ? explicitDownscale
             : null;
 

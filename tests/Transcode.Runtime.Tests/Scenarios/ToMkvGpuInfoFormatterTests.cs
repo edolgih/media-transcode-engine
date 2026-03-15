@@ -1,7 +1,7 @@
 using System.Text.Json;
 using FluentAssertions;
 using Transcode.Runtime.Failures;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Videos;
 using Transcode.Scenarios.ToMkvGpu.Runtime;
 
@@ -184,25 +184,25 @@ public sealed class ToMkvGpuInfoFormatterTests
         bool synchronizeAudio = false,
         double? targetFramesPerSecond = null)
     {
-        VideoPlan videoPlan = copyVideo
-            ? new CopyVideoPlan()
-            : new EncodeVideoPlan(
+        VideoIntent videoIntent = copyVideo
+            ? new CopyVideoIntent()
+            : new EncodeVideoIntent(
                 TargetVideoCodec: targetVideoCodec ?? "h264",
                 PreferredBackend: preferredBackend,
                 CompatibilityProfile: string.Equals(targetVideoCodec, "h264", StringComparison.OrdinalIgnoreCase)
-                    ? VideoCompatibilityProfile.H264High
+                    ? H264OutputProfile.H264High
                     : null,
                 TargetFramesPerSecond: targetFramesPerSecond);
-        AudioPlan audioPlan = copyAudio
-            ? new CopyAudioPlan()
+        AudioIntent audioIntent = copyAudio
+            ? new CopyAudioIntent()
             : synchronizeAudio
-                ? new SynchronizeAudioPlan()
-                : new EncodeAudioPlan();
+                ? new SynchronizeAudioIntent()
+                : new EncodeAudioIntent();
 
         return new ToMkvGpuDecision(
             targetContainer: "mkv",
-            video: videoPlan,
-            audio: audioPlan,
+            video: videoIntent,
+            audio: audioIntent,
             keepSource: false,
             outputPath: outputPath,
             applyOverlayBackground: false);

@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Transcode.Runtime.Failures;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Videos;
 using Transcode.Runtime.VideoSettings;
 using Transcode.Runtime.VideoSettings.Profiles;
@@ -28,7 +28,7 @@ public sealed class ToMkvGpuScenarioTests
         var actual = sut.BuildDecision(video);
 
         actual.CopyVideo.Should().BeTrue();
-        actual.Video.Should().BeOfType<CopyVideoPlan>();
+        actual.Video.Should().BeOfType<CopyVideoIntent>();
         actual.TargetContainer.Should().Be("mkv");
         actual.OutputPath.Should().Be(video.FilePath);
     }
@@ -85,7 +85,7 @@ public sealed class ToMkvGpuScenarioTests
 
         actual.CopyVideo.Should().BeFalse();
         encodeVideo.TargetVideoCodec.Should().Be("h264");
-        encodeVideo.CompatibilityProfile.Should().Be(VideoCompatibilityProfile.H264High);
+        encodeVideo.CompatibilityProfile.Should().Be(H264OutputProfile.H264High);
         encodeVideo.EncoderPreset.Should().Be("p6");
         encodeVideo.PreferredBackend.Should().Be("gpu");
         actual.CopyAudio.Should().BeFalse();
@@ -156,7 +156,7 @@ public sealed class ToMkvGpuScenarioTests
 
         actual.CopyVideo.Should().BeTrue();
         actual.CopyAudio.Should().BeTrue();
-        actual.Video.Should().BeOfType<CopyVideoPlan>();
+        actual.Video.Should().BeOfType<CopyVideoIntent>();
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public sealed class ToMkvGpuScenarioTests
 
         var actual = sut.BuildDecision(video);
 
-        actual.Video.Should().BeOfType<CopyVideoPlan>();
+        actual.Video.Should().BeOfType<CopyVideoIntent>();
         actual.CopyVideo.Should().BeTrue();
     }
 
@@ -415,9 +415,9 @@ public sealed class ToMkvGpuScenarioTests
             maxFramesPerSecond: maxFramesPerSecond));
     }
 
-    private static EncodeVideoPlan GetRequiredEncodeVideo(ToMkvGpuDecision decision)
+    private static EncodeVideoIntent GetRequiredEncodeVideo(ToMkvGpuDecision decision)
     {
-        return decision.Video.Should().BeOfType<EncodeVideoPlan>().Subject;
+        return decision.Video.Should().BeOfType<EncodeVideoIntent>().Subject;
     }
 
     private static SourceVideo CreateVideo(

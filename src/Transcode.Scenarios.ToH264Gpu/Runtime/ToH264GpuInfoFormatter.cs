@@ -1,5 +1,5 @@
 using Transcode.Runtime.Failures;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Videos;
 
 namespace Transcode.Scenarios.ToH264Gpu.Runtime;
@@ -50,7 +50,7 @@ public sealed class ToH264GpuInfoFormatter
             parts.Add($"container .{video.Container}->{decision.TargetContainer}");
         }
 
-        if (decision.Video is EncodeVideoPlan { Downscale: { } downscale })
+        if (decision.Video is EncodeVideoIntent { Downscale: { } downscale })
         {
             parts.Add($"downscale {downscale.TargetHeight}p");
         }

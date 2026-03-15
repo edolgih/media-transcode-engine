@@ -1,6 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Scenarios;
 using Transcode.Runtime.Tools.Ffmpeg;
 using Transcode.Runtime.Videos;
@@ -44,7 +44,7 @@ public sealed class ToMkvGpuFfmpegTool
     {
         ArgumentNullException.ThrowIfNull(decision);
 
-        if (decision.Video is EncodeVideoPlan { UseFrameInterpolation: true })
+        if (decision.Video is EncodeVideoIntent { UseFrameInterpolation: true })
         {
             return false;
         }
@@ -54,12 +54,12 @@ public sealed class ToMkvGpuFfmpegTool
             return false;
         }
 
-        if (decision.Video is CopyVideoPlan)
+        if (decision.Video is CopyVideoIntent)
         {
             return decision.VideoResolution is null;
         }
 
-        return decision.Video is EncodeVideoPlan encodeVideo &&
+        return decision.Video is EncodeVideoIntent encodeVideo &&
                decision.VideoResolution is not null &&
                encodeVideo.PreferredBackend?.Equals("gpu", StringComparison.OrdinalIgnoreCase) == true &&
                (encodeVideo.TargetVideoCodec.Equals("h264", StringComparison.OrdinalIgnoreCase) ||
@@ -126,7 +126,7 @@ public sealed class ToMkvGpuFfmpegTool
             parts.Add(sanitizePart);
         }
 
-        if (decision.Video is EncodeVideoPlan encodeVideo &&
+        if (decision.Video is EncodeVideoIntent encodeVideo &&
             string.Equals(encodeVideo.PreferredBackend, "gpu", StringComparison.OrdinalIgnoreCase))
         {
             parts.Add("-hwaccel cuda -hwaccel_output_format cuda");
@@ -161,7 +161,7 @@ public sealed class ToMkvGpuFfmpegTool
 
     private string BuildVideoPart(SourceVideo video, ToMkvGpuDecision decision)
     {
-        if (decision.Video is CopyVideoPlan)
+        if (decision.Video is CopyVideoIntent)
         {
             return UsesStrongSyncRemux(decision)
                 ? "-map 0:v:0 -c:v copy -copytb 1"
@@ -211,18 +211,18 @@ public sealed class ToMkvGpuFfmpegTool
     {
         return decision.Audio switch
         {
-            CopyAudioPlan => "-map 0:a? -c:a copy",
-            SynchronizeAudioPlan => "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k -af \"aresample=async=1:first_pts=0\"",
-            RepairAudioPlan => "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k -af \"aresample=async=1:first_pts=0\"",
-            EncodeAudioPlan => "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k",
+            CopyAudioIntent => "-map 0:a? -c:a copy",
+            SynchronizeAudioIntent => "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k -af \"aresample=async=1:first_pts=0\"",
+            RepairAudioIntent => "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k -af \"aresample=async=1:first_pts=0\"",
+            EncodeAudioIntent => "-map 0:a? -c:a aac -ar 48000 -ac 2 -b:a 192k",
             _ => throw new InvalidOperationException("Unsupported audio plan type.")
         };
     }
 
     private static bool UsesStrongSyncRemux(ToMkvGpuDecision decision)
     {
-        return decision.Video is CopyVideoPlan &&
-               decision.Audio is SynchronizeAudioPlan;
+        return decision.Video is CopyVideoIntent &&
+               decision.Audio is SynchronizeAudioIntent;
     }
 
     private static string ResolveVideoEncoder(ToMkvGpuDecision decision)
@@ -270,9 +270,9 @@ public sealed class ToMkvGpuFfmpegTool
             : $"{compatibilityPart} ";
     }
 
-    private static EncodeVideoPlan GetRequiredEncodeVideoPlan(ToMkvGpuDecision decision)
+    private static EncodeVideoIntent GetRequiredEncodeVideoPlan(ToMkvGpuDecision decision)
     {
-        return decision.Video as EncodeVideoPlan
+        return decision.Video as EncodeVideoIntent
             ?? throw new InvalidOperationException("Video encode plan is required for this operation.");
     }
 

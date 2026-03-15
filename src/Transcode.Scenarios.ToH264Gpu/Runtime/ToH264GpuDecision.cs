@@ -1,4 +1,4 @@
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 
 namespace Transcode.Scenarios.ToH264Gpu.Runtime;
 
@@ -17,8 +17,8 @@ internal sealed class ToH264GpuDecision
     /// </summary>
     public ToH264GpuDecision(
         string targetContainer,
-        VideoPlan videoPlan,
-        AudioPlan audioPlan,
+        VideoIntent videoIntent,
+        AudioIntent audioIntent,
         bool keepSource,
         string outputPath,
         MuxExecution mux,
@@ -26,8 +26,8 @@ internal sealed class ToH264GpuDecision
         AudioExecution? audioExecution = null)
     {
         TargetContainer = NormalizeRequiredToken(targetContainer, nameof(targetContainer));
-        Video = NormalizeVideoPlan(videoPlan);
-        Audio = NormalizeAudioPlan(audioPlan);
+        Video = NormalizeVideoPlan(videoIntent);
+        Audio = NormalizeAudioPlan(audioIntent);
         KeepSource = keepSource;
         OutputPath = NormalizeOutputPath(outputPath, nameof(outputPath));
         Mux = mux ?? throw new ArgumentNullException(nameof(mux));
@@ -43,12 +43,12 @@ internal sealed class ToH264GpuDecision
     /// <summary>
     /// Gets the resolved video path.
     /// </summary>
-    public VideoPlan Video { get; }
+    public VideoIntent Video { get; }
 
     /// <summary>
     /// Gets the resolved audio path.
     /// </summary>
-    public AudioPlan Audio { get; }
+    public AudioIntent Audio { get; }
 
     /// <summary>
     /// Gets a value indicating whether the source file should be kept.
@@ -78,22 +78,22 @@ internal sealed class ToH264GpuDecision
     /// <summary>
     /// Gets a value indicating whether the video stream should be copied.
     /// </summary>
-    public bool CopyVideo => Video is CopyVideoPlan;
+    public bool CopyVideo => Video is CopyVideoIntent;
 
     /// <summary>
     /// Gets a value indicating whether the audio path copies compatible source streams.
     /// </summary>
-    public bool CopyAudio => Audio is CopyAudioPlan;
+    public bool CopyAudio => Audio is CopyAudioIntent;
 
     /// <summary>
     /// Gets a value indicating whether the decision uses the sync-safe audio path.
     /// </summary>
-    public bool SynchronizeAudio => Audio is SynchronizeAudioPlan;
+    public bool SynchronizeAudio => Audio is SynchronizeAudioIntent;
 
     /// <summary>
     /// Gets a value indicating whether timestamp normalization is required.
     /// </summary>
-    public bool FixTimestamps => Audio is RepairAudioPlan;
+    public bool FixTimestamps => Audio is RepairAudioIntent;
 
     /// <summary>
     /// Gets a value indicating whether the decision requires video encoding.
@@ -457,26 +457,26 @@ internal sealed class ToH264GpuDecision
         return Path.GetFullPath(outputPath.Trim());
     }
 
-    private static VideoPlan NormalizeVideoPlan(VideoPlan video)
+    private static VideoIntent NormalizeVideoPlan(VideoIntent video)
     {
         ArgumentNullException.ThrowIfNull(video);
         return video switch
         {
-            CopyVideoPlan => video,
-            EncodeVideoPlan => video,
+            CopyVideoIntent => video,
+            EncodeVideoIntent => video,
             _ => throw new ArgumentException($"Unsupported video plan type '{video.GetType().Name}'.", nameof(video))
         };
     }
 
-    private static AudioPlan NormalizeAudioPlan(AudioPlan audio)
+    private static AudioIntent NormalizeAudioPlan(AudioIntent audio)
     {
         ArgumentNullException.ThrowIfNull(audio);
         return audio switch
         {
-            CopyAudioPlan => audio,
-            SynchronizeAudioPlan => audio,
-            RepairAudioPlan => audio,
-            EncodeAudioPlan => audio,
+            CopyAudioIntent => audio,
+            SynchronizeAudioIntent => audio,
+            RepairAudioIntent => audio,
+            EncodeAudioIntent => audio,
             _ => throw new ArgumentException($"Unsupported audio plan type '{audio.GetType().Name}'.", nameof(audio))
         };
     }

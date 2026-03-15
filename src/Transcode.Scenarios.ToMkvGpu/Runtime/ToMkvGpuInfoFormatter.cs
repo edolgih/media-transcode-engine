@@ -1,5 +1,5 @@
 using Transcode.Runtime.Failures;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Videos;
 
 namespace Transcode.Scenarios.ToMkvGpu.Runtime;
@@ -58,12 +58,12 @@ public sealed class ToMkvGpuInfoFormatter
             parts.Add($"container .{video.Container}→{decision.TargetContainer}");
         }
 
-        if (decision.Video is EncodeVideoPlan)
+        if (decision.Video is EncodeVideoIntent)
         {
             parts.Add($"vcodec {video.VideoCodec}");
         }
 
-        if (decision.Video is EncodeVideoPlan { TargetFramesPerSecond: double targetFramesPerSecond })
+        if (decision.Video is EncodeVideoIntent { TargetFramesPerSecond: double targetFramesPerSecond })
         {
             parts.Add($"fps {targetFramesPerSecond:0.###}");
         }

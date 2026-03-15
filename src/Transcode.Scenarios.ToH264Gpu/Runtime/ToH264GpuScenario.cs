@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using Transcode.Runtime.Plans;
+using Transcode.Runtime.MediaIntent;
 using Transcode.Runtime.Scenarios;
 using Transcode.Runtime.Videos;
 using Transcode.Runtime.VideoSettings;
@@ -73,11 +73,11 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         var copyVideo = !synchronizeAudio && videoCopyCompatible && CanCopyAudio(video) ||
                         synchronizeAudio && videoCopyCompatible;
         var copyAudio = !synchronizeAudio && CanCopyAudio(video);
-        AudioPlan audioPlan = copyAudio
-            ? new CopyAudioPlan()
+        AudioIntent audioIntent = copyAudio
+            ? new CopyAudioIntent()
             : synchronizeAudio
-                ? new SynchronizeAudioPlan()
-                : new EncodeAudioPlan();
+                ? new SynchronizeAudioIntent()
+                : new EncodeAudioIntent();
         var videoSettingsRequest = copyVideo
             ? null
             : Request.VideoSettings;
@@ -87,12 +87,12 @@ public sealed class ToH264GpuScenario : TranscodeScenario
         var resolvedDownscale = useDownscale
             ? downscaleRequest
             : null;
-        VideoPlan videoPlan = copyVideo
-            ? new CopyVideoPlan()
-            : new EncodeVideoPlan(
+        VideoIntent videoIntent = copyVideo
+            ? new CopyVideoIntent()
+            : new EncodeVideoIntent(
                 TargetVideoCodec: "h264",
                 PreferredBackend: "gpu",
-                CompatibilityProfile: VideoCompatibilityProfile.H264High,
+                CompatibilityProfile: H264OutputProfile.H264High,
                 TargetFramesPerSecond: targetFramesPerSecond,
                 UseFrameInterpolation: false,
                 VideoSettings: videoSettingsRequest,
@@ -110,12 +110,12 @@ public sealed class ToH264GpuScenario : TranscodeScenario
             : BuildVideoExecution(videoSettings, useDownscale);
         var audioExecution = copyAudio
             ? null
-            : BuildAudioExecution(video, audioPlan);
+            : BuildAudioExecution(video, audioIntent);
 
         return new ToH264GpuDecision(
             targetContainer: targetContainer,
-            videoPlan: videoPlan,
-            audioPlan: audioPlan,
+            videoIntent: videoIntent,
+            audioIntent: audioIntent,
             keepSource: Request.KeepSource,
             outputPath: ResolveOutputPath(video, targetContainer),
             mux: mux,
@@ -211,10 +211,10 @@ public sealed class ToH264GpuScenario : TranscodeScenario
             pixelFormat: useDownscale ? null : "yuv420p");
     }
 
-    private static ToH264GpuDecision.AudioExecution BuildAudioExecution(SourceVideo video, AudioPlan audioPlan)
+    private static ToH264GpuDecision.AudioExecution BuildAudioExecution(SourceVideo video, AudioIntent audioIntent)
     {
         var usesAmrAudio = IsAmrNb(video.PrimaryAudioCodec);
-        var requiresRepair = audioPlan is SynchronizeAudioPlan or RepairAudioPlan;
+        var requiresRepair = audioIntent is SynchronizeAudioIntent or RepairAudioIntent;
 
         return new ToH264GpuDecision.AudioExecution(
             bitrateKbps: ResolveAudioBitrateKbps(video),
