@@ -1,10 +1,10 @@
-# MediaTranscodeEngine
+# Transcode
 
-MediaTranscodeEngine is a `.NET 9` runtime and CLI for inspecting media files and generating scenario-driven transcoding commands.
+Transcode is a `.NET 9` runtime and CLI for inspecting media files and generating scenario-driven transcoding commands.
 
 Current runtime pipeline:
 
-`path -> VideoInspector -> SourceVideo -> TranscodeScenario -> TranscodePlan -> ITranscodeTool -> ToolExecution`
+`argv -> CliArgumentParser -> CliParseResult(normalized ScenarioInput) -> CliTranscodeRequest(per input) -> VideoInspector -> SourceVideo -> TranscodeScenario -> ScenarioExecution`
 
 The repository currently implements two application scenarios and produces per-file results:
 
@@ -17,11 +17,14 @@ The CLI requires an explicit `--scenario <name>` argument. The current public sc
 
 ## Repository Layout
 
-- `src/MediaTranscodeEngine.Runtime` - runtime model, input inspection, scenarios, and tool adapters
-- `src/MediaTranscodeEngine.Cli` - console application built on top of `Runtime`
-- `tests/MediaTranscodeEngine.Runtime.Tests` - runtime unit tests
-- `tests/MediaTranscodeEngine.Cli.Tests` - CLI contract tests
-- `MediaTranscodeEngine.sln` - solution
+- `src/Transcode.Runtime` - shared runtime model, input inspection, video settings, and base scenario contracts
+- `src/Transcode.Cli.Core` - shared CLI parsing, request orchestration, and scenario registry contracts
+- `src/Transcode.Cli` - console host and dependency wiring
+- `src/Transcode.Scenarios.ToH264Gpu` - `toh264gpu` scenario runtime logic and CLI adapter
+- `src/Transcode.Scenarios.ToMkvGpu` - `tomkvgpu` scenario runtime logic and CLI adapter
+- `tests/Transcode.Runtime.Tests` - runtime unit tests
+- `tests/Transcode.Cli.Tests` - CLI contract tests
+- `Transcode.sln` - solution
 
 ## Requirements
 
@@ -35,8 +38,8 @@ The CLI resolves `ffprobe` and `ffmpeg` paths from standard host configuration s
 
 ```bash
 dotnet restore
-dotnet build MediaTranscodeEngine.sln
-dotnet test MediaTranscodeEngine.sln
+dotnet build Transcode.sln
+dotnet test Transcode.sln
 ```
 
 ## Documentation

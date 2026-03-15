@@ -1,10 +1,10 @@
-# MediaTranscodeEngine
+# Transcode
 
-`MediaTranscodeEngine` - это `.NET 9` runtime и CLI для инспекции медиафайлов и генерации сценарных команд транскодирования.
+`Transcode` - это `.NET 9` runtime и CLI для инспекции медиафайлов и генерации сценарных команд транскодирования.
 
 Текущая минимальная цепочка:
 
-`path -> VideoInspector -> SourceVideo -> TranscodeScenario -> TranscodePlan -> ITranscodeTool -> ToolExecution`
+`argv -> CliArgumentParser -> CliParseResult(normalized ScenarioInput) -> CliTranscodeRequest(per input) -> VideoInspector -> SourceVideo -> TranscodeScenario -> ScenarioExecution`
 
 Сейчас в репозитории реализованы два прикладных сценария, и CLI печатает per-file результат:
 
@@ -17,11 +17,14 @@
 
 ## Структура Репозитория
 
-- `src/MediaTranscodeEngine.Runtime` - runtime-модель, инспекция входного файла, сценарии и tool adapters
-- `src/MediaTranscodeEngine.Cli` - консольное приложение поверх `Runtime`
-- `tests/MediaTranscodeEngine.Runtime.Tests` - unit-тесты runtime-поведения
-- `tests/MediaTranscodeEngine.Cli.Tests` - контрактные тесты CLI
-- `MediaTranscodeEngine.sln` - solution
+- `src/Transcode.Runtime` - общая runtime-модель, инспекция входного файла, video settings и базовые контракты сценариев
+- `src/Transcode.Cli.Core` - общий CLI parsing, orchestration request-ов и контракты registry/handler-ов сценариев
+- `src/Transcode.Cli` - консольный host и dependency wiring
+- `src/Transcode.Scenarios.ToH264Gpu` - runtime-логика и CLI adapter сценария `toh264gpu`
+- `src/Transcode.Scenarios.ToMkvGpu` - runtime-логика и CLI adapter сценария `tomkvgpu`
+- `tests/Transcode.Runtime.Tests` - unit-тесты runtime-поведения
+- `tests/Transcode.Cli.Tests` - контрактные тесты CLI
+- `Transcode.sln` - solution
 
 ## Требования
 
@@ -35,8 +38,8 @@ CLI получает пути к `ffprobe` и `ffmpeg` из стандартны
 
 ```bash
 dotnet restore
-dotnet build MediaTranscodeEngine.sln
-dotnet test MediaTranscodeEngine.sln
+dotnet build Transcode.sln
+dotnet test Transcode.sln
 ```
 
 ## Документация
