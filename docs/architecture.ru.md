@@ -13,33 +13,33 @@ English version: [architecture.md](architecture.md)
 
 Ключевые runtime-типы:
 
-- `src/MediaTranscodeEngine.Cli.Core/Parsing/CliContracts.cs` - общий результат CLI parse, который несет нормализованный `ScenarioInput`.
-- `src/MediaTranscodeEngine.Cli.Core/CliTranscodeRequest.cs` - per-input CLI request, построенный из общего parse result.
-- `src/MediaTranscodeEngine.Runtime/Videos/SourceVideo.cs` - нормализованные факты о входном файле.
-- `src/MediaTranscodeEngine.Runtime/Videos/VideoInspector.cs` - строит `SourceVideo` из probe-output.
-- `src/MediaTranscodeEngine.Runtime/Scenarios/TranscodeScenario.cs` - контракт сценария, который отдает `FormatInfo(...)` и `BuildExecution(...)`.
-- `src/MediaTranscodeEngine.Runtime/Scenarios/ScenarioExecution.cs` - итоговый scenario-level рецепт команд.
-- `src/MediaTranscodeEngine.Runtime/Plans/VideoPlan.cs` и `src/MediaTranscodeEngine.Runtime/Plans/AudioPlan.cs` - shared stream-level примитивы, реально используемые несколькими сценариями.
-- `src/MediaTranscodeEngine.Runtime/VideoSettings/*` - общий каталог и resolver video-settings, используемый несколькими сценариями.
-- `src/MediaTranscodeEngine.Runtime/Tools/Ffmpeg/FfmpegExecutionLayout.cs` - общий helper для output/temp path layout и post-operations.
-- `src/MediaTranscodeEngine.Scenarios.ToH264Gpu/Runtime/ToH264GpuDecision.cs` и `src/MediaTranscodeEngine.Scenarios.ToMkvGpu/Runtime/ToMkvGpuDecision.cs` - scenario-local rich model решений; это внутренние типы scenario projects, а не shared runtime contracts.
+- `src/Transcode.Cli.Core/Parsing/CliContracts.cs` - общий результат CLI parse, который несет нормализованный `ScenarioInput`.
+- `src/Transcode.Cli.Core/CliTranscodeRequest.cs` - per-input CLI request, построенный из общего parse result.
+- `src/Transcode.Runtime/Videos/SourceVideo.cs` - нормализованные факты о входном файле.
+- `src/Transcode.Runtime/Videos/VideoInspector.cs` - строит `SourceVideo` из probe-output.
+- `src/Transcode.Runtime/Scenarios/TranscodeScenario.cs` - контракт сценария, который отдает `FormatInfo(...)` и `BuildExecution(...)`.
+- `src/Transcode.Runtime/Scenarios/ScenarioExecution.cs` - итоговый scenario-level рецепт команд.
+- `src/Transcode.Runtime/Plans/VideoPlan.cs` и `src/Transcode.Runtime/Plans/AudioPlan.cs` - shared stream-level примитивы, реально используемые несколькими сценариями.
+- `src/Transcode.Runtime/VideoSettings/*` - общий каталог и resolver video-settings, используемый несколькими сценариями.
+- `src/Transcode.Runtime/Tools/Ffmpeg/FfmpegExecutionLayout.cs` - общий helper для output/temp path layout и post-operations.
+- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuDecision.cs` и `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuDecision.cs` - scenario-local rich model решений; это внутренние типы scenario projects, а не shared runtime contracts.
 
 CLI wiring:
 
-- `src/MediaTranscodeEngine.Cli/Program.cs`
-- `src/MediaTranscodeEngine.Cli.Core/Parsing/CliArgumentParser.cs`
-- `src/MediaTranscodeEngine.Cli.Core/Parsing/CliContracts.cs`
-- `src/MediaTranscodeEngine.Cli.Core/Scenarios/CliScenarioRegistry.cs`
-- `src/MediaTranscodeEngine.Cli.Core/Scenarios/ICliScenarioHandler.cs`
-- `src/MediaTranscodeEngine.Scenarios.ToMkvGpu/Cli/ToMkvGpuCliScenarioHandler.cs`
-- `src/MediaTranscodeEngine.Scenarios.ToMkvGpu/Cli/ToMkvGpuCliRequestParser.cs`
-- `src/MediaTranscodeEngine.Scenarios.ToH264Gpu/Cli/ToH264GpuCliScenarioHandler.cs`
-- `src/MediaTranscodeEngine.Scenarios.ToH264Gpu/Cli/ToH264GpuCliRequestParser.cs`
-- `src/MediaTranscodeEngine.Runtime/Inspection/FfprobeVideoProbe.cs`
-- `src/MediaTranscodeEngine.Scenarios.ToH264Gpu/Runtime/ToH264GpuScenario.cs`
-- `src/MediaTranscodeEngine.Scenarios.ToH264Gpu/Runtime/ToH264GpuFfmpegTool.cs`
-- `src/MediaTranscodeEngine.Scenarios.ToMkvGpu/Runtime/ToMkvGpuScenario.cs`
-- `src/MediaTranscodeEngine.Scenarios.ToMkvGpu/Runtime/ToMkvGpuFfmpegTool.cs`
+- `src/Transcode.Cli/Program.cs`
+- `src/Transcode.Cli.Core/Parsing/CliArgumentParser.cs`
+- `src/Transcode.Cli.Core/Parsing/CliContracts.cs`
+- `src/Transcode.Cli.Core/Scenarios/CliScenarioRegistry.cs`
+- `src/Transcode.Cli.Core/Scenarios/ICliScenarioHandler.cs`
+- `src/Transcode.Scenarios.ToMkvGpu/Cli/ToMkvGpuCliScenarioHandler.cs`
+- `src/Transcode.Scenarios.ToMkvGpu/Cli/ToMkvGpuCliRequestParser.cs`
+- `src/Transcode.Scenarios.ToH264Gpu/Cli/ToH264GpuCliScenarioHandler.cs`
+- `src/Transcode.Scenarios.ToH264Gpu/Cli/ToH264GpuCliRequestParser.cs`
+- `src/Transcode.Runtime/Inspection/FfprobeVideoProbe.cs`
+- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuScenario.cs`
+- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuFfmpegTool.cs`
+- `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuScenario.cs`
+- `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuFfmpegTool.cs`
 
 Высокоуровневый CLI flow:
 

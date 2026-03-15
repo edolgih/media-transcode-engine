@@ -5,7 +5,7 @@ Russian version: [cli.ru.md](cli.ru.md)
 ## Show Help
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --help
+dotnet run --project src/Transcode.Cli -- --help
 ```
 
 ## Generate Commands
@@ -13,73 +13,73 @@ dotnet run --project src/MediaTranscodeEngine.Cli -- --help
 Command generation for `tomkvgpu`:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv"
+dotnet run --project src/Transcode.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv"
 ```
 
 Info-only output:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --info
+dotnet run --project src/Transcode.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --info
 ```
 
 `downscale 720`:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 720
+dotnet run --project src/Transcode.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 720
 ```
 
 Explicit `576` profile:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 576 --content-profile film --quality-profile default
+dotnet run --project src/Transcode.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 576 --content-profile film --quality-profile default
 ```
 
 `downscale 424`:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 424
+dotnet run --project src/Transcode.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --downscale 424
 ```
 
 Overlay with explicit repair mode:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --overlay-bg --sync-audio
+dotnet run --project src/Transcode.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --overlay-bg --sync-audio
 ```
 
 Frame-rate cap:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --max-fps 30
+dotnet run --project src/Transcode.Cli -- --scenario tomkvgpu --input "D:\\Src\\movie.mkv" --max-fps 30
 ```
 
 Command generation for `toh264gpu`:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.m4v"
+dotnet run --project src/Transcode.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.m4v"
 ```
 
 `toh264gpu` downscale to `576`:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --downscale 576
+dotnet run --project src/Transcode.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --downscale 576
 ```
 
 `toh264gpu` with explicit quality-oriented profile selection:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --content-profile film --quality-profile default --autosample-mode fast
+dotnet run --project src/Transcode.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --content-profile film --quality-profile default --autosample-mode fast
 ```
 
 `toh264gpu` explicit audio-sync repair path:
 
 ```bash
-dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --sync-audio --keep-source
+dotnet run --project src/Transcode.Cli -- --scenario toh264gpu --input "D:\\Src\\movie.mkv" --sync-audio --keep-source
 ```
 
 Read paths from stdin:
 
 ```powershell
-Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | dotnet run --project src/MediaTranscodeEngine.Cli -- --scenario tomkvgpu --info
+Get-ChildItem -Recurse *.mp4 | ForEach-Object FullName | dotnet run --project src/Transcode.Cli -- --scenario tomkvgpu --info
 ```
 
 ## Supported Options
