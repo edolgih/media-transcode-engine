@@ -1,7 +1,7 @@
 using Transcode.Cli.Core.Parsing;
-using Transcode.Runtime.Tools.Ffmpeg;
-using Transcode.Runtime.VideoSettings;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Core.Tools.Ffmpeg;
+using Transcode.Core.VideoSettings;
+using Transcode.Scenarios.ToMkvGpu.Core;
 
 namespace Transcode.Scenarios.ToMkvGpu.Cli;
 

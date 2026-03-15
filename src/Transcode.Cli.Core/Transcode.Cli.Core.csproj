@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Transcode.Runtime\Transcode.Runtime.csproj" />
+    <ProjectReference Include="..\Transcode.Core\Transcode.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,126 @@
+using Transcode.Core.Tools.Ffmpeg;
+using Transcode.Core.VideoSettings;
+
+namespace Transcode.Core.VideoSettings.Profiles;
+
+/*
+Это фабрика video-settings профиля для целевой высоты 424.
+Она описывает данные профиля как код, без логики выполнения.
+*/
+/// <summary>
+/// Builds the typed video-settings profile for target height 424.
+/// </summary>
+internal static class VideoSettings424Profile
+{
+    public static VideoSettingsProfile Create()
+    {
+        return new VideoSettingsProfile(
+            targetHeight: 424,
+            defaultContentProfile: "film",
+            defaultQualityProfile: "default",
+            rateModel: new VideoSettingsRateModel(CqStepToMaxrateStep: 0.4m, BufsizeMultiplier: 2.0m),
+            autoSampling: new VideoSettingsAutoSampling(
+                ModeDefault: "accurate",
+                MaxIterations: 8,
+                LongMinDuration: TimeSpan.FromMinutes(8),
+                LongWindowCount: 3,
+                LongWindowAnchors: [0.20, 0.50, 0.80],
+                MediumMinDuration: TimeSpan.FromMinutes(3),
+                MediumWindowCount: 2,
+                MediumWindowAnchors: [0.35, 0.65],
+                ShortWindowCount: 1,
+                SampleWindowDuration: TimeSpan.FromSeconds(30),
+                ShortWindowAnchors: [0.50]),
+            sourceBuckets:
+            [
+                new SourceHeightBucket(
+                    "sd_480",
+                    MinHeight: 425,
+                    MaxHeight: 649,
+                    Ranges:
+                    [
+                        new VideoSettingsRange("anime", "high", MinInclusive: 8.0m, MaxInclusive: 20.0m),
+                        new VideoSettingsRange("anime", "default", MinInclusive: 20.0m, MaxInclusive: 32.0m),
+                        new VideoSettingsRange("anime", "low", MinInclusive: 32.0m, MaxInclusive: 48.0m),
+                        new VideoSettingsRange("mult", "high", MinInclusive: 6.0m, MaxInclusive: 18.0m),
+                        new VideoSettingsRange("mult", "default", MinInclusive: 18.0m, MaxInclusive: 30.0m),
+                        new VideoSettingsRange("mult", "low", MinInclusive: 30.0m, MaxInclusive: 44.0m),
+                        new VideoSettingsRange("film", "high", MinInclusive: 5.0m, MaxInclusive: 15.0m),
+                        new VideoSettingsRange("film", "default", MinInclusive: 15.0m, MaxInclusive: 28.0m),
+                        new VideoSettingsRange("film", "low", MinInclusive: 28.0m, MaxInclusive: 42.0m)
+                    ]),
+                new SourceHeightBucket(
+                    "hd_720",
+                    MinHeight: 650,
+                    MaxHeight: 899,
+                    Ranges:
+                    [
+                        new VideoSettingsRange("anime", "high", MinInclusive: 18.0m, MaxInclusive: 30.0m),
+                        new VideoSettingsRange("anime", "default", MinInclusive: 30.0m, MaxInclusive: 42.0m),
+                        new VideoSettingsRange("anime", "low", MinInclusive: 42.0m, MaxInclusive: 58.0m),
+                        new VideoSettingsRange("mult", "high", MinInclusive: 16.0m, MaxInclusive: 27.0m),
+                        new VideoSettingsRange("mult", "default", MinInclusive: 27.0m, MaxInclusive: 39.0m),
+                        new VideoSettingsRange("mult", "low", MinInclusive: 39.0m, MaxInclusive: 54.0m),
+                        new VideoSettingsRange("film", "high", MinInclusive: 12.0m, MaxInclusive: 24.0m),
+                        new VideoSettingsRange("film", "default", MinInclusive: 24.0m, MaxInclusive: 36.0m),
+                        new VideoSettingsRange("film", "low", MinInclusive: 36.0m, MaxInclusive: 50.0m)
+                    ],
+                    BoundsOverrides:
+                    [
+                        new VideoSettingsBoundsOverride("mult", "high", CqMin: 18, MaxrateMax: 2.4m),
+                        new VideoSettingsBoundsOverride("mult", "default", CqMin: 22, MaxrateMax: 2.0m),
+                        new VideoSettingsBoundsOverride("mult", "low", CqMin: 26, MaxrateMax: 1.4m)
+                    ]),
+                new SourceHeightBucket(
+                    "fhd_1080",
+                    MinHeight: 900,
+                    MaxHeight: 1300,
+                    Ranges:
+                    [
+                        new VideoSettingsRange("anime", "high", MinInclusive: 28.0m, MaxInclusive: 42.0m),
+                        new VideoSettingsRange("anime", "default", MinInclusive: 42.0m, MaxInclusive: 56.0m),
+                        new VideoSettingsRange("anime", "low", MinInclusive: 56.0m, MaxInclusive: 72.0m),
+                        new VideoSettingsRange("mult", "high", MinInclusive: 25.0m, MaxInclusive: 38.0m),
+                        new VideoSettingsRange("mult", "default", MinInclusive: 38.0m, MaxInclusive: 52.0m),
+                        new VideoSettingsRange("mult", "low", MinInclusive: 52.0m, MaxInclusive: 68.0m),
+                        new VideoSettingsRange("film", "high", MinInclusive: 18.0m, MaxInclusive: 32.0m),
+                        new VideoSettingsRange("film", "default", MinInclusive: 32.0m, MaxInclusive: 46.0m),
+                        new VideoSettingsRange("film", "low", MinInclusive: 46.0m, MaxInclusive: 60.0m)
+                    ],
+                    BoundsOverrides:
+                    [
+                        new VideoSettingsBoundsOverride("mult", "low", CqMax: 35, MaxrateMin: 0.9m)
+                    ])
+            ],
+            defaults:
+            [
+                new VideoSettingsDefaults("anime", "high", Cq: 24, Maxrate: 2.1m, Bufsize: 4.2m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 21, CqMax: 26, MaxrateMin: 1.6m, MaxrateMax: 2.8m),
+                new VideoSettingsDefaults("anime", "default", Cq: 25, Maxrate: 1.6m, Bufsize: 3.2m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 22, CqMax: 28, MaxrateMin: 1.3m, MaxrateMax: 2.0m),
+                new VideoSettingsDefaults("anime", "low", Cq: 31, Maxrate: 1.4m, Bufsize: 2.8m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 26, CqMax: 36, MaxrateMin: 0.8m, MaxrateMax: 2.0m),
+                new VideoSettingsDefaults("mult", "high", Cq: 26, Maxrate: 1.7m, Bufsize: 3.4m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 23, CqMax: 28, MaxrateMin: 1.5m, MaxrateMax: 2.1m),
+                new VideoSettingsDefaults("mult", "default", Cq: 28, Maxrate: 1.5m, Bufsize: 3.0m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 25, CqMax: 31, MaxrateMin: 1.3m, MaxrateMax: 1.9m),
+                new VideoSettingsDefaults("mult", "low", Cq: 31, Maxrate: 1.1m, Bufsize: 2.2m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 28, CqMax: 33, MaxrateMin: 1.0m, MaxrateMax: 1.4m),
+                new VideoSettingsDefaults("film", "high", Cq: 26, Maxrate: 2.3m, Bufsize: 4.6m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 18, CqMax: 35, MaxrateMin: 1.4m, MaxrateMax: 5.0m),
+                new VideoSettingsDefaults("film", "default", Cq: 28, Maxrate: 2.1m, Bufsize: 4.2m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 20, CqMax: 37, MaxrateMin: 1.1m, MaxrateMax: 5.0m),
+                new VideoSettingsDefaults("film", "low", Cq: 32, Maxrate: 1.5m, Bufsize: 3.0m, Algorithm: FfmpegScaleAlgorithms.Bilinear, CqMin: 22, CqMax: 40, MaxrateMin: 0.8m, MaxrateMax: 2.6m)
+            ],
+            globalQualityRanges:
+            [
+                new VideoSettingsQualityRange("high", MinInclusive: 26.0m, MaxInclusive: 40.0m),
+                new VideoSettingsQualityRange("default", MinExclusive: 40.0m, MaxInclusive: 52.0m),
+                new VideoSettingsQualityRange("low", MinExclusive: 52.0m)
+            ],
+            globalContentRanges:
+            [
+                new VideoSettingsRange("anime", "high", MinInclusive: 26.0m, MaxInclusive: 40.0m),
+                new VideoSettingsRange("anime", "default", MinExclusive: 40.0m, MaxInclusive: 52.0m),
+                new VideoSettingsRange("anime", "low", MinExclusive: 52.0m, MaxInclusive: 75.0m),
+                new VideoSettingsRange("mult", "high", MinInclusive: 24.0m, MaxInclusive: 38.0m),
+                new VideoSettingsRange("mult", "default", MinExclusive: 38.0m, MaxInclusive: 50.0m),
+                new VideoSettingsRange("mult", "low", MinExclusive: 50.0m, MaxInclusive: 72.0m),
+                new VideoSettingsRange("film", "high", MinInclusive: 18.0m, MaxInclusive: 32.0m),
+                new VideoSettingsRange("film", "default", MinExclusive: 32.0m, MaxInclusive: 44.0m),
+                new VideoSettingsRange("film", "low", MinExclusive: 44.0m, MaxInclusive: 66.0m)
+            ]);
+    }
+}

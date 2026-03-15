@@ -17,12 +17,12 @@
 
 ## Структура Репозитория
 
-- `src/Transcode.Runtime` - общая runtime-модель, инспекция входного файла, video settings и базовые контракты сценариев
+- `src/Transcode.Core` - общая core-модель, инспекция входного файла, video settings и базовые контракты сценариев
 - `src/Transcode.Cli.Core` - общий CLI parsing, orchestration request-ов и контракты registry/handler-ов сценариев
 - `src/Transcode.Cli` - консольный host и dependency wiring
 - `src/Transcode.Scenarios.ToH264Gpu` - runtime-логика и CLI adapter сценария `toh264gpu`
 - `src/Transcode.Scenarios.ToMkvGpu` - runtime-логика и CLI adapter сценария `tomkvgpu`
-- `tests/Transcode.Runtime.Tests` - unit-тесты runtime-поведения
+- `tests/Transcode.Runtime.Tests` - unit-тесты общего core/runtime-поведения
 - `tests/Transcode.Cli.Tests` - контрактные тесты CLI
 - `Transcode.sln` - solution
 

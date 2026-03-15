@@ -1,10 +1,10 @@
 using FluentAssertions;
-using Transcode.Runtime.Failures;
-using Transcode.Runtime.MediaIntent;
-using Transcode.Runtime.Videos;
-using Transcode.Runtime.VideoSettings;
-using Transcode.Runtime.VideoSettings.Profiles;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Core.Failures;
+using Transcode.Core.MediaIntent;
+using Transcode.Core.Videos;
+using Transcode.Core.VideoSettings;
+using Transcode.Core.VideoSettings.Profiles;
+using Transcode.Scenarios.ToMkvGpu.Core;
 
 namespace Transcode.Runtime.Tests.Scenarios;
 

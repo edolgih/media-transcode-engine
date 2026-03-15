@@ -1,6 +1,6 @@
 using FluentAssertions;
-using Transcode.Runtime.VideoSettings;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Core.VideoSettings;
+using Transcode.Scenarios.ToMkvGpu.Core;
 
 namespace Transcode.Runtime.Tests.Scenarios;
 

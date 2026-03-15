@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Transcode.Runtime.VideoSettings;
+using Transcode.Core.VideoSettings;
 
 namespace Transcode.Runtime.Tests.VideoSettings;
 

@@ -17,12 +17,12 @@ The CLI requires an explicit `--scenario <name>` argument. The current public sc
 
 ## Repository Layout
 
-- `src/Transcode.Runtime` - shared runtime model, input inspection, video settings, and base scenario contracts
+- `src/Transcode.Core` - shared core model, input inspection, video settings, and base scenario contracts
 - `src/Transcode.Cli.Core` - shared CLI parsing, request orchestration, and scenario registry contracts
 - `src/Transcode.Cli` - console host and dependency wiring
 - `src/Transcode.Scenarios.ToH264Gpu` - `toh264gpu` scenario runtime logic and CLI adapter
 - `src/Transcode.Scenarios.ToMkvGpu` - `tomkvgpu` scenario runtime logic and CLI adapter
-- `tests/Transcode.Runtime.Tests` - runtime unit tests
+- `tests/Transcode.Runtime.Tests` - shared core/runtime unit tests
 - `tests/Transcode.Cli.Tests` - CLI contract tests
 - `Transcode.sln` - solution
 

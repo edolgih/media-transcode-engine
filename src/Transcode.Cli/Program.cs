@@ -9,13 +9,13 @@ using Transcode.Cli.Core;
 using Transcode.Cli.Core.Parsing;
 using Transcode.Cli.Core.Processing;
 using Transcode.Cli.Core.Scenarios;
-using Transcode.Runtime.Inspection;
-using Transcode.Runtime.Tools.Ffmpeg;
-using Transcode.Runtime.Videos;
+using Transcode.Core.Inspection;
+using Transcode.Core.Tools.Ffmpeg;
+using Transcode.Core.Videos;
 using Transcode.Scenarios.ToH264Gpu.Cli;
-using Transcode.Scenarios.ToH264Gpu.Runtime;
+using Transcode.Scenarios.ToH264Gpu.Core;
 using Transcode.Scenarios.ToMkvGpu.Cli;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Scenarios.ToMkvGpu.Core;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace Transcode.Cli;

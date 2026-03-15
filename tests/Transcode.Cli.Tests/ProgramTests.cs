@@ -5,10 +5,10 @@ using Transcode.Cli.Core;
 using Transcode.Cli.Core.Processing;
 using Transcode.Cli.Core.Scenarios;
 using Transcode.Cli.Tests.Logging;
-using Transcode.Runtime.Inspection;
-using Transcode.Runtime.Videos;
+using Transcode.Core.Inspection;
+using Transcode.Core.Videos;
 using Transcode.Scenarios.ToMkvGpu.Cli;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Scenarios.ToMkvGpu.Core;
 
 namespace Transcode.Cli.Tests;
 

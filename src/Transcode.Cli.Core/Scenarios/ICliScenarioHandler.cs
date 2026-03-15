@@ -1,5 +1,5 @@
 using Transcode.Cli.Core.Parsing;
-using Transcode.Runtime.Scenarios;
+using Transcode.Core.Scenarios;
 
 namespace Transcode.Cli.Core.Scenarios;
 

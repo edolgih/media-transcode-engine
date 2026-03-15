@@ -1,9 +1,9 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using Transcode.Runtime.MediaIntent;
-using Transcode.Runtime.Videos;
-using Transcode.Runtime.VideoSettings;
-using Transcode.Scenarios.ToH264Gpu.Runtime;
+using Transcode.Core.MediaIntent;
+using Transcode.Core.Videos;
+using Transcode.Core.VideoSettings;
+using Transcode.Scenarios.ToH264Gpu.Core;
 
 namespace Transcode.Runtime.Tests.Scenarios;
 

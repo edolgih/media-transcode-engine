@@ -3,9 +3,9 @@ using Transcode.Cli.Core;
 using Transcode.Cli.Core.Parsing;
 using Transcode.Cli.Core.Scenarios;
 using Transcode.Scenarios.ToH264Gpu.Cli;
-using Transcode.Scenarios.ToH264Gpu.Runtime;
+using Transcode.Scenarios.ToH264Gpu.Core;
 using Transcode.Scenarios.ToMkvGpu.Cli;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Scenarios.ToMkvGpu.Core;
 
 namespace Transcode.Cli.Tests.Parsing;
 

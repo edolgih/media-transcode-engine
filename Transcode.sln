@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Transcode.Cli", "src\Transcode.Cli\Transcode.Cli.csproj", "{97E9300D-D5FB-4BC0-9E84-C4C3C809D367}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Transcode.Runtime", "src\Transcode.Runtime\Transcode.Runtime.csproj", "{19199892-9DE5-43F6-BCFF-115C75AFCC44}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Transcode.Core", "src\Transcode.Core\Transcode.Core.csproj", "{19199892-9DE5-43F6-BCFF-115C75AFCC44}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Transcode.Runtime.Tests", "tests\Transcode.Runtime.Tests\Transcode.Runtime.Tests.csproj", "{8C4B51A6-A4E4-4533-9204-3F7438FDCE62}"
 EndProject

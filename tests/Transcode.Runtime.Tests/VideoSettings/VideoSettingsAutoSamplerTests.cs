@@ -1,6 +1,6 @@
 using FluentAssertions;
-using Transcode.Runtime.VideoSettings;
-using Transcode.Runtime.VideoSettings.Profiles;
+using Transcode.Core.VideoSettings;
+using Transcode.Core.VideoSettings.Profiles;
 
 namespace Transcode.Runtime.Tests.VideoSettings;
 

@@ -5,7 +5,7 @@ English version: [architecture.md](architecture.md)
 Этот документ описывает текущее реализованное состояние архитектуры и runtime flow.
 Если отдельный refactoring document фиксирует целевое упрощение, это не считается противоречием: `architecture*.md` остается описанием current state, пока код не изменен.
 
-## Runtime Flow
+## Core Flow
 
 Текущий runtime pipeline:
 
@@ -15,14 +15,14 @@ English version: [architecture.md](architecture.md)
 
 - `src/Transcode.Cli.Core/Parsing/CliContracts.cs` - общий результат CLI parse, который несет нормализованный `ScenarioInput`.
 - `src/Transcode.Cli.Core/CliTranscodeRequest.cs` - per-input CLI request, построенный из общего parse result.
-- `src/Transcode.Runtime/Videos/SourceVideo.cs` - нормализованные факты о входном файле.
-- `src/Transcode.Runtime/Videos/VideoInspector.cs` - строит `SourceVideo` из probe-output.
-- `src/Transcode.Runtime/Scenarios/TranscodeScenario.cs` - контракт сценария, который отдает `FormatInfo(...)` и `BuildExecution(...)`.
-- `src/Transcode.Runtime/Scenarios/ScenarioExecution.cs` - итоговый scenario-level рецепт команд.
-- `src/Transcode.Runtime/Plans/VideoPlan.cs` и `src/Transcode.Runtime/Plans/AudioPlan.cs` - shared stream-level примитивы, реально используемые несколькими сценариями.
-- `src/Transcode.Runtime/VideoSettings/*` - общий каталог и resolver video-settings, используемый несколькими сценариями.
-- `src/Transcode.Runtime/Tools/Ffmpeg/FfmpegExecutionLayout.cs` - общий helper для output/temp path layout и post-operations.
-- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuDecision.cs` и `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuDecision.cs` - scenario-local rich model решений; это внутренние типы scenario projects, а не shared runtime contracts.
+- `src/Transcode.Core/Videos/SourceVideo.cs` - нормализованные факты о входном файле.
+- `src/Transcode.Core/Videos/VideoInspector.cs` - строит `SourceVideo` из probe-output.
+- `src/Transcode.Core/Scenarios/TranscodeScenario.cs` - контракт сценария, который отдает `FormatInfo(...)` и `BuildExecution(...)`.
+- `src/Transcode.Core/Scenarios/ScenarioExecution.cs` - итоговый scenario-level рецепт команд.
+- `src/Transcode.Core/MediaIntent/VideoIntent.cs` и `src/Transcode.Core/MediaIntent/AudioIntent.cs` - shared stream-level intent-примитивы, реально используемые несколькими сценариями.
+- `src/Transcode.Core/VideoSettings/*` - общий каталог и resolver video-settings, используемый несколькими сценариями.
+- `src/Transcode.Core/Tools/Ffmpeg/FfmpegExecutionLayout.cs` - общий helper для output/temp path layout и post-operations.
+- `src/Transcode.Scenarios.ToH264Gpu/Core/ToH264GpuDecision.cs` и `src/Transcode.Scenarios.ToMkvGpu/Core/ToMkvGpuDecision.cs` - scenario-local rich model решений; это внутренние типы scenario projects, а не shared core contracts.
 
 CLI wiring:
 
@@ -35,11 +35,11 @@ CLI wiring:
 - `src/Transcode.Scenarios.ToMkvGpu/Cli/ToMkvGpuCliRequestParser.cs`
 - `src/Transcode.Scenarios.ToH264Gpu/Cli/ToH264GpuCliScenarioHandler.cs`
 - `src/Transcode.Scenarios.ToH264Gpu/Cli/ToH264GpuCliRequestParser.cs`
-- `src/Transcode.Runtime/Inspection/FfprobeVideoProbe.cs`
-- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuScenario.cs`
-- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuFfmpegTool.cs`
-- `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuScenario.cs`
-- `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuFfmpegTool.cs`
+- `src/Transcode.Core/Inspection/FfprobeVideoProbe.cs`
+- `src/Transcode.Scenarios.ToH264Gpu/Core/ToH264GpuScenario.cs`
+- `src/Transcode.Scenarios.ToH264Gpu/Core/ToH264GpuFfmpegTool.cs`
+- `src/Transcode.Scenarios.ToMkvGpu/Core/ToMkvGpuScenario.cs`
+- `src/Transcode.Scenarios.ToMkvGpu/Core/ToMkvGpuFfmpegTool.cs`
 
 Высокоуровневый CLI flow:
 
@@ -52,18 +52,18 @@ CLI wiring:
 - ordinary encode и downscale теперь разделяют одну profile-driven video-settings ось: output-height buckets, content/quality profiles, bucket bounds и autosample/bitrate-hint adjustment приходят из shared video-settings profile catalog, а не из scenario-local hardcoded fallback-ов;
 - runtime request/value types больше не знают raw spellings вида `--option`; CLI-слой выступает transport adapter-ом, а runtime остаётся domain source of truth.
 
-## Runtime-CLI Boundary
+## Core-CLI Boundary
 
 Текущие правила границы:
 
-- `Runtime` владеет domain request objects, supported-value catalogs, normalization, validation и scenario invariants.
+- `Core` владеет domain request objects, supported-value catalogs, normalization, validation и scenario invariants.
 - `CLI` владеет raw option names, argv token reading, required-value checks, parse diagnostics и help rendering.
 - `CLI` может содержать option-to-domain binding logic, потому что это transport-adapter knowledge.
 - scenario-specific argv должен парситься один раз на CLI boundary в нормализованный scenario input.
 - `CliParseResult` и per-input `CliTranscodeRequest` несут этот нормализованный scenario input дальше; они больше не являются raw-only carrier-ами.
 - info path, normal execution path и failure path должны использовать уже доступный parsed scenario input или обходиться без повторного parse.
-- `CLI` не должен держать свои собственные domain supported-value lists, если те же значения уже существуют в `Runtime`.
-- `Runtime` не должен содержать `--option` literals, argv parsing или CLI help formatting concerns.
+- `CLI` не должен держать свои собственные domain supported-value lists, если те же значения уже существуют в `Core`.
+- `Core` не должен содержать `--option` literals, argv parsing или CLI help formatting concerns.
 
 Практически это означает:
 
@@ -73,7 +73,7 @@ CLI wiring:
 - runtime request/value types валидируют canonical domain values;
 - CLI help должен форматировать supported values из runtime-owned catalogs, а не дублировать эти списки.
 
-## Правила Runtime-Модели
+## Правила Core-Модели
 
 - `null` используется только для реальной семантики, такой как `unknown`, `not applicable` или настоящий неуказанный override.
 - `null` не должен подменять пустую коллекцию, default object или API convenience в runtime-модели.

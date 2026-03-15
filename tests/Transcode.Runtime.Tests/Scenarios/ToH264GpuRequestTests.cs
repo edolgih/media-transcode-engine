@@ -1,6 +1,6 @@
 using FluentAssertions;
-using Transcode.Runtime.VideoSettings;
-using Transcode.Scenarios.ToH264Gpu.Runtime;
+using Transcode.Core.VideoSettings;
+using Transcode.Scenarios.ToH264Gpu.Core;
 
 namespace Transcode.Runtime.Tests.Scenarios;
 

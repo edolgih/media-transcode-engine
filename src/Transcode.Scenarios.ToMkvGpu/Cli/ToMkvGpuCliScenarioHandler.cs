@@ -3,11 +3,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Transcode.Cli.Core;
 using Transcode.Cli.Core.Parsing;
 using Transcode.Cli.Core.Scenarios;
-using Transcode.Runtime.Failures;
-using Transcode.Runtime.Scenarios;
-using Transcode.Runtime.Tools.Ffmpeg;
-using Transcode.Runtime.VideoSettings;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Core.Failures;
+using Transcode.Core.Scenarios;
+using Transcode.Core.Tools.Ffmpeg;
+using Transcode.Core.VideoSettings;
+using Transcode.Scenarios.ToMkvGpu.Core;
 
 namespace Transcode.Scenarios.ToMkvGpu.Cli;
 

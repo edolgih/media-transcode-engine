@@ -1,6 +1,6 @@
 using FluentAssertions;
-using Transcode.Runtime.Failures;
-using Transcode.Runtime.Inspection;
+using Transcode.Core.Failures;
+using Transcode.Core.Inspection;
 
 namespace Transcode.Runtime.Tests.Inspection;
 

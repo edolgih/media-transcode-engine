@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Transcode.Cli.Core\Transcode.Cli.Core.csproj" />
-    <ProjectReference Include="..\Transcode.Runtime\Transcode.Runtime.csproj" />
+    <ProjectReference Include="..\Transcode.Core\Transcode.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

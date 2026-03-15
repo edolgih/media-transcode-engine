@@ -5,7 +5,7 @@ Russian version: [architecture.ru.md](architecture.ru.md)
 This document describes the current implemented architecture and runtime flow.
 If a separate refactoring document captures a simpler target shape, that is not a contradiction: `architecture*.md` remains the current-state description until the code changes.
 
-## Runtime Flow
+## Core Flow
 
 Current runtime pipeline:
 
@@ -15,14 +15,14 @@ Core runtime types:
 
 - `src/Transcode.Cli.Core/Parsing/CliContracts.cs` - shared CLI parse result that carries normalized `ScenarioInput`.
 - `src/Transcode.Cli.Core/CliTranscodeRequest.cs` - per-input CLI request built from the common parse result.
-- `src/Transcode.Runtime/Videos/SourceVideo.cs` - normalized facts about the input file.
-- `src/Transcode.Runtime/Videos/VideoInspector.cs` - builds `SourceVideo` from probe output.
-- `src/Transcode.Runtime/Scenarios/TranscodeScenario.cs` - scenario contract that exposes `FormatInfo(...)` and `BuildExecution(...)`.
-- `src/Transcode.Runtime/Scenarios/ScenarioExecution.cs` - final scenario-level command recipe.
-- `src/Transcode.Runtime/Plans/VideoPlan.cs` and `src/Transcode.Runtime/Plans/AudioPlan.cs` - shared stream-level plan primitives reused by multiple scenarios.
-- `src/Transcode.Runtime/VideoSettings/*` - shared video-settings catalog and resolver used by multiple scenarios.
-- `src/Transcode.Runtime/Tools/Ffmpeg/FfmpegExecutionLayout.cs` - shared helper for output/temp path layout and post-operations.
-- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuDecision.cs` and `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuDecision.cs` - scenario-local rich decision models; they are internal to scenario projects, not shared runtime contracts.
+- `src/Transcode.Core/Videos/SourceVideo.cs` - normalized facts about the input file.
+- `src/Transcode.Core/Videos/VideoInspector.cs` - builds `SourceVideo` from probe output.
+- `src/Transcode.Core/Scenarios/TranscodeScenario.cs` - scenario contract that exposes `FormatInfo(...)` and `BuildExecution(...)`.
+- `src/Transcode.Core/Scenarios/ScenarioExecution.cs` - final scenario-level command recipe.
+- `src/Transcode.Core/MediaIntent/VideoIntent.cs` and `src/Transcode.Core/MediaIntent/AudioIntent.cs` - shared stream-level intent primitives reused by multiple scenarios.
+- `src/Transcode.Core/VideoSettings/*` - shared video-settings catalog and resolver used by multiple scenarios.
+- `src/Transcode.Core/Tools/Ffmpeg/FfmpegExecutionLayout.cs` - shared helper for output/temp path layout and post-operations.
+- `src/Transcode.Scenarios.ToH264Gpu/Core/ToH264GpuDecision.cs` and `src/Transcode.Scenarios.ToMkvGpu/Core/ToMkvGpuDecision.cs` - scenario-local rich decision models; they are internal to scenario projects, not shared core contracts.
 
 CLI wiring:
 
@@ -35,11 +35,11 @@ CLI wiring:
 - `src/Transcode.Scenarios.ToMkvGpu/Cli/ToMkvGpuCliRequestParser.cs`
 - `src/Transcode.Scenarios.ToH264Gpu/Cli/ToH264GpuCliScenarioHandler.cs`
 - `src/Transcode.Scenarios.ToH264Gpu/Cli/ToH264GpuCliRequestParser.cs`
-- `src/Transcode.Runtime/Inspection/FfprobeVideoProbe.cs`
-- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuScenario.cs`
-- `src/Transcode.Scenarios.ToH264Gpu/Runtime/ToH264GpuFfmpegTool.cs`
-- `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuScenario.cs`
-- `src/Transcode.Scenarios.ToMkvGpu/Runtime/ToMkvGpuFfmpegTool.cs`
+- `src/Transcode.Core/Inspection/FfprobeVideoProbe.cs`
+- `src/Transcode.Scenarios.ToH264Gpu/Core/ToH264GpuScenario.cs`
+- `src/Transcode.Scenarios.ToH264Gpu/Core/ToH264GpuFfmpegTool.cs`
+- `src/Transcode.Scenarios.ToMkvGpu/Core/ToMkvGpuScenario.cs`
+- `src/Transcode.Scenarios.ToMkvGpu/Core/ToMkvGpuFfmpegTool.cs`
 
 CLI flow at a high level:
 
@@ -52,18 +52,18 @@ CLI flow at a high level:
 - ordinary encode and downscale now share the same profile-driven video-settings axis: output-height buckets, content/quality profiles, bucket bounds, and autosample/bitrate-hint adjustment all come from the shared video-settings profile catalog rather than scenario-local hardcoded fallbacks.
 - runtime request/value types no longer know raw `--option` spellings; the CLI layer is the transport adapter and runtime stays the domain source of truth.
 
-## Runtime-CLI Boundary
+## Core-CLI Boundary
 
 Current boundary rules:
 
-- `Runtime` owns domain request objects, supported-value catalogs, normalization, validation, and scenario invariants.
+- `Core` owns domain request objects, supported-value catalogs, normalization, validation, and scenario invariants.
 - `CLI` owns raw option names, argv token reading, required-value checks, parse diagnostics, and help rendering.
 - `CLI` may contain option-to-domain binding logic, because that is transport-adapter knowledge.
 - scenario-specific argv must be parsed once at the CLI boundary into normalized scenario input.
 - `CliParseResult` and per-input `CliTranscodeRequest` carry that normalized scenario input downstream; they are not raw-only carriers anymore.
 - info path, normal execution path, and failure path must work from the already available parsed scenario input or avoid reparsing entirely.
-- `CLI` must not carry its own domain supported-value lists when the same values already exist in `Runtime`.
-- `Runtime` must not contain `--option` literals, argv parsing, or CLI help formatting concerns.
+- `CLI` must not carry its own domain supported-value lists when the same values already exist in `Core`.
+- `Core` must not contain `--option` literals, argv parsing, or CLI help formatting concerns.
 
 In practice:
 
@@ -73,7 +73,7 @@ In practice:
 - runtime request/value types validate canonical domain values;
 - CLI help should format supported values from runtime-owned catalogs instead of duplicating those lists.
 
-## Runtime Modeling Rules
+## Core Modeling Rules
 
 - `null` is used only for real semantics such as `unknown`, `not applicable`, or a true override that was not provided.
 - `null` must not stand in for an empty collection, a default object, or API convenience at runtime.

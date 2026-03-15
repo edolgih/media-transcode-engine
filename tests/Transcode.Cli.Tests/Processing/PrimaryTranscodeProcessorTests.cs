@@ -1,19 +1,19 @@
-using FluentAssertions;
 using System.Text.Json;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Transcode.Cli.Core;
 using Transcode.Cli.Core.Parsing;
 using Transcode.Cli.Core.Processing;
 using Transcode.Cli.Core.Scenarios;
 using Transcode.Cli.Tests.Logging;
-using Transcode.Runtime.Failures;
-using Transcode.Runtime.Inspection;
-using Transcode.Runtime.Scenarios;
-using Transcode.Runtime.Videos;
+using Transcode.Core.Failures;
+using Transcode.Core.Inspection;
+using Transcode.Core.Scenarios;
+using Transcode.Core.Videos;
 using Transcode.Scenarios.ToH264Gpu.Cli;
-using Transcode.Scenarios.ToH264Gpu.Runtime;
+using Transcode.Scenarios.ToH264Gpu.Core;
 using Transcode.Scenarios.ToMkvGpu.Cli;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Scenarios.ToMkvGpu.Core;
 
 namespace Transcode.Cli.Tests.Processing;
 

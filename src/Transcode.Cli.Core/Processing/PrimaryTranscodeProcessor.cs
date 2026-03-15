@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Transcode.Cli.Core.Scenarios;
-using Transcode.Runtime.Videos;
+using Transcode.Core.Videos;
 
 namespace Transcode.Cli.Core.Processing;
 

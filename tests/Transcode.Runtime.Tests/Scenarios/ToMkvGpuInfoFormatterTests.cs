@@ -1,9 +1,9 @@
 using System.Text.Json;
 using FluentAssertions;
-using Transcode.Runtime.Failures;
-using Transcode.Runtime.MediaIntent;
-using Transcode.Runtime.Videos;
-using Transcode.Scenarios.ToMkvGpu.Runtime;
+using Transcode.Core.Failures;
+using Transcode.Core.MediaIntent;
+using Transcode.Core.Videos;
+using Transcode.Scenarios.ToMkvGpu.Core;
 
 namespace Transcode.Runtime.Tests.Scenarios;
 
